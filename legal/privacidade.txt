@@ -1,0 +1,93 @@
+====================================================================
+DOCUMENTO 02 - POLÍTICA DE PRIVACIDADE DA PLATAFORMA ONLINE (CONTA E PORTAL)
+Status: rascunho para revisão jurídica | Vale: quando o portal sair | Público
+Vigência: [DATA-VIGÊNCIA] | Versão do texto: 0.1
+====================================================================
+
+1. QUEM SOMOS E QUAIS SÃO OS PAPÉIS
+[NOME EMPRESARIAL], CNPJ [CNPJ], [ENDEREÇO] ("nós") opera o Senso e seu portal online. Contato: [EMAIL-PRIVACIDADE]. Encarregado: [ENCARREGADO].
+
+Os papéis mudam conforme o dado (proposta, a validar com advogado):
+- DADOS DO ATENDIMENTO (agenda, pagamentos e recibos ligados ao vínculo profissional-paciente): o PSICÓLOGO é o controlador. Nós somos operadores e tratamos só conforme as instruções dele (Documento 05).
+- CONTA E DIÁRIO PESSOAL DO PACIENTE e CONTA DO PROFISSIONAL: nós somos controladores, porque oferecemos o serviço diretamente a essas pessoas.
+- Quando o paciente compartilha uma entrada do diário com o psicólogo, o psicólogo passa a ter acesso a essa entrada para fins do atendimento e responde por ela como controlador.
+- Enquanto o paciente estiver vinculado a um psicólogo, o psicólogo vê o acompanhamento do paciente (os números de humor, energia e ansiedade, e o nível). Isso é explicado ao paciente antes de ele aceitar o vínculo (seção 5).
+
+2. DADOS QUE TRATAMOS
+a) Profissional: nome, CRP e UF, CPF [se exigido], e-mail, telefone, foto, dados de verificação do CRP (quem conferiu, quando e uma anotação), dados de cobrança da assinatura, dados do recebimento via provedor de pagamento.
+b) Paciente: nome, e-mail ou telefone, data de nascimento (para saber se é menor de idade), vínculo com o profissional, preferências de notificação.
+c) Agenda: datas, horários, modalidade (presencial/online), link da sessão e status. A simples existência de uma sessão com psicólogo já revela dado de saúde.
+d) Pagamentos: valor, data, status, recibo. Dados de Pix e de conta são tratados pelo provedor de pagamento. Não guardamos número de cartão.
+e) Diário: texto, humor, energia, ansiedade e etiquetas de sentimento que o próprio paciente registra (dado de saúde, sensível). O texto é guardado criptografado no servidor.
+   Nível, pontos (XP) e moldura da foto: calculados por nós a partir do uso do diário e do humor, com limite por dia. O paciente e o psicólogo vinculado veem o nível e a moldura. Os pontos de cada dia e o que os gerou não são mostrados.
+   Conquistas: marcos calculados a partir de contagens (por exemplo, quantos textos escritos, quantas sessões). Cada pessoa vê só as suas.
+f) Dados técnicos: endereço IP, data e hora de acesso, tipo de aparelho e navegador, identificadores para notificações. Guardamos os registros de acesso pelo prazo do Marco Civil da Internet (6 meses). Contadores de uso por pessoa e ação, para barrar abuso, são apagados em 1 dia.
+g) Suporte: categoria, assunto e mensagem que você nos enviar. Informações técnicas (versão, aparelho e últimos passos na tela, sem e-mail nem senha) só vão junto se você marcar e autorizar, e você vê o que será enviado antes.
+h) Entrada com Google ou Microsoft (opcional): se você escolher entrar com a sua conta Google ou Microsoft, recebemos do provedor o seu e-mail, o seu nome e um identificador da conta. Não recebemos a sua senha do provedor, nem contatos, agenda, e-mails ou arquivos dessas contas. Os demais dados (tipo de conta, CRP ou data de nascimento, aceites) você informa aqui, ao completar o cadastro.
+
+3. DADOS QUE NÃO COLETAMOS
+- Evolução clínica e prontuário do psicólogo: ficam só no aparelho dele.
+- Queixa, motivo da consulta e diagnóstico em formulários.
+- Localização, contatos do telefone, microfone e câmera.
+- Nenhum rastreador de terceiros, nenhum anúncio.
+
+4. PARA QUE USAMOS E COM QUE BASE LEGAL
+(Proposta; o advogado deve confirmar cada base. Dado de saúde segue o art. 11 da LGPD.)
+- Criar e manter a conta, verificar o CRP: execução de contrato (art. 7, V) e legítimo interesse de segurança (art. 7, IX).
+- Agenda, vínculo, lembretes: tutela da saúde por profissional de saúde (art. 11, II, f) e consentimento (art. 11, I) quando aplicável.
+- Pagamentos e recibos: execução de contrato e cumprimento de obrigação legal/regulatória (art. 7, II; art. 11, II, a).
+- Diário: consentimento específico e destacado do paciente (art. 11, I), que pode ser retirado a qualquer momento.
+- Compartilhar entradas do diário com o psicólogo: consentimento específico, por entrada.
+- Segurança, prevenção a fraude, registros de acesso e limites de uso: obrigação legal (Marco Civil) e legítimo interesse.
+- Suporte: execução de contrato e, para informações técnicas, consentimento (pode ser retirado).
+- Acompanhamento (humor, energia, ansiedade e nível) visível ao psicólogo vinculado: tutela da saúde (art. 11, II, f) e consentimento dado ao aceitar o vínculo [validar com advogado].
+- Nível, XP, moldura e conquistas: execução de contrato (recurso do serviço, para estimular o hábito de registrar). Não são usados para nenhuma outra finalidade.
+- Cobrança da assinatura do profissional: execução de contrato.
+Não usamos seus dados para publicidade, perfilamento comercial, nem os vendemos.
+
+5. O DIÁRIO
+- Privado por padrão. Só o paciente lê.
+- O paciente escolhe, entrada por entrada, o que compartilhar com o psicólogo vinculado.
+- Pode parar de compartilhar a qualquer momento. O acesso do psicólogo cessa na hora.
+- O que o psicólogo já tiver copiado para o prontuário dele passa a ser registro profissional dele, com prazo de guarda do CFP.
+- Ao encerrar o vínculo, o diário continua do paciente.
+- O texto e as etiquetas de sentimento ficam só com o paciente, e o texto é criptografado no servidor. Mesmo uma entrada com humor, energia e ansiedade não mostra o texto ao psicólogo se ela não for compartilhada.
+- O psicólogo vinculado vê, de todas as entradas, apenas a data e os números de humor, energia e ansiedade, mais o nível do paciente. É o acompanhamento que o vínculo pressupõe. Cada consulta dele fica registrada.
+- O paciente é avisado disso antes de aceitar o vínculo e a qualquer momento ao registrar o humor. Ao desfazer o vínculo, o psicólogo deixa de ver o acompanhamento na hora, inclusive dos registros anteriores.
+- Nós (equipe técnica) não lemos diários. O texto é criptografado e a chave fica em cofre separado. Acesso excepcional só por ordem legal ou para resolver incidente grave, com registro.
+
+6. COM QUEM COMPARTILHAMOS
+- O psicólogo vinculado, dentro do que o vínculo permite.
+- Operadores contratados: hospedagem e banco de dados ([PROVEDOR-HOSPEDAGEM]), pagamentos ([PROVEDOR-PAGAMENTO]), e-mail e notificações ([PROVEDOR-EMAIL]). Todos sob contrato de tratamento de dados.
+- Google e Microsoft, somente se você escolher entrar com a conta deles. Eles tratam o seu login como controladores próprios, conforme as políticas deles (não são nossos operadores), e sabem que você usa o Senso.
+- Equipe de suporte autorizada, que lê os pedidos de suporte e confere o CRP dos psicólogos. Acesso só com senha e segundo fator, e com registro de auditoria. Não lê diários.
+- Autoridades, quando a lei ou ordem judicial exigir.
+Lista atualizada de operadores: [SITE]/operadores.
+
+7. TRANSFERÊNCIA INTERNACIONAL
+Hospedamos os dados no Brasil (região de São Paulo). Se algum operador tratar dados fora do país, só faremos com as garantias do art. 33 da LGPD e informaremos aqui. Se você escolher entrar com Google ou Microsoft, o login passa pelos servidores desses provedores, que podem ficar fora do Brasil; isso só acontece quando você clica no botão deles, e você pode sempre usar e-mail e senha.
+
+8. QUANTO TEMPO GUARDAMOS
+Veja o Documento 09. Resumo: conta e diário enquanto a conta existir; pedidos de suporte por 2 anos depois de fechados; após pedido de exclusão, apagamos em até 30 dias, e cópias de segurança expiram em até 90 dias; registros de acesso por 6 meses; dados fiscais e de cobrança pelo prazo legal.
+
+9. SEUS DIREITOS (LGPD, art. 18)
+Confirmação do tratamento, acesso, correção, anonimização, bloqueio ou eliminação, portabilidade, informação sobre compartilhamento, revogação do consentimento, e oposição quando cabível. Peça por [EMAIL-PRIVACIDADE] ou em Conta > Privacidade. Respondemos em até 15 dias.
+Pedidos sobre dados do atendimento podem precisar ser tratados também pelo psicólogo, que é o controlador. Ele pode ter o dever legal de guardar registros mesmo se você pedir exclusão.
+
+10. SEGURANÇA
+Criptografia em trânsito (TLS) e em repouso, controle de acesso por vínculo (cada pessoa só enxerga o que lhe pertence), autenticação em dois fatores (obrigatória para a equipe; disponível e recomendada para psicólogos, e a plataforma pode torná-la obrigatória), limite de tentativas, saída automática depois de um tempo parado, confirmação da senha antes de baixar ou apagar seus dados, registros de auditoria, cópias de segurança criptografadas e revisão de segurança antes de operar com dados reais. Se houver incidente que possa causar dano relevante, avisaremos a ANPD e os titulares no prazo regulamentar.
+
+11. CRIANÇAS E ADOLESCENTES
+- Até 12 anos: a conta é criada e gerenciada pelo responsável legal.
+- De 12 a 17 anos: a conta é do adolescente e fica vinculada a um responsável, que consente e acompanha agenda e pagamentos. O diário do adolescente não é visível ao responsável.
+- Tratamos dados de menores sempre no melhor interesse deles (LGPD, art. 14; ECA Digital).
+- Nenhum anúncio, nenhum perfilamento e nenhuma configuração menos protetora por padrão.
+
+12. COOKIES E ARMAZENAMENTO LOCAL
+O portal web usa apenas o necessário para você continuar logado e manter a segurança. Se você marcar "Manter conectado", a sessão fica guardada neste aparelho; se não marcar, fica só na aba aberta. Guardamos neste aparelho a hora da sua última atividade, para sair da conta sozinho depois de um tempo parado, e sua escolha de aparência (claro ou escuro). Não usamos cookies de publicidade nem de análise de terceiros.
+
+13. ALTERAÇÕES
+Avisaremos dentro do app e por e-mail antes de mudanças relevantes, e pediremos novo consentimento quando a lei exigir.
+
+14. CONTATO E AUTORIDADE
+[EMAIL-PRIVACIDADE] | [ENCARREGADO] | ANPD: www.gov.br/anpd

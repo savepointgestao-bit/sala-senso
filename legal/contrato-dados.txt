@@ -1,0 +1,65 @@
+====================================================================
+DOCUMENTO 05 - CONTRATO DE TRATAMENTO DE DADOS PESSOAIS (PROFISSIONAL x PLATAFORMA)
+Status: rascunho para revisão jurídica | Vale: quando o portal sair | Aceite digital no cadastro do profissional
+Versão do texto: 0.1
+====================================================================
+
+PARTES
+Controlador: o(a) psicólogo(a) identificado(a) na conta (nome, CRP, CPF).
+Operadora: [NOME EMPRESARIAL], CNPJ [CNPJ], [ENDEREÇO].
+Base: LGPD, arts. 37 a 41 e 46 a 49.
+
+1. OBJETO
+A Operadora fornece ao Controlador o portal do Senso e trata dados pessoais de seus pacientes em nome dele, conforme as instruções abaixo.
+
+2. PAPEL DE CADA UM
+O Controlador decide as finalidades. A Operadora só trata para executar o portal e não usa os dados para finalidade própria, exceto quando necessário para segurança, cumprimento de obrigação legal e defesa em processo.
+Para a conta e o diário pessoal do paciente, a Operadora atua como controladora (Documento 02, item 1).
+
+3. DADOS E TITULARES
+- Titulares: pacientes do Controlador e seus responsáveis legais.
+- Dados: identificação e contato, vínculo, agenda, pagamentos e recibos, entradas do diário que o paciente decidir compartilhar, registros de acesso. Podem incluir dado sensível (saúde).
+- Não inclui: prontuário e evolução clínica (ficam no aparelho do Controlador).
+
+4. DURAÇÃO
+Enquanto a assinatura estiver ativa, mais o período de exportação e eliminação do item 11.
+
+5. OBRIGAÇÕES DA OPERADORA
+a) Tratar só conforme as instruções do Controlador e a lei.
+b) Manter sigilo; só pessoas autorizadas acessam, sob dever de confidencialidade.
+c) Medidas de segurança técnicas e administrativas (Documento 12), incluindo criptografia, controle de acesso, registros de auditoria e cópias de segurança.
+d) Não acessar o conteúdo de diários, exceto por ordem legal ou para tratar incidente grave, com registro.
+e) Comunicar ao Controlador, em até [48 HORAS] da ciência, qualquer incidente de segurança com dados dele, com as informações disponíveis, para que ele possa cumprir o art. 48 da LGPD. (Prazo a validar.)
+f) Ajudar o Controlador a atender pedidos de titulares (acesso, correção, eliminação etc.).
+g) Manter registro das operações de tratamento.
+h) Informar a lista de suboperadores e avisar com [30 DIAS] sobre novos; o Controlador pode se opor e encerrar o contrato.
+i) Hospedar no Brasil. Qualquer transferência internacional só com as garantias do art. 33.
+
+6. SUBOPERADORES AUTORIZADOS (preencher)
+ - Hospedagem e banco de dados: [PROVEDOR-HOSPEDAGEM] (região São Paulo)
+ - Pagamentos Pix: [PROVEDOR-PAGAMENTO]
+ - E-mail e notificações: [PROVEDOR-EMAIL]
+
+7. OBRIGAÇÕES DO CONTROLADOR
+a) Ter base legal e informar os pacientes; obter consentimentos (Documento 06).
+b) Cuidar da exatidão dos dados que inserir e dos vínculos que aprovar.
+c) Proteger suas credenciais e ativar a autenticação em dois fatores (hoje recomendada; podemos torná-la obrigatória, com aviso prévio).
+d) Cumprir sigilo profissional e as normas do CFP, inclusive guarda de prontuário.
+e) Responder aos titulares sobre os dados do atendimento.
+
+8. DIREITOS DOS TITULARES
+A Operadora encaminha ao Controlador, em até 5 dias úteis, pedidos que recebermos sobre dados do atendimento. Quando o pedido for sobre a conta ou o diário do paciente, a Operadora responde diretamente.
+
+9. AUDITORIA
+O Controlador pode pedir informações sobre as medidas de segurança, com aviso prévio razoável, sem comprometer a segurança nem o sigilo de outros clientes.
+
+10. RESPONSABILIDADE
+Cada parte responde pelo que causar em descumprimento da LGPD, nos termos do art. 42. Cláusula de limitação, se houver, a validar pelo advogado.
+
+11. FIM DO CONTRATO
+Ao encerrar, a Operadora oferece 30 dias para exportação e depois elimina os dados do Controlador, salvo os que a lei exigir guardar (por exemplo, registros de acesso por 6 meses e dados fiscais pelo prazo legal). A Operadora confirma a eliminação por e-mail a pedido.
+
+12. FORO
+[CIDADE-FORO].
+
+ACEITE: o Controlador aceita este contrato de forma eletrônica no cadastro e a Operadora guarda data, hora, versão e identificação do aceite.

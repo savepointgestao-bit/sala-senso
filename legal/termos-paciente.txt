@@ -1,0 +1,53 @@
+====================================================================
+DOCUMENTO 04 - TERMOS DE USO DO PACIENTE (PORTAL)
+Status: rascunho para revisão jurídica | Vale: quando o portal sair | Público
+Vigência: [DATA-VIGÊNCIA] | Versão do texto: 0.1
+Linguagem simples de propósito.
+====================================================================
+
+1. O QUE É O PORTAL
+Um espaço gratuito para você acompanhar suas sessões com seu(sua) psicólogo(a): ver o calendário, pedir ou marcar horários, pagar, ver recibos e, se quiser, escrever um diário. É oferecido por [NOME EMPRESARIAL] e ligado à conta do(a) profissional que atende você.
+
+2. O QUE O PORTAL NÃO É
+- Não é atendimento psicológico, nem substitui sua sessão.
+- Não é serviço de emergência. Se você ou alguém estiver em risco agora, ligue 188 (CVV, 24 horas), 192 (SAMU) ou vá a um pronto atendimento.
+- O(a) psicólogo(a) é o(a) responsável pelo seu acompanhamento. Nós só fornecemos a ferramenta.
+
+3. SUA CONTA
+- Você pode ter a conta criada pelo(a) profissional ou criar a sua e indicar o CRP ou o nome dele(a).
+- A ligação com o(a) profissional só passa a valer quando ele(a) aprovar. Até lá ninguém vê sua agenda.
+- Informe dados verdadeiros e proteja sua senha. Não empreste seu acesso.
+- Você pode apagar sua conta quando quiser, em Conta > Privacidade.
+
+4. O QUE O(A) PSICÓLOGO(A) VÊ
+- Sua agenda com ele(a), os pagamentos e recibos dessa relação.
+- Do seu diário: SÓ o que você escolher compartilhar. Padrão: nada.
+- Você pode parar de compartilhar a qualquer momento.
+- Os registros que ele(a) fizer no prontuário são dele(a) e seguem as regras profissionais de guarda. Eles não ficam no portal.
+
+5. SEU DIÁRIO
+- É seu. Privado por padrão. Nós não lemos.
+- Cada entrada tem uma opção "Compartilhar com meu(minha) psicólogo(a)". Você escolhe, uma a uma.
+- Se apagar uma entrada, ela some do portal. Se o(a) psicólogo(a) já tiver anotado algo no prontuário a partir dela, essa anotação continua com ele(a).
+- Escreva à vontade, mas lembre que o diário não é um canal para pedir ajuda urgente: ninguém lê em tempo real.
+
+6. PAGAMENTOS
+- Você paga ao(à) profissional, não a nós. Usamos um provedor de pagamento ([PROVEDOR-PAGAMENTO]) para gerar o Pix.
+- Confira nome e valor antes de pagar. Guarde o comprovante.
+- Dúvida sobre valor ou cobrança: fale com o(a) seu(sua) psicólogo(a).
+
+7. MENORES DE IDADE
+- Até 12 anos: a conta é criada e gerenciada pelo responsável legal.
+- De 12 a 17 anos: o adolescente tem conta própria, ligada a um responsável que consente. O responsável vê agenda e pagamentos. O diário do adolescente é só dele.
+
+8. SEUS DADOS
+Veja a Política de Privacidade (Documento 02). Em resumo: usamos seus dados só para o portal funcionar, não vendemos, não fazemos anúncios. Você pode pedir acesso, correção ou exclusão quando quiser.
+
+9. REGRAS DE CONVIVÊNCIA
+Não use o portal para ofender, fraudar, tentar acessar a conta de outra pessoa ou fazer-se passar por outra pessoa.
+
+10. MUDANÇAS E ENCERRAMENTO
+Podemos mudar estes Termos avisando você antes. Podemos suspender contas que violem as regras. Se o(a) profissional encerrar a assinatura, o vínculo deixa de existir e você mantém seu diário e pode exportá-lo por 30 dias antes da exclusão, se não quiser continuar.
+
+11. CONTATO
+[EMAIL-SUPORTE] | [EMAIL-PRIVACIDADE] | Foro: [CIDADE-FORO]
