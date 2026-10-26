@@ -110,6 +110,8 @@
         })
         : Promise.resolve({ me: me, admin: false, policy: pol, auth: acct, mfaOk: true });
       return base.then(function (ctx) {
+        /* Modo de teste da equipe: sem escolha ainda = Administrador. Quem nao e da equipe nao tem modo. */
+        ctx.mode = ctx.admin ? (pol.test_mode || 'admin') : null;
         /* O nivel do paciente (moldura da foto) aparece na moldura do portal. Sem nivel, segue sem moldura. */
         if (me.profile.role !== 'patient' || !ctx.mfaOk) return ctx;
         return API.progress().then(function (pr) { ctx.progress = pr; return ctx; }, function () { return ctx; });
@@ -185,8 +187,9 @@
           if (!needMfa || ctx.mfa.enrolled) { location.hash = '#/conta'; return; }
           return mount(S.mfaSetup({ required: false }), TITLES['ativar-2fa']);
         }
+        if (path === 'inicio' && ctx.admin && ctx.mode === 'admin') { location.hash = '#/equipe'; return; }
         if (path === 'equipe') {
-          if (!ctx.admin) { location.hash = '#/inicio'; return; }
+          if (!ctx.admin || ctx.mode !== 'admin') { location.hash = '#/inicio'; return; }
           return mount(S.team(ctx), TITLES.equipe);
         }
         if (path === 'conta') return mount(S.account(ctx), TITLES.conta);
@@ -196,7 +199,7 @@
           var rest = path.slice(7);
           return mount(S.diaryEditor(ctx, rest === 'novo' ? null : rest), rest === 'novo' ? 'Novo registro' : 'Editar registro');
         }
-        if (pro) return mount(ctx.me.professional.verification === 'verified' ? S.homeProfessional(ctx) : S.professionalPending(ctx), TITLES.inicio);
+        if (pro) return mount(S.homeProfessional(ctx), TITLES.inicio);
         return mount(S.homePatient(ctx), TITLES.inicio);
       });
     }).catch(function (e) {

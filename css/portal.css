@@ -176,6 +176,14 @@ h1[tabindex="-1"]:focus-visible { outline: none; }
 .cta-card.tip .grow { flex: 1 1 14rem; min-width: 0; }
 .tip-actions { display: flex; align-items: center; gap: 1rem; }
 .sw-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .3rem 0; }
+/* modo de teste da conta de equipe (so ela ve): Administrador, Psicologo(a) e Paciente */
+.mode-switch .seg[aria-busy="true"] { opacity: .6; pointer-events: none; }
+.mode-switch.compact .seg button { font-size: .74rem; padding: .42rem .2rem; }
+.mode-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 1rem 1.1rem 1.1rem; margin-bottom: 1.1rem; }
+.mode-card .group-title { margin-top: 0; }
+.mhead-mode { margin-left: auto; margin-right: .7rem; padding: .18rem .65rem; border-radius: 999px; background: var(--warn-soft); color: var(--warn); font-size: .74rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.side .mode-switch { margin-top: auto; padding: .7rem .4rem .8rem; }
+.side .mode-switch + .me { margin-top: 0; }
 .sw-row .t { font-weight: 600; font-size: .95rem; }
 .person .stat { font-size: .95rem; }
 .form-sec { font-size: .8rem; font-weight: 700; color: var(--mute); margin: 1.4rem 0 .7rem; letter-spacing: .01em; }

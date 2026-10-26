@@ -10,12 +10,12 @@ window.PSI_CONFIG = {
   idleMinutes: { professional: 20, patient: 60 },
   /* Entrar com Google e com Microsoft. Deixe true so depois de ligar o provedor no Supabase (supabase/README.md, secao 3b);
      false esconde o botao. No modo demonstracao os botoes funcionam com contas de mentira. */
-  oauth: { google: false, microsoft: false },
+  oauth: { google: true, microsoft: true },
   /* Equipe (so contas de admin veem a tela). Endereco da consulta publica de CRP, se quiser um atalho na tela; precisa ser https. */
   team: { crpLookupUrl: 'https://cadastro.cfp.org.br/' },
   /* Contatos de suporte: preencha. O que ficar vazio nao aparece na tela. */
   support: {
-    email: '',
+    email: 'gestaosenso@gmail.com',
     whatsapp: '5516981284763',          /* so numeros com DDI e DDD, ex.: 5516999999999 */
     hours: 'Segunda a sexta, das 9h às 18h',
     answerTime: 'Respondemos em até 1 dia útil.'

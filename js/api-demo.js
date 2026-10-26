@@ -10,6 +10,7 @@
   var lastAuth = 0;        // quando a pessoa confirmou a identidade (senha ou codigo), como o amr do token
   var keepFlag = true;
   var mfaRequired = false;   /* como no banco: 2 fatores do psicologo e recomendado; a equipe pode tornar obrigatorio */
+  var adminMfaRequired = false;   /* como no banco (require_admin_mfa): a equipe tambem so e obrigada se a chave for ligada; com app cadastrado, o codigo sempre vale */
   var roleHint = null;       /* tipo de conta escolhido antes de entrar com Google ou Microsoft */
 
   function err(code, message) { var e = new Error(message || code); e.code = code; return e; }
@@ -27,6 +28,8 @@
   /* Mesmas regras do banco para baixar ou apagar dados: profissional com 2 fatores e identidade confirmada ha ate 10 min. */
   /* Igual ao banco: o codigo (aal2) vale sempre para quem cadastrou o app autenticador; sem app, so se a obrigatoriedade estiver ligada. */
   function mfaOk(u) { return session.aal === 'aal2' || (!mfaRequired && !(u.factor && u.factor.verified)); }
+  /* Conta de equipe valida: admin E (codigo confirmado, ou sem app cadastrado enquanto a obrigatoriedade da equipe estiver desligada). */
+  function adminOk(u) { return !!(u && u.admin && session && (session.aal === 'aal2' || (!adminMfaRequired && !(u.factor && u.factor.verified)))); }
   function sensitive(u) {
     if (!u || !session) throw err('not_allowed', 'not_allowed');
     if (u.role === 'professional' && !mfaOk(u)) throw err('mfa_required', 'mfa_required');
@@ -143,7 +146,7 @@
     reauth: function (password, code) {
       var u = cur();
       if (!u || !u.password || u.password !== password) return tick(null).then(function () { throw err('invalid_credentials', 'Invalid login credentials'); });
-      if ((u.factor && u.factor.verified) || u.admin) {
+      if ((u.factor && u.factor.verified) || (u.admin && adminMfaRequired)) {
         if (String(code || '').replace(/\s/g, '') !== '123456') return tick(null).then(function () { throw err('invalid_code', 'Invalid TOTP code'); });
         session.aal = 'aal2';
       }
@@ -169,7 +172,8 @@
       return tick(null).then(function () {
         if (!u) throw err('not_allowed', 'not_allowed');
         var admin = !!u.admin;
-        return { profile_complete: !!u.role, role: u.role || null, is_admin: admin, mfa_required: admin || (u.role === 'professional' && mfaRequired), mfa_enrolled: !!(u.factor && u.factor.verified) };
+        return { profile_complete: !!u.role, role: u.role || null, is_admin: admin, mfa_required: (admin && adminMfaRequired) || (u.role === 'professional' && mfaRequired), mfa_enrolled: !!(u.factor && u.factor.verified),
+          test_mode: admin ? (u.mode || 'admin') : null };
       });
     },
     completeSignup: function (role, d) {
@@ -227,11 +231,11 @@
     },
     _tickets: function () { return tickets; },
 
-    /* equipe: mesmas regras do banco (conta de admin E segundo fator; sem isso a lista vem vazia e as acoes falham) */
+    /* equipe: mesmas regras do banco (conta de admin; o codigo so e exigido de quem cadastrou o app ou se a chave da equipe estiver ligada) */
     admin: {
       professionals: function (status) {
         var u = cur(), want = status || 'pending';
-        if (!u || !u.admin || session.aal !== 'aal2') return tick([]);
+        if (!adminOk(u)) return tick([]);
         return tick(Object.keys(users).map(function (k) { return users[k]; }).filter(function (x) { return x.role === 'professional' && x.verification === want; }).map(function (x) {
           return { id: x.id, full_name: x.meta.fullName, email: Object.keys(users).filter(function (e) { return users[e] === x; })[0], crp_region: x.meta.crpRegion, crp_number: x.meta.crpNumber,
             created_at: x.created, verification: x.verification, verification_note: x.note || null, verified_at: x.verifiedAt || null };
@@ -240,7 +244,7 @@
       setVerification: function (id, status, note) {
         var u = cur();
         return tick(null).then(function () {
-          if (!u || !u.admin || session.aal !== 'aal2') throw err('not_allowed', 'not_allowed');
+          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
           var t = Object.keys(users).map(function (k) { return users[k]; }).filter(function (x) { return x.id === id && x.role === 'professional'; })[0];
           if (status === 'verified' && Date.now() - lastAuth > 600000) throw err('recent_login_required', 'recent_login_required');
           if (!t) throw err('professional_not_found', 'professional_not_found');
@@ -250,7 +254,7 @@
       },
       tickets: function (status) {
         var u = cur(), want = status || 'open';
-        if (!u || !u.admin || session.aal !== 'aal2') return tick([]);
+        if (!adminOk(u)) return tick([]);
         return tick(tickets.filter(function (t) { return t.status === want; }).map(function (t) {
           return { id: t.id, created_at: t.created_at, category: t.category, subject: t.subject, message: t.message, app_version: t.appVersion || null, platform: t.platform || null,
             diagnostics: t.diagnostics || null, status: t.status, user_name: t.user_name, user_email: t.user_email };
@@ -259,7 +263,7 @@
       setTicketStatus: function (id, status) {
         var u = cur();
         return tick(null).then(function () {
-          if (!u || !u.admin || session.aal !== 'aal2') throw err('not_allowed', 'not_allowed');
+          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
           if (['open', 'answered', 'closed'].indexOf(status) < 0) throw err('invalid_status', 'invalid_status');
           var t = tickets.filter(function (x) { return x.id === id; })[0];
           if (!t) throw err('ticket_not_found', 'ticket_not_found');
@@ -269,7 +273,7 @@
       mfaAdoption: function () {
         var u = cur();
         return tick(null).then(function () {
-          if (!u || !u.admin || session.aal !== 'aal2') throw err('not_allowed', 'not_allowed');
+          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
           var pros = Object.keys(users).map(function (k) { return users[k]; }).filter(function (x) { return x.role === 'professional'; });
           return { professionals: pros.length, with_mfa: pros.filter(function (x) { return x.factor && x.factor.verified; }).length, required: mfaRequired };
         });
@@ -277,10 +281,29 @@
       setMfaRequired: function (required) {
         var u = cur();
         return tick(null).then(function () {
-          if (!u || !u.admin || session.aal !== 'aal2') throw err('not_allowed', 'not_allowed');
+          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
           if (typeof required !== 'boolean') throw err('invalid_data', 'invalid_data');
           if (!recent()) throw err('recent_login_required', 'recent_login_required');
           mfaRequired = required; return true;
+        });
+      },
+      /* Modo de teste da conta de equipe: 'admin', 'professional' ou 'patient'. No modo paciente a conta vira de paciente de verdade (igual ao banco). */
+      setMode: function (mode) {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
+          if (['admin', 'professional', 'patient'].indexOf(mode) < 0) throw err('invalid_data', 'invalid_data');
+          if (!u.role) throw err('profile_required', 'profile_required');
+          if (mode === 'patient') {
+            if (!u.meta.birthDate) u.meta.birthDate = '1990-01-01';
+            u.role = 'patient';
+            if (!u.consents.some(function (c) { return c.kind === 'portal_health_data' && c.granted; })) u.consents.push({ kind: 'portal_health_data', granted: true, doc_version: '1.2', at: new Date().toISOString() });
+          } else {
+            if (!u.meta || !u.meta.crpNumber) throw err('professional_profile_required', 'professional_profile_required');
+            u.role = 'professional';
+          }
+          u.mode = mode;
+          return { mode: mode, role: u.role };
         });
       }
     },

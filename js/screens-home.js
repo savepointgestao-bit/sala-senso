@@ -9,21 +9,55 @@
   function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
 
   /* ---------------------------------------------------------------- moldura */
+  /* Rotulo do tipo de conta. A equipe (admin) aparece como "Administrador" no modo padrao; nos modos de teste, como o tipo escolhido. */
+  S.roleLabel = function (ctx) {
+    if (ctx.admin) return ctx.mode === 'professional' ? 'Psicólogo(a)' : (ctx.mode === 'patient' ? 'Paciente' : 'Administrador');
+    return ctx.me.profile.role === 'professional' ? 'Psicólogo(a)' : 'Paciente';
+  };
+
+  /* Modo de teste: so a conta de equipe (admin) ve. Alterna entre Administrador, Psicólogo(a) e Paciente. O banco confere de novo
+     (admin_set_mode) e, no modo Paciente, troca de verdade o tipo da conta para o portal do paciente funcionar como o de um paciente. */
+  var MODES = [['admin', 'Administrador'], ['professional', 'Psicólogo(a)'], ['patient', 'Paciente']];
+  function goNow(hash) { if (location.hash === hash) refresh(); else location.hash = hash; }
+  S.modeSwitch = function (ctx, compact) {
+    if (!ctx.admin) return null;
+    var cur = ctx.mode || 'admin';
+    var seg = UI.segmented({ label: 'Modo de teste', value: cur, options: compact ? [['admin', 'Admin'], ['professional', 'Psicólogo'], ['patient', 'Paciente']] : MODES, onChange: function (v) {
+      if (v === cur) return;
+      seg.el.setAttribute('aria-busy', 'true');
+      API.admin.setMode(v).then(function () {
+        Diag.log('modo:' + v);
+        UI.toast('Modo ' + MODES.filter(function (m) { return m[0] === v; })[0][1] + ' ligado.', 'shield-check');
+        goNow(v === 'admin' ? '#/equipe' : '#/inicio');
+      }).catch(function (e) {
+        Diag.error('modo', e);
+        seg.set(cur); seg.el.removeAttribute('aria-busy');
+        UI.toast(/professional_profile_required/.test(String((e && e.message) || '')) ? 'Esta conta não tem cadastro de psicólogo.' : 'Não deu para trocar o modo agora.');
+      });
+    } });
+    return h('div', { class: 'mode-switch' + (compact ? ' compact' : '') }, seg.el);
+  };
+
   S.shell = function (ctx, active, content) {
     var p = ctx.me.profile, pro = p.role === 'professional';
-    var items = pro
-      ? [['inicio', '#/inicio', 'house', 'Início'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']]
-      : [['inicio', '#/inicio', 'house', 'Início'], ['diario', '#/diario', 'notebook-pen', 'Diário'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']];
-    if (ctx.admin) items.splice(items.length - 1, 0, ['equipe', '#/equipe', 'shield-check', 'Equipe']);
+    var adminMode = !!ctx.admin && (ctx.mode || 'admin') === 'admin';
+    var items = adminMode
+      ? [['equipe', '#/equipe', 'shield-check', 'Equipe'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']]
+      : pro
+        ? [['inicio', '#/inicio', 'house', 'Início'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']]
+        : [['inicio', '#/inicio', 'house', 'Início'], ['diario', '#/diario', 'notebook-pen', 'Diário'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']];
     function link(it) { return h('a', { href: it[1], 'aria-current': active === it[0] ? 'page' : null }, UI.svg(it[2], 22), it[3]); }
     function me(size) { return UI.avatar(p.full_name, { size: size, level: !pro && ctx.progress ? ctx.progress.level : null }); }
     return h('div', { class: 'app' },
       h('aside', { class: 'side' }, UI.brand('#/inicio'),
         h('nav', { 'aria-label': 'Menu principal' }, items.map(link)),
+        S.modeSwitch(ctx, true),
         h('div', { class: 'me' }, me(),
-          h('div', { class: 'who' }, h('b', null, p.full_name), h('span', null, pro ? 'Psicólogo(a)' : (ctx.admin ? 'Equipe' : 'Paciente'))))),
+          h('div', { class: 'who' }, h('b', null, p.full_name), h('span', null, S.roleLabel(ctx))))),
       h('div', null,
-        h('header', { class: 'mhead' }, UI.brand('#/inicio'), h('a', { class: 'mhead-me', href: '#/conta', 'aria-label': 'Minha conta' }, me())),
+        h('header', { class: 'mhead' }, UI.brand('#/inicio'),
+          ctx.admin ? h('a', { class: 'mhead-mode', href: '#/conta', 'aria-label': 'Modo de teste: ' + S.roleLabel(ctx) + '. Trocar em Conta' }, S.roleLabel(ctx)) : null,
+          h('a', { class: 'mhead-me', href: '#/conta', 'aria-label': 'Minha conta' }, me())),
         h('main', { class: 'main' }, content)),
       h('nav', { class: 'bottom', 'aria-label': 'Menu' }, items.map(link)));
   };
@@ -92,12 +126,13 @@
   };
 
   /* ---------------------------------------------------------------- aviso: verificacao em duas etapas (recomendada) */
-  var TIP = 'psi_tip2fa';
-  /* Psicologo (ou equipe) que ainda nao ativou, enquanto a obrigatoriedade esta desligada. "Agora nao" esconde ate fechar a aba. */
+  var TIP = 'psi_tip2fa_ate', TIP_DIAS = 7;
+  /* Psicologo (ou equipe) que ainda nao ativou, enquanto a obrigatoriedade esta desligada. "Lembrar em 7 dias" esconde o aviso por 7 dias
+     (neste navegador); passados os 7 dias ele volta, e continua voltando ate a pessoa ativar. */
   S.mfaTip = function (ctx) {
     var mine = (ctx.me.profile.role === 'professional' || ctx.admin) && ctx.mfa && !ctx.mfa.enrolled && !(ctx.policy && ctx.policy.mfa_required);
     if (!mine) return null;
-    try { if (sessionStorage.getItem(TIP) === '1') return null; } catch (e) { /* ignore */ }
+    try { var ate = +localStorage.getItem(TIP) || 0; if (ate > Date.now()) return null; } catch (e) { /* sem armazenamento: o aviso aparece sempre */ }
     var box = h('div', { class: 'cta-card tip', role: 'region', 'aria-label': 'Recomendação de segurança' },
       h('span', { class: 'ico-box' }, UI.svg('shield-check', 22)),
       h('div', { class: 'grow' }, h('div', { class: 't' }, 'Proteja sua conta com a verificação em duas etapas'),
@@ -105,17 +140,25 @@
       h('div', { class: 'tip-actions' },
         h('a', { class: 'btn auto sm', href: '#/ativar-2fa' }, 'Ativar'),
         h('button', { type: 'button', class: 'linkbtn small', onclick: function () {
-          try { sessionStorage.setItem(TIP, '1'); } catch (e) { /* ignore */ }
+          try { localStorage.setItem(TIP, String(Date.now() + TIP_DIAS * 86400000)); } catch (e) { /* ignore */ }
           if (box.parentNode) box.parentNode.removeChild(box);
-        } }, 'Agora não')));
+        } }, 'Lembrar em 7 dias')));
     return box;
+  };
+
+  /* CRP ainda nao verificado NAO impede o uso da conta; so trava o que depende da conferencia (pacientes no portal e, no app, recibos e documentos). */
+  S.crpNotice = function (ver) {
+    if (ver === 'pending') return UI.notice('warn', h('span', null, h('b', null, 'Estamos conferindo o seu CRP. '), 'Costuma levar até 1 dia útil e avisamos por e-mail. Enquanto isso você já usa o Senso; o acompanhamento de pacientes no site, os recibos e os documentos do app liberam quando o CRP for confirmado.'));
+    if (ver === 'suspended') return UI.notice('bad', h('span', null, h('b', null, 'Acesso suspenso. '), 'Fale com o ', h('a', { href: '#/suporte' }, 'suporte'), ' para entender o motivo.'));
+    return UI.notice('bad', h('span', null, h('b', null, 'Não confirmamos o seu CRP. '), 'O número não confere com o cadastro do conselho. Fale com o ', h('a', { href: '#/suporte' }, 'suporte'), ' para corrigir.'));
   };
 
   /* ---------------------------------------------------------------- inicio: profissional */
   S.homeProfessional = function (ctx) {
     var p = ctx.me.profile, pro = ctx.me.professional;
+    var ver = pro.verification, verified = ver === 'verified';
     var has2fa = !!(ctx.mfa && ctx.mfa.enrolled);
-    var steps = [['Conta criada', true], ['CRP verificado', true], ['Verificação em duas etapas', has2fa, '#/ativar-2fa'], ['Convidar o primeiro paciente', false]];
+    var steps = [['Conta criada', true], ['CRP verificado', verified, null, ver === 'pending' ? 'Em análise' : 'Pendente'], ['Verificação em duas etapas', has2fa, '#/ativar-2fa'], ['Convidar o primeiro paciente', false]];
     var done = steps.filter(function (s) { return s[1]; }).length;
     var checklist = h('div', { class: 'group' },
       h('div', { class: 'setup-head' }, UI.ring(done, steps.length), h('div', null, h('div', { class: 't' }, 'Primeiros passos'), h('div', { class: 's' }, done + ' de ' + steps.length))),
@@ -124,13 +167,18 @@
           return h('a', { class: 'item', href: s[2] }, h('span', { class: 'ico-box todo' }), h('span', { class: 't' }, s[0]), h('span', { class: 'tag' }, 'Recomendado'));
         }
         return h('div', { class: 'item' }, h('span', { class: 'ico-box ' + (s[1] ? 'done' : 'todo') }, s[1] ? UI.svg('check', 20) : null),
-          h('span', { class: 't' }, s[0]), s[1] ? null : h('span', { class: 'tag' }, 'Em breve'));
+          h('span', { class: 't' }, s[0]), s[1] ? null : h('span', { class: 'tag' }, s[3] || 'Em breve'));
       }));
     return S.shell(ctx, 'inicio', [
-      hello(p, [h('span', null, 'CRP ' + pro.crp_region + '/' + pro.crp_number), h('span', { class: 'badge ok' }, UI.svg('badge-check', 14), 'CRP verificado')]),
+      hello(p, [h('span', null, 'CRP ' + pro.crp_region + '/' + pro.crp_number),
+        verified ? h('span', { class: 'badge ok' }, UI.svg('badge-check', 14), 'CRP verificado')
+          : h('span', { class: 'badge ' + (ver === 'pending' ? 'warn' : 'bad') }, ver === 'pending' ? 'CRP em análise' : (ver === 'suspended' ? 'Acesso suspenso' : 'CRP não confirmado'))]),
+      verified ? null : S.crpNotice(ver),
+      API.mode === 'demo' && ver === 'pending' ? UI.notice('warn', h('span', null, 'Modo demonstração. ', h('button', { type: 'button', class: 'linkbtn', onclick: function () { API.demoVerify().then(refresh); } }, 'Simular a verificação do CRP'))) : null,
       S.mfaTip(ctx),
       h('div', { class: 'group-title' }, 'Pacientes'),
-      S.patientsOverview(),
+      verified ? S.patientsOverview() : h('div', { class: 'group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('lock', 20)),
+        h('span', null, h('span', { class: 't' }, 'Acompanhar pacientes'), h('span', { class: 's' }, 'Libera quando o seu CRP for confirmado')))),
       checklist,
       h('div', { class: 'group-title' }, 'Chegando'),
       h('div', { class: 'tiles' }, tile('calendar', 'Agenda'), tile('users', 'Cadastro de pacientes'), tile('notebook-pen', 'Diários compartilhados'), tile('wallet', 'Pagamentos'))
@@ -296,7 +344,7 @@
       h('div', { class: 'grow' }, h('div', { class: 'name-big' }, p.full_name), h('div', { class: 'sub' }, p.email)));
 
     var dados = h('div', { class: 'group' },
-      row('Perfil', isPro ? 'Psicólogo(a)' : 'Paciente'), row('Celular', p.phone), row('Nascimento', UI.fmtDate(p.birth_date)),
+      row('Perfil', S.roleLabel(ctx)), row('Celular', p.phone), row('Nascimento', UI.fmtDate(p.birth_date)),
       isPro ? h('div', { class: 'item' }, h('span', { class: 't' }, 'CRP'), h('span', { class: 'v' }, pro.crp_region + '/' + pro.crp_number + ' ',
         pro.verification === 'verified' ? h('span', { class: 'badge ok' }, 'CRP verificado') : h('span', { class: 'badge warn' }, 'Em análise'))) : null);
 
@@ -410,6 +458,9 @@
       conquistas.classList.toggle('hide', v !== 'conquistas');
       if (v === 'conquistas' && !loaded) { loaded = true; conquistas.appendChild(S.achievements(ctx)); }
     } });
-    return S.shell(ctx, 'conta', [h('h1', { class: 'mb16' }, 'Conta'), tabs.el, perfil, conquistas]);
+    var modo = ctx.admin ? h('div', { class: 'mode-card' }, h('div', { class: 'group-title' }, 'Modo de teste (só a sua conta vê)'),
+      h('p', { class: 'small muted mb8' }, 'Veja o portal como Administrador, Psicólogo(a) ou Paciente. No modo Paciente a conta vira de paciente de verdade, e o app do celular avisa até você voltar para Psicólogo(a) ou Administrador.'),
+      S.modeSwitch(ctx, false)) : null;
+    return S.shell(ctx, 'conta', [h('h1', { class: 'mb16' }, 'Conta'), modo, tabs.el, perfil, conquistas]);
   };
 })();

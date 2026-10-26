@@ -524,26 +524,4 @@
     return authPage([statusIcon('clock', 'warn'), h('h1', null, 'Link vencido'), h('p', { class: 'lead' }, 'O link vale por pouco tempo e só funciona uma vez.'),
       h('a', { class: 'btn', href: '#/esqueci-senha' }, 'Pedir um novo link')]);
   };
-
-  /* ---------------------------------------------------------------- profissional aguardando verificacao */
-  S.professionalPending = function (ctx) {
-    var pro = ctx.me.professional;
-    var status = pro.verification;
-    var crp = pro.crp_region + '/' + pro.crp_number;
-    var T = {
-      pending: { icon: 'clock', kind: 'warn', title: 'CRP em análise', lead: 'Costuma levar até 1 dia útil. Avisamos por e-mail quando liberar.' },
-      rejected: { icon: 'circle-alert', kind: 'bad', title: 'Não confirmamos o CRP', lead: 'O número não confere com o cadastro do conselho. Fale com o suporte para corrigir.' },
-      suspended: { icon: 'lock', kind: 'bad', title: 'Acesso suspenso', lead: 'Fale com o suporte para entender o motivo.' }
-    };
-    var t = T[status] || T.pending;
-    var demo = API.mode === 'demo' && status === 'pending' ? UI.notice('warn', h('span', null, 'Modo demonstração. ', h('button', { type: 'button', class: 'linkbtn', onclick: function () { API.demoVerify().then(function () { go('#/inicio'); }); } }, 'Simular a verificação do CRP'))) : null;
-    return authPage([statusIcon(t.icon, t.kind),
-      h('h1', null, t.title),
-      h('p', { class: 'lead' }, t.lead),
-      h('p', { class: 'pending-line' }, h('span', { class: 'badge ' + (status === 'pending' ? 'warn' : 'bad') }, 'CRP ' + crp)),
-      demo,
-      S.mfaTip ? S.mfaTip(ctx) : null,
-      h('a', { class: 'btn ghost', href: '#/suporte' }, 'Falar com o suporte'),
-      h('p', { class: 'auth-foot' }, h('button', { type: 'button', class: 'linkbtn', onclick: function () { API.signOut().then(function () { go('#/entrar'); }); } }, 'Sair'))]);
-  };
 })();

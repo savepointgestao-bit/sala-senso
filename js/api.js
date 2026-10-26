@@ -181,7 +181,9 @@
       setTicketStatus: function (id, status) { return sb.rpc('admin_set_ticket_status', { p_ticket: id, p_status: status }).then(ok).then(function () { return true; }); },
       /* Dois fatores dos psicologos: so numeros (quantos usam) e se a obrigatoriedade esta ligada */
       mfaAdoption: function () { return sb.rpc('admin_mfa_adoption').then(ok); },
-      setMfaRequired: function (required) { return sb.rpc('admin_set_mfa_required', { p_required: !!required }).then(ok).then(function () { return true; }); }
+      setMfaRequired: function (required) { return sb.rpc('admin_set_mfa_required', { p_required: !!required }).then(ok).then(function () { return true; }); },
+      /* Modo de teste da conta de equipe: 'admin', 'professional' ou 'patient'. O banco recusa quem nao e da equipe. */
+      setMode: function (mode) { return sb.rpc('admin_set_mode', { p_mode: mode }).then(ok); }
     },
 
     hasConsent: function (kind) {
