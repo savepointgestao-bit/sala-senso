@@ -10,7 +10,7 @@
   var lastAuth = 0;        // quando a pessoa confirmou a identidade (senha ou codigo), como o amr do token
   var keepFlag = true;
   var mfaRequired = false;   /* como no banco: 2 fatores do psicologo e recomendado; a equipe pode tornar obrigatorio */
-  var adminMfaRequired = false;   /* como no banco (require_admin_mfa): a equipe tambem so e obrigada se a chave for ligada; com app cadastrado, o codigo sempre vale */
+  var adminMfaRequired = true;   /* como no banco (require_admin_mfa = 'true' por padrao): so a conta de admin e OBRIGADA a usar o codigo; os outros, nao */
   var roleHint = null;       /* tipo de conta escolhido antes de entrar com Google ou Microsoft */
 
   function err(code, message) { var e = new Error(message || code); e.code = code; return e; }

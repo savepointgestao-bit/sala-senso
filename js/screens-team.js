@@ -187,7 +187,7 @@
           h('p', { class: 'stat mb0' }, h('b', null, a.with_mfa + ' de ' + a.professionals), ' já ativaram' + (a.professionals ? ' (' + pct + '%)' : '') + '.'),
           h('div', { class: 'sw-row' }, h('span', { class: 't' }, 'Tornar obrigatória para psicólogos'), sw.el),
           status));
-        holder.appendChild(h('p', { class: 'small muted' }, 'Para a equipe e para os psicólogos a verificação é recomendada, com aviso até ativar. Pacientes não usam. Quem já ativou o app sempre precisa do código, mesmo com a chave desligada.'));
+        holder.appendChild(h('p', { class: 'small muted' }, 'A verificação é obrigatória só para a conta de administrador. Para os psicólogos é opcional e recomendada, com aviso até ativar. Quem já ativou o app sempre precisa do código, mesmo com a chave desligada.'));
       }).catch(function (e) {
         if (my !== seq) return;
         Diag.error('equipe', e);
