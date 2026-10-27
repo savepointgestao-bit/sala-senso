@@ -74,7 +74,8 @@
     }
     return svg;
   }
-  /* Dois botoes (Google e Microsoft). Um provedor desligado em PSI_CONFIG.oauth some da tela. A pagina sai para o provedor e volta
+  /* Dois botoes (Google e Microsoft). PSI_CONFIG.oauth.<provedor>: true = funciona; 'soon' = aparece apagado e nao clicavel, com
+     "Em breve"; false = some da tela. A pagina sai para o provedor e volta
      logada; quem ainda nao tem cadastro cai em "Completar cadastro". o.role = tipo de conta ja escolhido; o.keep = funcao que diz
      se "Manter conectado" esta marcado. */
   function oauthBlock(o) {
@@ -82,8 +83,12 @@
     var on = (window.PSI_CONFIG || {}).oauth || { google: true, microsoft: true };
     var general = h('div', { 'aria-live': 'polite' });
     var buttons = [];
-    function make(provider, kind, name) {
+    function make(provider, kind, name, state) {
       var label = 'Continuar com ' + name;
+      if (state === 'soon') {
+        return h('button', { type: 'button', class: 'btn ghost oauth soon', 'data-provider': kind, disabled: true, 'aria-disabled': 'true' },
+          mark(kind), h('span', null, label), h('span', { class: 'oauth-soon' }, 'Em breve'));
+      }
       var txt = h('span', null, label);
       var b = h('button', { type: 'button', class: 'btn ghost oauth', 'data-provider': kind }, mark(kind), txt);
       b.addEventListener('click', function () {
@@ -102,8 +107,8 @@
       return b;
     }
     var list = [];
-    if (on.google !== false) list.push(make('google', 'google', 'Google'));
-    if (on.microsoft !== false) list.push(make('azure', 'microsoft', 'Microsoft'));
+    if (on.google !== false) list.push(make('google', 'google', 'Google', on.google));
+    if (on.microsoft !== false) list.push(make('azure', 'microsoft', 'Microsoft', on.microsoft));
     if (!list.length) return null;
     return h('div', { class: 'oauth-block' }, h('div', { class: 'oauth-list' }, list), general);
   }

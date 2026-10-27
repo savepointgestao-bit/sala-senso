@@ -8,9 +8,9 @@ window.PSI_CONFIG = {
   docVersion: '0.1',
   /* Saida automatica por inatividade, em minutos. Psicólogo sempre; paciente só se não marcou "Manter conectado". 0 desliga. */
   idleMinutes: { professional: 20, patient: 60 },
-  /* Entrar com Google e com Microsoft. Deixe true so depois de ligar o provedor no Supabase (supabase/README.md, secao 3b);
-     false esconde o botao. No modo demonstracao os botoes funcionam com contas de mentira. */
-  oauth: { google: true, microsoft: true },
+  /* Entrar com Google e com Microsoft. true = funciona (so depois de ligar o provedor no Supabase, supabase/README.md, secao 3b);
+     'soon' = o botao aparece apagado, nao clicavel, com "Em breve"; false = esconde o botao. Hoje: em breve. */
+  oauth: { google: 'soon', microsoft: 'soon' },
   /* Equipe (so contas de admin veem a tela). Endereco da consulta publica de CRP, se quiser um atalho na tela; precisa ser https. */
   team: { crpLookupUrl: 'https://cadastro.cfp.org.br/' },
   /* Contatos de suporte: preencha. O que ficar vazio nao aparece na tela. */

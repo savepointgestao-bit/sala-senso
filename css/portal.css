@@ -169,6 +169,10 @@ h1[tabindex="-1"]:focus-visible { outline: none; }
 .oauth-list { display: grid; gap: .6rem; }
 .btn.oauth { gap: .7rem; font-weight: 600; }
 .btn.oauth .oauth-mark { flex: none; }
+.btn.oauth.soon { cursor: not-allowed; }
+.btn.oauth.soon .oauth-mark { opacity: .55; }
+.btn.oauth.soon > span:first-of-type { color: var(--mute); }
+.btn.oauth .oauth-soon { margin-left: auto; font-size: .72rem; font-weight: 600; color: var(--mute); border: 1px solid var(--line2); border-radius: 999px; padding: .1rem .55rem; }
 .oauth-block .notice { margin: .8rem 0 0; }
 .field .lbl { display: block; font-size: .85rem; font-weight: 650; margin-bottom: .35rem; }
 /* aviso de seguranca recomendada e painel da equipe */
