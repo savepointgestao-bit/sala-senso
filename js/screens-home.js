@@ -295,12 +295,15 @@
   };
 
   /* ---------------------------------------------------------------- conta */
+  /* No app Android o arquivo vai para Downloads/Senso (a WebView nao baixa por link). Devolve o caminho amigavel, ou null no navegador. */
   function download(name, text) {
+    if (window.Native && Native.saveFile) return Native.saveFile(name, 'application/json', text);
     var blob = new Blob([text], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
     var a = h('a', { href: url, download: name });
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    return null;
   }
   function row(label, value) { return value ? h('div', { class: 'item' }, h('span', { class: 't' }, label), h('span', { class: 'v' }, value)) : null; }
   function linkRow(icon, title, href, sub) {
@@ -474,8 +477,8 @@
         if (!ok) { exportBtn.disabled = false; return; }
         exportT.textContent = 'Gerando...';
         return API.exportMyData().then(function (d) {
-          download('psigestao-meus-dados.json', JSON.stringify(d, null, 2));
-          exportBtn.disabled = false; exportT.textContent = 'Baixar meus dados'; UI.toast('Arquivo baixado.', 'download'); Diag.log('conta:exportou');
+          var where = download('psigestao-meus-dados.json', JSON.stringify(d, null, 2));
+          exportBtn.disabled = false; exportT.textContent = 'Baixar meus dados'; UI.toast(where ? 'Arquivo salvo em ' + where + '.' : 'Arquivo baixado.', 'download'); Diag.log('conta:exportou');
         });
       }).catch(function (e) { exportBtn.disabled = false; exportT.textContent = 'Baixar meus dados'; Diag.error('export', e); UI.toast(sensitiveError(e) || 'Não deu para gerar agora.'); });
     } }, h('span', { class: 'ico-box' }, UI.svg('download', 20)), exportT);

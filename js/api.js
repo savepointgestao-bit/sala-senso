@@ -21,7 +21,11 @@
   function wrap(e) { var x = new Error(e && e.message ? e.message : 'erro'); x.code = (e && (e.code || e.status)) ? String(e.code || e.status) : 'unknown'; return x; }
   function ok(res) { if (res.error) throw wrap(res.error); return res.data; }
   /* Sem fragmento (#): o Supabase acrescenta ?code=... e o proprio cliente troca por sessao. O app decide a tela pelo evento. */
-  function redirect() { return location.origin + location.pathname; }
+  function redirect() { return /^https?:$/.test(location.protocol) ? location.origin + location.pathname : (cfg.portalUrl || ''); }
+  /* Dentro do app Android (a pagina roda em file://) o link do e-mail abre no navegador do celular. Para o que precisa de sessao
+     (redefinir senha, Google, Microsoft) o link volta para o app por senso://auth, onde esta o codigo guardado no pedido. */
+  function inApp() { return !/^https?:$/.test(location.protocol) && !!window.Android; }
+  function authBack() { return inApp() ? 'senso://auth' : redirect(); }
   /* Entrar com Google ou Microsoft: antes de sair da pagina guardamos na aba o que precisa sobreviver ao redirecionamento
      (tipo de conta escolhido, volta para a Conta, hora). So vale por 10 minutos e e lido uma vez. */
   var RET = 'psi_oauth', ROLE = 'psi_role';
@@ -68,9 +72,22 @@
           if (o.role === 'professional' || o.role === 'patient') s.setItem(ROLE, o.role); else if (!o.back) s.removeItem(ROLE);
         }
       } catch (e) { /* ignore */ }
-      var opts = { redirectTo: redirect(), queryParams: { prompt: 'select_account' } };
+      var opts = { redirectTo: authBack(), queryParams: { prompt: 'select_account' } };
       if (p === 'azure') opts.scopes = 'email';
-      return sb.auth.signInWithOAuth({ provider: p, options: opts }).then(ok).then(function () { return new Promise(function () { /* a pagina esta saindo */ }); });
+      if (inApp()) opts.skipBrowserRedirect = true;     /* no app quem abre o provedor e o navegador do celular */
+      return sb.auth.signInWithOAuth({ provider: p, options: opts }).then(ok).then(function (d) {
+        if (inApp() && d && d.url) { window.__oauthPending = true; window.Android.openUrl(d.url); }
+        return new Promise(function () { /* a pagina esta saindo */ });
+      });
+    },
+    /* Voltou ao app por senso://auth?code=... (redefinir senha, Google ou Microsoft): troca o codigo pela sessao. */
+    completeAuthUrl: function (url) {
+      window.__oauthPending = false;
+      var q = String(url || '').split('#')[0].split('?')[1] || '';
+      var m = /(?:^|&)code=([^&]+)/.exec(q);
+      if (!m) return Promise.resolve(false);
+      var code = ''; try { code = decodeURIComponent(m[1]); } catch (e) { return Promise.resolve(false); }
+      return sb.auth.exchangeCodeForSession(code).then(function (r) { return !r.error; }).catch(function () { return false; });
     },
     /* Voltou do provedor? Devolve { back } uma unica vez (ou null). */
     takeOauthReturn: function () {
@@ -119,7 +136,7 @@
         });
       }).then(function () { return true; });
     },
-    resetPassword: function (email) { return sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: redirect() }).then(ok).then(function () { return true; }); },
+    resetPassword: function (email) { return sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: authBack() }).then(ok).then(function () { return true; }); },
     updatePassword: function (pw) { return sb.auth.updateUser({ password: pw }).then(ok).then(function () { return true; }); },
     /* Trocar o e-mail: o Supabase manda um link de confirmacao para o endereco novo (e para o antigo, se a opcao estiver ligada).
        O e-mail so muda de verdade quando a pessoa clica no link. */
