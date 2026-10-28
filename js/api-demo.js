@@ -17,12 +17,6 @@
   function emit(ev) { listeners.forEach(function (f) { try { f(ev); } catch (e) { /* ignore */ } }); }
   function tick(v) { return new Promise(function (res) { setTimeout(function () { res(v); }, 60); }); }
   function cur() { return session ? users[session.email] : null; }
-  function adult(iso) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); if (!m) return false;
-    var t = new Date(); var lim = new Date(t.getFullYear() - 18, t.getMonth(), t.getDate());
-    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-    return d <= lim && d.getFullYear() >= 1900;
-  }
   function recent() { return Date.now() - lastAuth <= 600000; }
 
   /* Mesmas regras do banco para baixar ou apagar dados: profissional com 2 fatores e identidade confirmada ha ate 10 min. */
@@ -62,29 +56,8 @@
       xp_today: sumPts(u.xp.filter(function (e) { return e.day === day; })), daily_cap: DAILY_CAP, days_this_week: Object.keys(days).length, entries: u.diary.length
     };
   }
-  function copyEntry(e) { return { id: e.id, entry_date: e.entry_date, mood: e.mood, energy: e.energy, anxiety: e.anxiety, tags: e.tags.slice(), body: e.body, updated_at: e.updated_at }; }
+  function copyEntry(e) { return { id: e.id, entry_date: e.entry_date, period: e.period || null, mood: e.mood, energy: e.energy, anxiety: e.anxiety, tags: e.tags.slice(), body: e.body, updated_at: e.updated_at }; }
   function inScale(v) { return v == null || (v >= 1 && v <= 5 && v % 1 === 0); }
-
-  /* Pacientes de exemplo do modo demonstracao: variam nivel (e a moldura), constancia e consentimento. */
-  function demoPatients(span) {
-    var seeds = [
-      { id: 'rec-demo-1', name: 'Marina Souza', xp: 85.5, week: 5, mood: [4, 3, 4, 5, 4, null, 4, 3, 3, 4, 2, 3, 4, 3], energy: 3, anxiety: 2 },
-      { id: 'rec-demo-2', name: 'João Pereira', xp: 31, week: 2, mood: [2, null, 3, 2, null, 2, 3, 2, 1, 2, null, 3, 2, 2], energy: 2, anxiety: 4 },
-      { id: 'rec-demo-3', name: 'Rafael Lima', xp: 4, week: 1, mood: [null, null, null, null, null, null, null, null, null, null, null, null, 3, 4], energy: 4, anxiety: 3 },
-      { id: 'rec-demo-4', name: 'Carla Mendes', consent: false }
-    ];
-    return seeds.map(function (p) {
-      if (p.consent === false) return { record_id: p.id, full_name: p.name, consent: false };
-      var checkins = [];
-      p.mood.forEach(function (m, i) {
-        var off = 13 - i;
-        if (m != null && off < span) checkins.push({ entry_date: spDay(off), mood: m, energy: Math.min(5, Math.max(1, p.energy + (i % 3) - 1)), anxiety: Math.min(5, Math.max(1, p.anxiety + (i % 2))) });
-      });
-      checkins.sort(function (a, b) { return a.entry_date < b.entry_date ? 1 : -1; });
-      return { record_id: p.id, full_name: p.name, consent: true, level: Math.floor(p.xp / PER_LEVEL) + 1, xp_into_level: round1(p.xp - Math.floor(p.xp / PER_LEVEL) * PER_LEVEL),
-        xp_per_level: PER_LEVEL, days_this_week: p.week, checkins: checkins };
-    });
-  }
 
   var api = {
     mode: 'demo',
@@ -94,14 +67,20 @@
     signUp: function (role, data) {
       var email = String(data.email).trim().toLowerCase();
       if (users[email]) return tick({ needsConfirmation: true });   // igual ao Supabase: nao revela se o e-mail ja existe
+      /* Mesmas regras do banco (private.create_account). Pelo cadastro por e-mail o Supabase so devolve "Database error saving new user". */
+      var bad = care().profileRules(role, data);
+      if (bad) return tick(null).then(function () { throw err('unexpected_failure', 'Database error saving new user'); });
       seq += 1;
-      users[email] = { id: 'demo-' + seq, password: data.password, confirmed: false, role: role, meta: data, factor: null, verification: 'pending', created: new Date().toISOString(), diary: [], xp: [],
+      var meta = Object.assign({}, data);
+      if (role === 'patient' && !care().isMinor(meta.birthDate)) { meta.guardianName = null; meta.guardianPhone = null; }
+      var u = users[email] = { id: 'demo-' + seq, password: data.password, confirmed: false, role: role, meta: meta, factor: null, verification: 'pending', created: new Date().toISOString(), diary: [], xp: [],
         consents: [{ kind: 'terms', granted: true }, { kind: 'privacy', granted: true }, { kind: role === 'professional' ? 'dpa' : 'portal_health_data', granted: true }] };
+      care().afterCreate(u, email, role, data);
       return tick({ needsConfirmation: true });
     },
     resendConfirmation: function () { return tick(true); },
-    demoConfirmEmail: function (email) { var u = users[String(email).toLowerCase()]; if (u) u.confirmed = true; return tick(true); },
-    demoVerify: function () { var u = cur(); if (u) u.verification = 'verified'; return tick(true); },
+    demoConfirmEmail: function (email) { var u = users[String(email).toLowerCase()]; if (u) { u.confirmed = true; u.confirmedAt = new Date().toISOString(); } return tick(true); },
+    demoVerify: function () { var u = cur(); if (u) { u.verification = 'verified'; care().seedExamples(u); } return tick(true); },
     demoMakeAdmin: function (email) { var u = users[String(email).toLowerCase()]; if (u) u.admin = true; return tick(true); },
 
     signIn: function (email, password, keepSession) {
@@ -136,7 +115,7 @@
       return tick(null).then(function () {
         if (!u) throw err('not_allowed', 'not_allowed');
         var name = u.meta ? u.meta.fullName : (u.provider === 'google' ? 'Ana Souza' : 'Bruno Lima');
-        return { email: session.email, hasPassword: !!u.password, providers: u.provider ? [u.provider] : [], name: name, roleHint: roleHint };
+        return { email: session.email, hasPassword: !!u.password, providers: u.provider ? [u.provider] : [], name: name, confirmedAt: u.confirmedAt || null, roleHint: roleHint };
       });
     },
     signOut: function () { session = null; roleHint = null; emit('SIGNED_OUT'); return tick(true); },
@@ -156,13 +135,43 @@
     demoAgeLogin: function (seconds) { lastAuth -= seconds * 1000; return true; },
     resetPassword: function () { return tick(true); },
     updatePassword: function (pw) { var u = cur(); if (u) u.password = pw; return tick(true); },
+    updateEmail: function (email) {
+      var u = cur(), e = String(email || '').trim().toLowerCase();
+      return tick(null).then(function () {
+        if (!u) throw err('not_allowed', 'not_allowed');
+        if (users[e] && users[e] !== u) throw err('email_exists', 'A user with this email address has already been registered');
+        delete users[session.email]; users[e] = u; session.email = e;   /* no Supabase so muda depois do clique no link; a demonstracao troca na hora */
+        care().syncProfile(u, session.email);
+        return true;
+      });
+    },
+    /* Mesmas regras do banco: paciente nao deixa o nascimento em branco e, sendo menor de 18 anos, precisa do responsavel. */
+    updateProfile: function (d) {
+      var u = cur();
+      return tick(null).then(function () {
+        if (!u || !u.meta) throw err('not_allowed', 'not_allowed');
+        var m = u.meta, next = { fullName: m.fullName, phone: m.phone, birthDate: m.birthDate, guardianName: m.guardianName, guardianPhone: m.guardianPhone };
+        if (d.fullName != null) next.fullName = d.fullName;
+        if (d.phone !== undefined) next.phone = d.phone || null;
+        if (d.birthDate) next.birthDate = d.birthDate;
+        if (d.guardianName !== undefined) next.guardianName = d.guardianName || null;
+        if (d.guardianPhone !== undefined) next.guardianPhone = d.guardianPhone || null;
+        if (u.role === 'patient') {
+          var bad = care().birthRules(next.birthDate, next.guardianName, next.guardianPhone);
+          if (bad) throw err('P0001', bad);
+        }
+        u.meta = Object.assign({}, m, next);
+        care().syncProfile(u, session.email);
+        return true;
+      });
+    },
 
     me: function () {
       var u = cur();
       if (!u || !u.role) return tick(null);   /* entrou com Google/Microsoft e ainda nao completou o cadastro */
       var m = u.meta;
       return tick({
-        profile: { id: u.id, role: u.role, full_name: m.fullName, email: session.email, phone: m.phone || null, birth_date: m.birthDate || null },
+        profile: { id: u.id, role: u.role, full_name: m.fullName, email: session.email, phone: m.phone || null, birth_date: m.birthDate || null, guardian_name: m.guardianName || null, guardian_phone: m.guardianPhone || null },
         professional: u.role === 'professional' ? { crp_region: m.crpRegion, crp_number: m.crpNumber, verification: u.verification } : null
       });
     },
@@ -181,12 +190,15 @@
       return tick(null).then(function () {
         if (!u) throw err('not_allowed', 'not_allowed');
         if (u.role) throw err('P0001', 'already_completed');
-        if (role === 'patient' && !adult(d.birthDate)) throw err('P0001', 'adult_required');
-        if (role === 'professional' && (!d.crpRegion || !/^[0-9]{3,8}$/.test(d.crpNumber || ''))) throw err('23514', 'professionals check violation');
+        var bad = care().profileRules(role, d);
+        if (bad === 'crp') throw err('23514', 'professionals check violation');
+        if (bad) throw err('P0001', bad);
         u.role = role; u.verification = 'pending';
-        u.meta = { fullName: d.fullName, phone: d.phone || '', birthDate: role === 'patient' ? d.birthDate : null, crpRegion: d.crpRegion, crpNumber: d.crpNumber };
+        u.meta = { fullName: d.fullName, phone: d.phone || '', birthDate: d.birthDate || null, crpRegion: d.crpRegion, crpNumber: d.crpNumber,
+          guardianName: care().isMinor(d.birthDate) ? d.guardianName : null, guardianPhone: care().isMinor(d.birthDate) ? d.guardianPhone : null };
         u.consents = [{ kind: 'terms', granted: true }, { kind: 'privacy', granted: true }, { kind: role === 'professional' ? 'dpa' : 'portal_health_data', granted: true }];
         roleHint = null;
+        care().afterCreate(u, session.email, role, d);
         return true;
       });
     },
@@ -334,47 +346,6 @@
       u.xp.push({ kind: 'diary_entry', points: points, ref: 'demo-' + seq, day: spDay(10 + seq) });
       return tick(true);
     },
-    diary: {
-      list: function () {
-        var u = cur();
-        var rows = u.diary.slice().sort(function (a, b) { return a.entry_date === b.entry_date ? (a.created < b.created ? 1 : -1) : (a.entry_date < b.entry_date ? 1 : -1); });
-        return tick(rows.map(copyEntry));
-      },
-      get: function (id) { var e = cur().diary.filter(function (x) { return x.id === id; })[0]; return tick(e ? copyEntry(e) : null); },
-      save: function (d) {
-        var u = cur();
-        var tags = d.tags || [], body = String(d.body || '');
-        var empty = d.mood == null && d.energy == null && d.anxiety == null && !tags.length && !body.trim();
-        var badTags = tags.length > 6 || tags.some(function (t) { return TAGS.indexOf(t) < 0; });
-        if (empty || badTags || body.length > 20000 || !inScale(d.mood) || !inScale(d.energy) || !inScale(d.anxiety)) return tick(null).then(function () { throw err('23514', 'check violation'); });
-        var e = d.id ? u.diary.filter(function (x) { return x.id === d.id; })[0] : null;
-        if (d.id && !e) return tick(null).then(function () { throw err('PGRST116', 'not found'); });
-        if (!e) {
-          var hasDiary = (u.consents.filter(function (c) { return c.kind === 'diary'; }).pop() || {}).granted;
-          if (u.role !== 'patient' || !hasDiary) return tick(null).then(function () { throw err('42501', 'row-level security'); });
-          seq += 1; e = { id: 'entry-' + seq, created: seq }; u.diary.push(e);
-        }
-        e.entry_date = d.entry_date || spDay(); e.mood = d.mood == null ? null : d.mood; e.energy = d.energy == null ? null : d.energy; e.anxiety = d.anxiety == null ? null : d.anxiety;
-        e.tags = tags.slice(); e.body = body; e.updated_at = new Date().toISOString();
-        if (body.trim().length >= 10) award(u, 'diary_entry', 1, e.id);
-        if (e.mood != null) award(u, 'mood_checkin', 0.5, e.id);
-        return tick(copyEntry(e));
-      },
-      remove: function (id) { var u = cur(); u.diary = u.diary.filter(function (x) { return x.id !== id; }); return tick(true); }   // o XP ja ganho nao some
-    },
-
-    /* psicologo: acompanhamento (dados de exemplo; so psicologo verificado com 2 fatores, como no banco) */
-    pro: {
-      overview: function (days) {
-        var u = cur();
-        return tick(null).then(function () {
-          if (!u || u.role !== 'professional' || u.verification !== 'verified' || !mfaOk(u)) throw err('not_allowed', 'not_allowed');
-          var span = Math.min(Math.max(Number(days) || 30, 1), 90);
-          return demoPatients(span);
-        });
-      }
-    },
-
     /* direitos do titular */
     exportMyData: function () {
       var u = cur();
@@ -382,11 +353,17 @@
         sensitive(u);
         u.exports = (u.exports || 0) + 1;
         if (u.exports > 5) throw err('rate_limited', 'rate_limited');
-        return { exported_at: new Date().toISOString(), profile: { full_name: u.meta.fullName, email: session.email, role: u.role }, consents: u.consents, diary_entries: u.diary.map(copyEntry), xp_events: u.xp };
+        return { exported_at: new Date().toISOString(), profile: { full_name: u.meta.fullName, email: session.email, role: u.role }, consents: u.consents, diary_entries: u.diary.map(copyEntry), xp_events: u.xp, care: care().exportFor(u) };
       });
     },
-    deleteMyAccount: function () { var u = cur(); return tick(null).then(function () { sensitive(u); delete users[session.email]; session = null; emit('SIGNED_OUT'); return true; }); }
+    deleteMyAccount: function () { var u = cur(); return tick(null).then(function () { sensitive(u); care().afterDelete(u); delete users[session.email]; session = null; emit('SIGNED_OUT'); return true; }); }
   };
 
+  /* Parte de cuidado (vinculo, diario com periodos, agenda, avisos, avaliacoes) fica em api-demo-care.js e usa estas pecas. */
+  function care() { return api._care; }
+  api._core = {
+    users: function () { return users; }, cur: cur, session: function () { return session; }, tick: tick, err: err, spDay: spDay, round1: round1,
+    progressOf: progressOf, award: award, copyEntry: copyEntry, inScale: inScale, mfaOk: mfaOk, next: function () { seq += 1; return seq; }, PER_LEVEL: PER_LEVEL, TAGS: TAGS
+  };
   window.API_DEMO = api;
 })();

@@ -38,35 +38,8 @@
     return h('div', { class: 'mode-switch' + (compact ? ' compact' : '') }, seg.el);
   };
 
-  S.shell = function (ctx, active, content) {
-    var p = ctx.me.profile, pro = p.role === 'professional';
-    var adminMode = !!ctx.admin && (ctx.mode || 'admin') === 'admin';
-    var items = adminMode
-      ? [['equipe', '#/equipe', 'shield-check', 'Equipe'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']]
-      : pro
-        ? [['inicio', '#/inicio', 'house', 'Início'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']]
-        : [['inicio', '#/inicio', 'house', 'Início'], ['diario', '#/diario', 'notebook-pen', 'Diário'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']];
-    function link(it) { return h('a', { href: it[1], 'aria-current': active === it[0] ? 'page' : null }, UI.svg(it[2], 22), it[3]); }
-    function me(size) { return UI.avatar(p.full_name, { size: size, level: !pro && ctx.progress ? ctx.progress.level : null }); }
-    return h('div', { class: 'app' },
-      h('aside', { class: 'side' }, UI.brand('#/inicio'),
-        h('nav', { 'aria-label': 'Menu principal' }, items.map(link)),
-        S.modeSwitch(ctx, true),
-        h('div', { class: 'me' }, me(),
-          h('div', { class: 'who' }, h('b', null, p.full_name), h('span', null, S.roleLabel(ctx))))),
-      h('div', null,
-        h('header', { class: 'mhead' }, UI.brand('#/inicio'),
-          ctx.admin ? h('a', { class: 'mhead-mode', href: '#/conta', 'aria-label': 'Modo de teste: ' + S.roleLabel(ctx) + '. Trocar em Conta' }, S.roleLabel(ctx)) : null,
-          h('a', { class: 'mhead-me', href: '#/conta', 'aria-label': 'Minha conta' }, me())),
-        h('main', { class: 'main' }, content)),
-      h('nav', { class: 'bottom', 'aria-label': 'Menu' }, items.map(link)));
-  };
-
   function hello(p, sub) {
     return h('div', { class: 'hello' }, h('div', { class: 'grow' }, h('h1', null, UI.greeting(p.full_name)), sub ? h('div', { class: 'sub' }, sub) : null));
-  }
-  function tile(icon, title) {
-    return h('div', { class: 'tile off' }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('span', { class: 't' }, title), h('span', { class: 'pill' }, 'Em breve'));
   }
 
   /* ---------------------------------------------------------------- acompanhamento dos pacientes (psicologo) */
@@ -88,10 +61,12 @@
     });
     return h('div', { class: 'mood-bars', role: 'img', 'aria-label': 'Humor dos últimos 14 dias, do mais antigo ao mais novo: ' + texts.join(', ') }, bars);
   }
+  function verifyBadge(it) { return it.verified === false ? h('span', { class: 'badge warn' }, UI.svg('hourglass', 14), 'Por conferir') : null; }
   function patientCard(it) {
+    var href = '#/pacientes/' + it.record_id;
     if (!it.consent) {
-      return h('div', { class: 'card' }, h('div', { class: 'pt-head' }, UI.avatar(it.full_name),
-        h('div', { class: 'who' }, h('b', null, it.full_name), h('span', null, 'Retirou a autorização do diário. Você não vê o check-in.'))));
+      return h('a', { class: 'card pt-link', href: href }, h('div', { class: 'pt-head' }, UI.avatar(it.full_name),
+        h('div', { class: 'who' }, h('b', null, it.full_name), verifyBadge(it), h('span', null, 'Retirou a autorização do diário. Você não vê o check-in.'))));
     }
     var f = UI.frameFor(it.level), last = it.checkins[0];
     var vals = [];
@@ -100,25 +75,28 @@
       if (last.energy != null) vals.push(h('span', { class: 'val' }, 'Energia ', h('b', null, last.energy + '/5')));
       if (last.anxiety != null) vals.push(h('span', { class: 'val' }, 'Ansiedade ', h('b', null, last.anxiety + '/5')));
     }
-    return h('div', { class: 'card' },
+    return h('a', { class: 'card pt-link', href: href },
       h('div', { class: 'pt-head' }, UI.avatar(it.full_name, { level: it.level }),
-        h('div', { class: 'who' }, h('b', null, it.full_name), h('span', null, 'Nível ' + it.level + ', moldura ' + f.name))),
+        h('div', { class: 'who' }, h('b', null, it.full_name), verifyBadge(it), h('span', null, 'Nível ' + it.level + ', moldura ' + f.name))),
       last ? h('div', { class: 'pt-vals' }, vals) : h('p', { class: 'pt-note mb0' }, 'Sem check-in nos últimos 30 dias.'),
       last ? moodBars(it.checkins) : null,
       h('div', { class: 'pt-foot' }, h('span', null, last ? 'Último check-in: ' + rel(last.entry_date) : ''),
         h('span', null, it.days_this_week + (it.days_this_week === 1 ? ' dia' : ' dias') + ' de uso na semana')));
   }
-  S.patientsOverview = function () {
+  /* list opcional: quem já carregou a lista (início do psicólogo) passa aqui e evita buscar de novo. */
+  S.patientsOverview = function (list) {
     var holder = h('div', { 'aria-live': 'polite' }, h('p', { class: 'muted' }, 'Carregando...'));
-    API.pro.overview(30).then(function (list) {
+    function draw(items) {
       clear(holder);
-      if (!list.length) {
-        holder.appendChild(h('div', { class: 'card' }, h('p', { class: 'mb0' }, 'Nenhum paciente vinculado ainda. Quando um paciente se vincular a você, o nível e o check-in aparecem aqui.')));
+      if (!items.length) {
+        holder.appendChild(h('div', { class: 'card' }, h('p', { class: 'mb0' }, 'Nenhum paciente com conta vinculada ainda. Quando alguém criar a conta pelo seu link, o nível e o check-in aparecem aqui.')));
         return;
       }
-      list.forEach(function (it) { holder.appendChild(patientCard(it)); });
+      items.forEach(function (it) { holder.appendChild(patientCard(it)); });
       holder.appendChild(h('p', { class: 'pt-note' }, 'Você vê nível, humor, energia e ansiedade. O texto do diário só aparece quando o paciente compartilha.'));
-    }).catch(function (e) {
+    }
+    if (list) { draw(list); return holder; }
+    API.pro.overview(30).then(draw).catch(function (e) {
       Diag.error('pacientes', e);
       clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar os pacientes agora. Atualize a página.'));
     });
@@ -154,21 +132,86 @@
   };
 
   /* ---------------------------------------------------------------- inicio: profissional */
+  function proSafe(promise, fallback) { return promise.catch(function (e) { Diag.error('home-psicologo', e); return fallback; }); }
+
+  function proChecklist(ctx, extra) {
+    var pro = ctx.me.professional, ver = pro.verification, verified = ver === 'verified';
+    var has2fa = !!(ctx.mfa && ctx.mfa.enrolled);
+    var steps = [['Conta criada', true], ['CRP verificado', verified, null, ver === 'pending' ? 'Em análise' : 'Pendente'], ['Verificação em duas etapas', has2fa, '#/ativar-2fa'],
+      ['Cadastrar ou convidar o primeiro paciente', !!extra.hasPatients, '#/pacientes', 'Comece aqui'], ['Abrir a agenda para pedidos de consulta', !!extra.bookingOn, '#/agenda?aba=ajustes', 'Opcional']];
+    var done = steps.filter(function (x) { return x[1]; }).length;
+    if (done === steps.length) return null;
+    return h('div', { class: 'group' },
+      h('div', { class: 'setup-head' }, UI.ring(done, steps.length), h('div', null, h('div', { class: 't' }, 'Primeiros passos'), h('div', { class: 's' }, done + ' de ' + steps.length))),
+      steps.map(function (x) {
+        if (!x[1] && x[2]) {
+          return h('a', { class: 'item', href: x[2] }, h('span', { class: 'ico-box todo' }), h('span', { class: 't' }, x[0]), h('span', { class: 'tag' }, x[3] || 'Recomendado'));
+        }
+        return h('div', { class: 'item' }, h('span', { class: 'ico-box ' + (x[1] ? 'done' : 'todo') }, x[1] ? UI.svg('check', 20) : null),
+          h('span', { class: 't' }, x[0]), x[1] ? null : h('span', { class: 'tag' }, x[3] || 'Em breve'));
+      }));
+  }
+
   S.homeProfessional = function (ctx) {
     var p = ctx.me.profile, pro = ctx.me.professional;
     var ver = pro.verification, verified = ver === 'verified';
-    var has2fa = !!(ctx.mfa && ctx.mfa.enrolled);
-    var steps = [['Conta criada', true], ['CRP verificado', verified, null, ver === 'pending' ? 'Em análise' : 'Pendente'], ['Verificação em duas etapas', has2fa, '#/ativar-2fa'], ['Convidar o primeiro paciente', false]];
-    var done = steps.filter(function (s) { return s[1]; }).length;
-    var checklist = h('div', { class: 'group' },
-      h('div', { class: 'setup-head' }, UI.ring(done, steps.length), h('div', null, h('div', { class: 't' }, 'Primeiros passos'), h('div', { class: 's' }, done + ' de ' + steps.length))),
-      steps.map(function (s) {
-        if (!s[1] && s[2]) {
-          return h('a', { class: 'item', href: s[2] }, h('span', { class: 'ico-box todo' }), h('span', { class: 't' }, s[0]), h('span', { class: 'tag' }, 'Recomendado'));
-        }
-        return h('div', { class: 'item' }, h('span', { class: 'ico-box ' + (s[1] ? 'done' : 'todo') }, s[1] ? UI.svg('check', 20) : null),
-          h('span', { class: 't' }, s[0]), s[1] ? null : h('span', { class: 'tag' }, s[3] || 'Em breve'));
-      }));
+    var holder = h('div', null, verified ? UI.loading() : null);
+
+    function actionTiles() {
+      return h('div', { class: 'tiles' },
+        h('button', { type: 'button', class: 'tile act', onclick: function () { S.patientSheet(null, function (id) { go('#/pacientes/' + id); }); } }, h('span', { class: 'ico-box' }, UI.svg('user-plus', 22)), h('span', { class: 't' }, 'Novo paciente'), h('span', { class: 'pill' }, 'Cadastro rápido')),
+        h('button', { type: 'button', class: 'tile act', onclick: function () { S.newAppointmentSheet({ onDone: function () { refresh(); } }); } }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar consulta'), h('span', { class: 'pill' }, 'Direto na agenda')),
+        h('a', { class: 'tile act', href: '#/agenda?aba=semana' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('span', { class: 't' }, 'Agenda da semana'), h('span', { class: 'pill' }, 'Ver horários')),
+        h('a', { class: 'tile act', href: '#/atendimento' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'WhatsApp e avisos'), h('span', { class: 'pill' }, 'Atendimento')));
+    }
+
+    function draw(D) {
+      clear(holder);
+      var toVerify = D.patients.filter(function (x) { return !x.verified; }).length;
+      var asks = D.view.pending.filter(function (a) { return a.status === 'requested'; }).length;
+      if (asks) holder.appendChild(S.pendingStrip('calendar-plus', asks === 1 ? '1 pedido de consulta esperando você' : asks + ' pedidos de consulta esperando você', '#/agenda?aba=pedidos', 'Responder'));
+      if (toVerify) holder.appendChild(S.pendingStrip('hourglass', toVerify === 1 ? '1 cadastro para conferir' : toVerify + ' cadastros para conferir', '#/pacientes?f=verify', 'Conferir'));
+
+      var t = UI.dt.today();
+      var todays = D.view.appointments.filter(function (a) { return UI.dt.dayOf(a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at) === t && a.status !== 'requested'; });
+      var later = D.view.appointments.filter(function (a) { return a.status === 'scheduled' && UI.dt.dayOf(a.starts_at) > t; }).slice(0, 3);
+      holder.appendChild(h('div', { class: 'group-title' }, 'Hoje'));
+      if (todays.length) holder.appendChild(h('div', { class: 'group' }, todays.map(function (a) { return S.apptRow(a, refresh); })));
+      else holder.appendChild(h('div', { class: 'card' }, h('p', { class: 'mb0' }, 'Nenhuma consulta hoje.' + (later.length ? ' A próxima é ' + UI.dt.whenLabel(later[0].starts_at) + ', com ' + later[0].full_name + '.' : ''))));
+      if (todays.length && later.length) {
+        holder.appendChild(h('div', { class: 'group-title' }, 'Próximas'));
+        holder.appendChild(h('div', { class: 'group' }, later.map(function (a) { return h('a', { class: 'item', href: '#/agenda?d=' + UI.dt.dayOf(a.starts_at) }, h('span', { class: 'ico-box' }, UI.svg('calendar-check', 20)),
+          h('span', { class: 'grow' }, h('span', { class: 't' }, a.full_name), h('span', { class: 's' }, UI.dt.whenLabel(a.starts_at))), h('span', { class: 'chev' }, UI.svg('chevron-right', 18))); })));
+      }
+      holder.appendChild(h('div', { class: 'group-title' }, 'Atalhos'));
+      holder.appendChild(actionTiles());
+
+      holder.appendChild(h('div', { class: 'group-title' }, 'Acompanhamento do humor'));
+      holder.appendChild(S.patientsOverview(D.overview));
+      var bc = S.birthdayCard ? S.birthdayCard(D.births) : null;
+      if (bc) holder.appendChild(bc);
+      holder.appendChild(h('div', { class: 'group-title' }, 'Convite'));
+      holder.appendChild(S.inviteCard());
+      var ck = proChecklist(ctx, { hasPatients: D.patients.length > 0, bookingOn: D.booking });
+      if (ck) { holder.appendChild(h('div', { class: 'group-title' }, 'Primeiros passos')); holder.appendChild(ck); }
+    }
+
+    if (verified) {
+      var t0 = UI.dt.today(), empty = { appointments: [], pending: [], blocks: [] };
+      Promise.all([proSafe(API.pro.patients(), []), proSafe(API.agenda.view(t0, UI.dt.addDays(t0, 14)), empty), proSafe(API.pro.birthdays(14), []), proSafe(API.pro.overview(30), []),
+        proSafe(API.agenda.get(), { settings: {} })]).then(function (r) {
+        draw({ patients: r[0], view: r[1], births: r[2], overview: r[3], booking: !!(r[4].settings && r[4].settings.booking_enabled) });
+      });
+    } else {
+      holder.appendChild(h('div', { class: 'group-title' }, 'Pacientes'));
+      holder.appendChild(h('div', { class: 'group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('lock', 20)),
+        h('span', null, h('span', { class: 't' }, 'Acompanhar pacientes e agenda'), h('span', { class: 's' }, 'Libera quando o seu CRP for confirmado')))));
+      holder.appendChild(h('div', { class: 'group-title' }, 'Convite'));
+      holder.appendChild(S.inviteCard());
+      var ck = proChecklist(ctx, {});
+      if (ck) { holder.appendChild(h('div', { class: 'group-title' }, 'Primeiros passos')); holder.appendChild(ck); }
+    }
+
     return S.shell(ctx, 'inicio', [
       hello(p, [h('span', null, 'CRP ' + pro.crp_region + '/' + pro.crp_number),
         verified ? h('span', { class: 'badge ok' }, UI.svg('badge-check', 14), 'CRP verificado')
@@ -176,52 +219,78 @@
       verified ? null : S.crpNotice(ver),
       API.mode === 'demo' && ver === 'pending' ? UI.notice('warn', h('span', null, 'Modo demonstração. ', h('button', { type: 'button', class: 'linkbtn', onclick: function () { API.demoVerify().then(refresh); } }, 'Simular a verificação do CRP'))) : null,
       S.mfaTip(ctx),
-      h('div', { class: 'group-title' }, 'Pacientes'),
-      verified ? S.patientsOverview() : h('div', { class: 'group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('lock', 20)),
-        h('span', null, h('span', { class: 't' }, 'Acompanhar pacientes'), h('span', { class: 's' }, 'Libera quando o seu CRP for confirmado')))),
-      checklist,
-      h('div', { class: 'group-title' }, 'Chegando'),
-      h('div', { class: 'tiles' }, tile('calendar', 'Agenda'), tile('users', 'Cadastro de pacientes'), tile('notebook-pen', 'Diários compartilhados'), tile('wallet', 'Pagamentos'))
+      holder
     ]);
   };
 
   /* ---------------------------------------------------------------- inicio: paciente */
+  function safe(promise, fallback) { return promise.catch(function (e) { Diag.error('home-paciente', e); return fallback; }); }
+
   S.homePatient = function (ctx) {
     var p = ctx.me.profile;
-    var holder = h('div');
-    var prog = null, consent = false, todayMood = null, todayEntry = null;
+    var holder = h('div'), D = null;
+
+    function apptStrips() {
+      var now = Date.now(), out = [], list = D.appts || [];
+      list.filter(function (a) { return a.status === 'reschedule_proposed'; }).forEach(function (a) {
+        out.push(S.pendingStrip('calendar-days', a.professional_name + ' sugeriu outro horário: ' + UI.dt.whenLabel(a.proposed_starts_at), '#/consultas', 'Responder'));
+      });
+      list.filter(function (a) { return a.can_review; }).slice(0, 1).forEach(function () {
+        out.push(S.pendingStrip('star', 'Como foi a sua última consulta? Sua opinião é anônima.', '#/consultas', 'Avaliar'));
+      });
+      var next = list.filter(function (a) { return a.status === 'scheduled' && Date.parse(a.starts_at) > now; }).sort(function (a, b) { return Date.parse(a.starts_at) - Date.parse(b.starts_at); })[0];
+      if (next) out.push(S.pendingStrip('calendar-check', 'Próxima consulta: ' + UI.dt.whenLabel(next.starts_at) + ' com ' + next.professional_name, '#/consultas', 'Ver'));
+      D.psy.filter(function (x) { return x.verified === false; }).forEach(function (x) {
+        out.unshift(S.pendingStrip('hourglass', 'Aguardando ' + x.full_name + ' conferir o seu cadastro. Depois disso você pede consultas por aqui.', '#/psicologo', 'Ver'));
+      });
+      var waiting = list.filter(function (a) { return a.status === 'requested'; });
+      if (waiting.length) out.push(S.pendingStrip('hourglass', waiting.length === 1 ? 'Pedido de consulta aguardando resposta de ' + waiting[0].professional_name : waiting.length + ' pedidos de consulta aguardando resposta', '#/consultas', 'Ver'));
+      return out;
+    }
+
+    function quick() {
+      var tiles = [];
+      D.psy.forEach(function (x) {
+        var link = x.whatsapp ? UI.waLink(x.whatsapp, 'Olá, ' + UI.firstName(x.full_name) + '. Aqui é ' + UI.firstName(p.full_name) + '.') : null;
+        if (link) tiles.push(h('a', { class: 'tile act', href: link, target: '_blank', rel: 'noopener' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com ' + UI.firstName(x.full_name)), h('span', { class: 'pill' }, 'Abre o WhatsApp')));
+      });
+      if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) tiles.push(h('a', { class: 'tile act', href: '#/consultas' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Pedir uma consulta'), h('span', { class: 'pill' }, 'Escolha o horário')));
+      tiles.push(h('a', { class: 'tile act help', href: '#/ajuda' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 22)), h('span', { class: 't' }, 'Preciso de ajuda'), h('span', { class: 'pill' }, 'Acalmar e pedir apoio')));
+      return h('div', { class: 'tiles' }, tiles);
+    }
 
     function draw() {
       clear(holder);
-      holder.appendChild(S.levelCard(prog));
-      if (consent) {
-        holder.appendChild(S.checkinCard(todayMood, function (m) {
-          var before = prog;
-          var row = { id: todayEntry ? todayEntry.id : null, entry_date: UI.today(), mood: m, energy: todayEntry ? todayEntry.energy : null, anxiety: todayEntry ? todayEntry.anxiety : null, tags: todayEntry ? todayEntry.tags : [], body: todayEntry ? todayEntry.body : '' };
-          return API.diary.save(row).then(function (saved) {
-            todayEntry = saved; todayMood = saved.mood;
-            return S.afterSave(before);
-          }).then(function (after) { prog = after; draw(); });
-        }));
+      var wel = S.welcomeCard(ctx); if (wel) holder.appendChild(wel);
+      var pend = S.pendingInvite(); if (pend) holder.appendChild(pend);
+      apptStrips().forEach(function (n) { holder.appendChild(n); });
+      if (!D.pros.length && !D.psy.length) {
+        holder.appendChild(h('div', { class: 'cta-card' }, h('span', { class: 'ico-box' }, UI.svg('heart-handshake', 22)),
+          h('div', { class: 'grow' }, h('div', { class: 't' }, 'Vincule-se ao seu psicólogo(a)'), h('div', { class: 's' }, 'Com o link que ele(a) mandou, vocês ficam conectados.')),
+          h('a', { class: 'btn auto sm', href: '#/psicologo' }, 'Vincular')));
+      }
+      holder.appendChild(S.levelCard(D.prog));
+      if (D.consent) {
+        holder.appendChild(S.moodCard({ entries: D.entries, pros: D.pros, shares: D.shares, onSaved: reload }));
       } else {
         holder.appendChild(h('div', { class: 'cta-card' }, h('span', { class: 'ico-box' }, UI.svg('notebook-pen', 22)),
           h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu diário'), h('div', { class: 's' }, 'Registre como você está e ganhe XP.')),
           h('a', { class: 'btn auto sm', href: '#/diario' }, 'Começar')));
       }
-      holder.appendChild(h('div', { class: 'group-title' }, 'Chegando'));
-      holder.appendChild(h('div', { class: 'tiles' }, tile('calendar', 'Sessões'), tile('wallet', 'Pagamentos'), tile('heart-handshake', 'Meu psicólogo(a)')));
+      holder.appendChild(h('div', { class: 'group-title' }, 'Atalhos'));
+      holder.appendChild(quick());
     }
-
-    Promise.all([API.progress(), API.hasConsent('diary')]).then(function (r) {
-      prog = r[0]; consent = r[1];
-      return consent ? API.diary.list() : [];
-    }).then(function (list) {
-      var t = UI.today();
-      todayEntry = list.filter(function (e) { return e.entry_date === t; })[0] || null;
-      todayMood = todayEntry ? todayEntry.mood : null;
-      draw();
-    }).catch(function (e) { Diag.error('home-paciente', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar agora. Atualize a página.')); });
-
+    function reload() {
+      return load().then(draw).catch(function (e) { Diag.error('home-paciente', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar agora. Atualize a página.')); });
+    }
+    function load() {
+      return Promise.all([API.progress(), API.hasConsent('diary'), safe(API.sharing.mine(), []), safe(API.booking.psychologists(), []), safe(API.booking.mine(), [])]).then(function (r) {
+        D = { prog: r[0], consent: r[1], pros: r[2], psy: r[3], appts: r[4], entries: [], shares: [] };
+        if (!D.consent) return null;
+        return Promise.all([API.diary.list(), safe(API.sharing.entryShares(), [])]).then(function (x) { D.entries = x[0]; D.shares = x[1]; });
+      });
+    }
+    reload();
     return S.shell(ctx, 'inicio', [hello(p), holder]);
   };
 
@@ -343,10 +412,7 @@
     var head = h('div', { class: 'hello' }, UI.avatar(p.full_name, { size: 'lg', level: !isPro && ctx.progress ? ctx.progress.level : null }),
       h('div', { class: 'grow' }, h('div', { class: 'name-big' }, p.full_name), h('div', { class: 'sub' }, p.email)));
 
-    var dados = h('div', { class: 'group' },
-      row('Perfil', S.roleLabel(ctx)), row('Celular', p.phone), row('Nascimento', UI.fmtDate(p.birth_date)),
-      isPro ? h('div', { class: 'item' }, h('span', { class: 't' }, 'CRP'), h('span', { class: 'v' }, pro.crp_region + '/' + pro.crp_number + ' ',
-        pro.verification === 'verified' ? h('span', { class: 'badge ok' }, 'CRP verificado') : h('span', { class: 'badge warn' }, 'Em análise'))) : null);
+    var dados = S.profileGroup(ctx);
 
     /* seguranca */
     var othersT = h('span', { class: 't' }, 'Sair dos outros aparelhos');

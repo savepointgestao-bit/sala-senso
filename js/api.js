@@ -30,7 +30,7 @@
   var listeners = [];
   sb.auth.onAuthStateChange(function (event) { listeners.forEach(function (f) { try { f(event); } catch (e) { /* ignore */ } }); });
 
-  var DIARY_COLS = 'id, entry_date, mood, energy, anxiety, tags, body, updated_at';
+  var DIARY_COLS = 'id, entry_date, period, mood, energy, anxiety, tags, body, updated_at';
 
   window.API = {
     mode: 'live',
@@ -41,7 +41,12 @@
       var meta = { role: role, full_name: d.fullName, doc_version: cfg.docVersion, accept_terms: true, accept_privacy: true };
       if (d.phone) meta.phone = d.phone;
       if (role === 'professional') { meta.crp_region = d.crpRegion; meta.crp_number = d.crpNumber; meta.accept_dpa = true; }
-      else { meta.birth_date = d.birthDate; meta.accept_health_data = true; }
+      else {
+        meta.birth_date = d.birthDate; meta.accept_health_data = true;
+        if (d.guardianName) meta.guardian_name = d.guardianName;
+        if (d.guardianPhone) meta.guardian_phone = d.guardianPhone;
+        if (d.inviteCode) { meta.invite_code = d.inviteCode; meta.accept_link = !!d.acceptLink; }
+      }
       return sb.auth.signUp({ email: d.email.trim(), password: d.password, options: { data: meta, emailRedirectTo: redirect() } })
         .then(function (r) { if (r.error) throw wrap(r.error); return { needsConfirmation: !(r.data && r.data.session) }; });
     },
@@ -83,6 +88,7 @@
           hasPassword: ids.some(function (i) { return i.provider === 'email'; }) || !ids.length,
           providers: ids.map(function (i) { return i.provider; }).filter(function (x) { return x === 'google' || x === 'azure'; }),
           name: String(md.full_name || md.name || '').slice(0, 120),
+          confirmedAt: u.email_confirmed_at || null,
           roleHint: roleHint()
         };
       });
@@ -115,12 +121,28 @@
     },
     resetPassword: function (email) { return sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: redirect() }).then(ok).then(function () { return true; }); },
     updatePassword: function (pw) { return sb.auth.updateUser({ password: pw }).then(ok).then(function () { return true; }); },
+    /* Trocar o e-mail: o Supabase manda um link de confirmacao para o endereco novo (e para o antigo, se a opcao estiver ligada).
+       O e-mail so muda de verdade quando a pessoa clica no link. */
+    updateEmail: function (email) { return sb.auth.updateUser({ email: email.trim() }, { emailRedirectTo: redirect() }).then(ok).then(function () { return true; }); },
+    /* Dados da propria conta: nome, celular, nascimento e responsavel (so o que vier preenchido muda). O banco confere:
+       paciente nao deixa o nascimento em branco e, sendo menor de 18 anos, precisa do responsavel. */
+    updateProfile: function (d) {
+      var row = {};
+      if (d.fullName != null) row.full_name = d.fullName;
+      if (d.phone !== undefined) row.phone = d.phone ? d.phone : null;
+      if (d.birthDate) row.birth_date = d.birthDate;
+      if (d.guardianName !== undefined) row.guardian_name = d.guardianName ? d.guardianName : null;
+      if (d.guardianPhone !== undefined) row.guardian_phone = d.guardianPhone ? d.guardianPhone : null;
+      return sb.auth.getUser().then(ok).then(function (r) {
+        return sb.from('profiles').update(row).eq('id', r.user.id).select('id').single();
+      }).then(ok).then(function () { return true; });
+    },
 
     me: function () {
       return sb.auth.getUser().then(function (u) {
         if (!u.data || !u.data.user) return null;
         return Promise.all([
-          sb.from('profiles').select('id, role, full_name, email, phone, birth_date').eq('id', u.data.user.id).maybeSingle(),
+          sb.from('profiles').select('id, role, full_name, email, phone, birth_date, guardian_name, guardian_phone').eq('id', u.data.user.id).maybeSingle(),
           sb.from('professionals').select('crp_region, crp_number, verification').eq('id', u.data.user.id).maybeSingle()
         ]).then(function (r) {
           if (r[0].error) throw wrap(r[0].error);
@@ -137,7 +159,12 @@
       var data = { role: role, full_name: d.fullName, doc_version: cfg.docVersion, accept_terms: true, accept_privacy: true };
       if (d.phone) data.phone = d.phone;
       if (role === 'professional') { data.crp_region = d.crpRegion; data.crp_number = d.crpNumber; data.accept_dpa = true; }
-      else { data.birth_date = d.birthDate; data.accept_health_data = true; }
+      else {
+        data.birth_date = d.birthDate; data.accept_health_data = true;
+        if (d.guardianName) data.guardian_name = d.guardianName;
+        if (d.guardianPhone) data.guardian_phone = d.guardianPhone;
+        if (d.inviteCode) { data.invite_code = d.inviteCode; data.accept_link = !!d.acceptLink; }
+      }
       return sb.rpc('complete_signup', { p_data: data }).then(ok).then(function () {
         var s = ses(); try { if (s) s.removeItem(ROLE); } catch (e) { /* ignore */ }
         return true;
@@ -209,19 +236,107 @@
         return sb.from('diary_entries_read').select(DIARY_COLS).order('entry_date', { ascending: false }).order('created_at', { ascending: false }).limit(300).then(ok);
       },
       get: function (id) { return sb.from('diary_entries_read').select(DIARY_COLS).eq('id', id).maybeSingle().then(ok); },
+      /* Grava pelo banco (save_diary_entry): periodo (manha, tarde, noite ou o dia todo), compartilhamento e XP ficam numa funcao so.
+         e.share: true compartilha com os psicologos vinculados; false nao; ausente segue o "compartilhar automatico". */
       save: function (e) {
-        var row = { entry_date: e.entry_date, mood: e.mood, energy: e.energy, anxiety: e.anxiety, tags: e.tags || [], body: e.body || '' };
-        var q = e.id ? sb.from('diary_entries').update(row).eq('id', e.id) : sb.from('diary_entries').insert(row);
-        return q.select('id').single().then(ok).then(function (r) {
-          return sb.from('diary_entries_read').select(DIARY_COLS).eq('id', r.id).single().then(ok);
-        });
+        return sb.rpc('save_diary_entry', { p_date: e.entry_date, p_period: e.period || null, p_mood: e.mood == null ? null : e.mood, p_energy: e.energy == null ? null : e.energy,
+          p_anxiety: e.anxiety == null ? null : e.anxiety, p_tags: e.tags || [], p_body: e.body || '', p_id: e.id || null, p_share: e.share == null ? null : !!e.share })
+          .then(ok).then(function (r) {
+            return sb.from('diary_entries_read').select(DIARY_COLS).eq('id', r.id).single().then(ok).then(function (row) { row.created = !!r.created; return row; });
+          });
       },
+      /* Humor de cada dia: a media dos periodos registrados (com um so, e o proprio humor). */
+      moodDays: function (days) { return sb.rpc('my_mood_days', { p_days: days || 30 }).then(ok); },
       remove: function (id) { return sb.from('diary_entries').delete().eq('id', id).then(ok).then(function () { return true; }); }
     },
 
-    /* psicologo: acompanhamento dos pacientes vinculados (nivel e check-in; nunca texto do diario). O banco confere tudo de novo. */
+    /* Link unico do psicologo. info e aberta a todos (so nome e CRP); o resto exige conta. */
+    invite: {
+      info: function (code) { return sb.rpc('invite_info', { p_code: String(code || '') }).then(ok); },
+      mine: function () { return sb.rpc('my_invite_link').then(ok); },
+      regenerate: function () { return sb.rpc('regenerate_invite_link').then(ok); },
+      setEnabled: function (on) { return sb.rpc('set_invite_enabled', { p_on: !!on }).then(ok); },
+      /* Paciente que ja tem conta: devolve { ok, error?, name? } (erros: patients_only, consent_required, invalid_code, already_linked). */
+      use: function (code, accept) { return sb.rpc('use_invite_link', { p_code: String(code || ''), p_accept: !!accept }).then(ok); }
+    },
+
+    /* Paciente: com quem compartilha o diario. share liga ou desliga UMA anotacao; setAuto liga o "compartilhar as novas automaticamente". */
+    sharing: {
+      mine: function () { return sb.rpc('my_sharing').then(ok); },
+      setAuto: function (professionalId, on) { return sb.rpc('set_diary_auto_share', { p_professional: professionalId, p_on: !!on }).then(ok).then(function () { return true; }); },
+      share: function (entryId, professionalId, shared) { return sb.rpc('share_entry', { p_entry: entryId, p_professional: professionalId, p_shared: !!shared }).then(ok).then(function () { return true; }); },
+      entryShares: function () { return sb.from('diary_shares').select('entry_id, professional_id').limit(2000).then(ok); },
+      unlink: function (professionalId) { return sb.rpc('unlink_professional', { p_professional: professionalId }).then(ok).then(function () { return true; }); }
+    },
+
+    /* psicologo: acompanhamento, pacientes (com ou sem conta), relatorio, aniversarios, avaliacoes e WhatsApp. O banco confere tudo de novo. */
     pro: {
-      overview: function (days) { return sb.rpc('pro_patients_overview', { p_days: days || 30 }).then(ok); }
+      overview: function (days) { return sb.rpc('pro_patients_overview', { p_days: days || 30 }).then(ok); },
+      sharedEntries: function (recordId, days) { return sb.rpc('pro_shared_entries', { p_record: recordId, p_days: days || 90 }).then(ok); },
+      linkedPatients: function () { return sb.rpc('pro_linked_patients').then(ok); },
+      unlinkPatient: function (recordId) { return sb.rpc('unlink_patient', { p_record: recordId }).then(ok).then(function () { return true; }); },
+      patients: function () { return sb.rpc('pro_patient_list').then(ok); },
+      /* d = { id (vazio = novo), name, phone, email, birth ('AAAA-MM-DD'), guardianName, guardianPhone }. Devolve o id da ficha. */
+      savePatient: function (d) {
+        return sb.rpc('pro_save_patient', { p_record: d.id || null, p_name: d.name, p_phone: d.phone || null, p_email: d.email || null, p_birth: d.birth || null,
+          p_guardian_name: d.guardianName || null, p_guardian_phone: d.guardianPhone || null }).then(ok);
+      },
+      /* o psicologo confere (on = true) ou desfaz a conferencia do cadastro de um paciente */
+      setVerified: function (recordId, on) { return sb.rpc('pro_set_record_verified', { p_record: recordId, p_verified: on !== false }).then(ok).then(function () { return true; }); },
+      setGuardianAuth: function (recordId, on) { return sb.rpc('pro_set_guardian_authorization', { p_record: recordId, p_authorized: !!on }).then(ok).then(function () { return true; }); },
+      birthdays: function (days) { return sb.rpc('pro_birthdays', { p_days: days || 30 }).then(ok); },
+      report: function (recordId, days) { return sb.rpc('pro_patient_report', { p_record: recordId, p_days: days || 90 }).then(ok); },
+      reviews: function () { return sb.rpc('pro_reviews').then(ok); },
+      contact: function () { return sb.rpc('pro_contact_get').then(ok); },
+      saveContact: function (enabled, phone) { return sb.rpc('pro_contact_save', { p_enabled: !!enabled, p_phone: phone || null }).then(ok); }
+    },
+
+    /* psicologo: agenda (horarios de atendimento, bloqueios, pedidos e consultas) */
+    agenda: {
+      get: function () { return sb.rpc('agenda_get').then(ok); },
+      save: function (p) { return sb.rpc('agenda_save', { p: p }).then(ok).then(function () { return true; }); },
+      blockAdd: function (startIso, endIso, reason) { return sb.rpc('agenda_block_add', { p_start: startIso, p_end: endIso, p_reason: reason || null }).then(ok); },
+      blockRemove: function (id) { return sb.rpc('agenda_block_remove', { p_id: id }).then(ok).then(function () { return true; }); },
+      view: function (fromYmd, toYmd) { return sb.rpc('pro_agenda', { p_from: fromYmd, p_to: toYmd }).then(ok); },
+      /* d = { recordId, startsAt, duration, mode, priceCents, meetingUrl } */
+      create: function (d) {
+        return sb.rpc('pro_create_appointment', { p_record: d.recordId, p_starts_at: d.startsAt, p_duration: d.duration || null, p_mode: d.mode || 'in_person',
+          p_price_cents: d.priceCents == null ? null : d.priceCents, p_meeting_url: d.meetingUrl || null }).then(ok);
+      },
+      update: function (id, d) {
+        return sb.rpc('pro_update_appointment', { p_id: id, p_starts_at: d.startsAt || null, p_duration: d.duration || null, p_mode: d.mode || null,
+          p_price_cents: d.priceCents == null ? null : d.priceCents, p_meeting_url: d.meetingUrl == null ? null : d.meetingUrl }).then(ok).then(function () { return true; });
+      },
+      setStatus: function (id, status, reason) { return sb.rpc('pro_set_appointment_status', { p_id: id, p_status: status, p_reason: reason || null }).then(ok).then(function () { return true; }); },
+      /* action: 'approve' | 'decline' | 'propose' (propose leva o novo horario em newStartsAt) */
+      respond: function (id, action, newStartsAt, reason) {
+        return sb.rpc('pro_respond_request', { p_id: id, p_action: action, p_new_starts_at: newStartsAt || null, p_reason: reason || null }).then(ok).then(function () { return true; });
+      },
+      markPaid: function (id, paid, method) { return sb.rpc('pro_mark_paid', { p_id: id, p_paid: !!paid, p_method: method || null }).then(ok).then(function () { return true; }); }
+    },
+
+    /* paciente: ver horarios, pedir consulta, responder sugestao, cancelar, avaliar */
+    booking: {
+      psychologists: function () { return sb.rpc('my_psychologists').then(ok); },
+      info: function (professionalId) { return sb.rpc('booking_info', { p_professional: professionalId }).then(ok); },
+      slots: function (professionalId, fromYmd, days) { return sb.rpc('available_slots', { p_professional: professionalId, p_from: fromYmd || null, p_days: days || 14 }).then(ok); },
+      request: function (professionalId, startsAt, mode, note) {
+        return sb.rpc('request_appointment', { p_professional: professionalId, p_starts_at: startsAt, p_mode: mode || 'in_person', p_note: note || null }).then(ok);
+      },
+      respond: function (id, accept) { return sb.rpc('respond_proposal', { p_id: id, p_accept: !!accept }).then(ok).then(function () { return true; }); },
+      cancel: function (id) { return sb.rpc('cancel_my_appointment', { p_appointment: id }).then(ok).then(function () { return true; }); },
+      mine: function () { return sb.rpc('my_appointments').then(ok); },
+      review: function (id, stars, liked, suggestion) {
+        return sb.rpc('submit_review', { p_appointment: id, p_stars: stars, p_liked: liked || null, p_suggestion: suggestion || null }).then(ok).then(function () { return true; });
+      }
+    },
+
+    /* central de avisos (sininho). O psicologo escolhe o que quer receber; o paciente recebe tudo. */
+    notify: {
+      list: function (limit) { return sb.rpc('my_notifications', { p_limit: limit || 30 }).then(ok); },
+      markRead: function (ids) { return sb.rpc('mark_notifications_read', { p_ids: ids && ids.length ? ids : null }).then(ok).then(function () { return true; }); },
+      prefs: function () { return sb.rpc('my_notification_prefs').then(ok); },
+      setPrefs: function (off) { return sb.rpc('set_notification_prefs', { p_off: off || [] }).then(ok).then(function () { return true; }); }
     },
 
     exportMyData: function () { return sb.rpc('export_my_data').then(ok); },

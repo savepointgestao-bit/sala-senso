@@ -17,8 +17,10 @@
     if (c === '429' || /rate.?limit|too many/i.test(c + m)) return 'Muitas tentativas. Espere alguns minutos.';
     if (c === 'weak_password' || /weak|password should/i.test(c + m)) return 'Senha fraca. Use 10 ou mais caracteres, com letras e números.';
     if (/failed to fetch|network|load failed/i.test(m)) return 'Sem conexão. Verifique a internet e tente de novo.';
-    if (/database error saving new user/i.test(m)) return 'Não foi possível criar a conta. Confira o CRP ou a data de nascimento.';
-    if (/adult_required/.test(m)) return 'Cadastro só para maiores de 18 anos. Peça um convite ao seu psicólogo(a).';
+    if (/database error saving new user/i.test(m)) return 'Não foi possível criar a conta. Confira os dados: nome completo, celular, data de nascimento e, para menores de 18 anos, o responsável.';
+    if (/guardian_required|guardian_invalid/.test(m)) return 'Para menores de 18 anos, informe o nome e o celular de um responsável.';
+    if (/birth_date_required|birth_date_invalid/.test(m)) return 'Confira a data de nascimento.';
+    if (/phone_invalid/.test(m)) return 'Confira o número de celular.';
     if (/consent_required/.test(m)) return 'Aceite os termos para continuar.';
     if (/full_name_invalid/.test(m)) return 'Digite seu nome completo.';
     if (c === '23505' || /duplicate key|professionals_crp_unique/i.test(m)) return 'Já existe uma conta com esse CRP. Fale com o suporte.';
@@ -57,6 +59,8 @@
   }
   function statusIcon(icon, kind) { return h('div', { class: 'status-ico' + (kind ? ' ' + kind : '') }, UI.svg(icon, 30)); }
   function legalLink(slug, text) { return h('a', { href: '#/legal/' + slug, target: '_blank', rel: 'noopener' }, text); }
+  S.authPage = authPage;
+  S.statusIcon = statusIcon;
 
   /* ---------------------------------------------------------------- entrar com Google ou Microsoft */
   function mark(kind) {
@@ -223,57 +227,30 @@
 
   /* ---------------------------------------------------------------- cadastro do paciente */
   S.signupPatient = function () {
-    var today = new Date().toISOString().slice(0, 10);
-    var name = UI.field({ label: 'Nome completo', autocomplete: 'name', required: true, autocapitalize: 'words', maxlength: 120 });
-    var birth = UI.field({ label: 'Data de nascimento', type: 'date', autocomplete: 'bday', required: true, max: today, min: '1900-01-01' });
-    var minorBox = h('div', { class: 'hide' }, UI.notice('info', h('span', null, h('b', null, 'Cadastro só para maiores de 18 anos. '), 'Peça um convite ao seu psicólogo(a).')));
+    var pf = S.patientForm({ code: S.invite.get() });
     var email = UI.field({ label: 'E-mail', type: 'email', autocomplete: 'email', inputmode: 'email', required: true });
     var pw = UI.field({ label: 'Senha', type: 'password', autocomplete: 'new-password', toggle: true, required: true });
     var meter = UI.strengthMeter(function () { return email.value(); });
     pw.input.addEventListener('input', function () { meter.update(pw.value()); });
-    var terms = UI.checkbox({ label: h('span', null, 'Aceito os ', legalLink('termos-paciente', 'Termos de Uso'), ' e a ', legalLink('privacidade', 'Política de Privacidade'), '.') });
-    var health = UI.checkbox({ label: 'Autorizo o uso dos meus dados de saúde no portal.' });
     var general = h('div', { 'aria-live': 'polite' });
     var btn = UI.button('Criar conta', { type: 'submit' });
-
-    function checkAge() {
-      var a = UI.ageFrom(birth.value());
-      var minor = a !== null && a < 18;
-      minorBox.classList.toggle('hide', !minor);
-      btn.disabled = minor;
-      return minor;
-    }
-    birth.input.addEventListener('change', checkAge);
-    birth.input.addEventListener('input', checkAge);
 
     var form = h('form', { novalidate: true, onsubmit: function (ev) {
       ev.preventDefault();
       general.textContent = '';
-      var firstBad = null;
-      function bad(f, msg) { f.setError(msg); if (!firstBad) firstBad = f.input; }
-      if (name.value().trim().split(/\s+/).length < 2 || name.value().trim().length < 3) bad(name, 'Digite nome e sobrenome.');
-      var age = UI.ageFrom(birth.value());
-      if (age === null || age > 120) bad(birth, 'Informe sua data de nascimento.');
-      else if (age < 18) { checkAge(); if (!firstBad) firstBad = birth.input; }
-      if (!UI.emailValid(email.value())) bad(email, 'Digite um e-mail válido.');
-      if (!UI.passwordCheck(pw.value(), email.value()).valid) bad(pw, 'A senha ainda não atende aos requisitos.');
-      if (!terms.checked()) { terms.setError('Aceite os Termos e a Política para continuar.'); if (!firstBad) firstBad = terms.input; }
-      if (!health.checked()) { health.setError('Sem essa autorização não dá para criar a conta.'); if (!firstBad) firstBad = health.input; }
-      if (firstBad) { firstBad.focus(); return; }
+      var r = pf.collect(), bads = r.bads.slice();
+      if (!UI.emailValid(email.value())) { email.setError('Digite um e-mail válido.'); bads.push(email.input); }
+      if (!UI.passwordCheck(pw.value(), email.value()).valid) { pw.setError('A senha ainda não atende aos requisitos.'); bads.push(pw.input); }
+      if (S.focusFirst(bads)) return;
       UI.busy(btn, true);
-      API.signUp('patient', { fullName: name.value().trim(), email: email.value().trim(), birthDate: birth.value(), password: pw.value() })
-        .then(function () { Diag.log('signup:paciente:ok'); go('#/confirmar-email?' + qs({ email: email.value().trim() })); })
+      API.signUp('patient', Object.assign({ email: email.value().trim(), password: pw.value() }, r.data))
+        .then(function () { Diag.log('signup:paciente:ok'); S.invite.clear(); go('#/confirmar-email?' + qs({ email: email.value().trim() })); })
         .catch(function (e) { UI.busy(btn, false); general.appendChild(UI.notice('bad', friendly(e) || unexpected('signup-pat', e))); });
     } },
-      name.el, birth.el, minorBox, email.el, pw.el, meter.el,
-      terms.el, health.el,
-      h('div', { class: 'consent-box' }, h('details', null, h('summary', null, 'Sobre seus dados de saúde'),
-        h('p', null, 'Guardamos a agenda das suas sessões, seus pagamentos e, se você usar, seu diário. Isso indica que você faz acompanhamento psicológico, por isso são dados de saúde.'),
-        h('p', null, 'Usamos só para o portal funcionar. Não vendemos nem fazemos anúncios. Você pode baixar uma cópia ou apagar a conta quando quiser.'))),
-      general, btn);
+      pf.parts.identity, email.el, pw.el, meter.el, pf.parts.invite, pf.parts.consent, general, btn);
 
     var socialPat = oauthBlock({ role: 'patient' });
-    return authPage([h('h1', null, 'Cadastro de paciente'), socialPat, socialPat ? sep('ou preencha com e-mail') : null, form], { back: { href: '#/criar-conta', text: 'Voltar' } });
+    return authPage([h('h1', null, 'Cadastro de paciente'), h('p', { class: 'lead' }, 'Leva 1 minuto. Só pedimos o essencial.'), socialPat, socialPat ? sep('ou preencha com e-mail') : null, form], { back: { href: '#/criar-conta', text: 'Voltar' } });
   };
 
   /* ---------------------------------------------------------------- completar cadastro (depois de entrar com Google ou Microsoft) */
@@ -281,7 +258,6 @@
     var acct = ctx.auth || {};
     var provider = (acct.providers || [])[0] === 'azure' ? 'Microsoft' : ((acct.providers || [])[0] === 'google' ? 'Google' : '');
     var role = acct.roleHint || null;
-    var today = new Date().toISOString().slice(0, 10);
 
     var roleSeg = UI.segmented({ label: 'Tipo de conta', value: role, options: [['professional', 'Sou psicólogo(a)'], ['patient', 'Sou paciente']], onChange: function (v) { role = v; roleErr.classList.add('hide'); drawRole(); } });
     var roleErr = h('div', { class: 'err hide', role: 'alert' }, 'Escolha o tipo de conta.');
@@ -294,61 +270,38 @@
     var termsPro = UI.checkbox({ label: h('span', null, 'Aceito os ', legalLink('termos-profissional', 'Termos de Uso'), ' e a ', legalLink('privacidade', 'Política de Privacidade'), '.') });
     var dpa = UI.checkbox({ label: h('span', null, 'Aceito o ', legalLink('contrato-dados', 'Contrato de Tratamento de Dados'), ', como responsável pelos dados dos meus pacientes.') });
     /* paciente */
-    var birth = UI.field({ label: 'Data de nascimento', type: 'date', autocomplete: 'bday', required: true, max: today, min: '1900-01-01' });
-    var minorBox = h('div', { class: 'hide' }, UI.notice('info', h('span', null, h('b', null, 'Cadastro só para maiores de 18 anos. '), 'Peça um convite ao seu psicólogo(a).')));
-    var termsPat = UI.checkbox({ label: h('span', null, 'Aceito os ', legalLink('termos-paciente', 'Termos de Uso'), ' e a ', legalLink('privacidade', 'Política de Privacidade'), '.') });
-    var health = UI.checkbox({ label: 'Autorizo o uso dos meus dados de saúde no portal.' });
+    var pf = S.patientForm({ nameField: name, code: S.invite.get() });
 
     var proBox = h('div', { class: 'hide' }, phone.el, crp.el,
       UI.notice('info', 'Conferimos seu CRP em até 1 dia útil. Depois do primeiro acesso, recomendamos ativar a verificação em duas etapas.'), termsPro.el, dpa.el);
-    var patBox = h('div', { class: 'hide' }, birth.el, minorBox, termsPat.el, health.el,
-      h('div', { class: 'consent-box' }, h('details', null, h('summary', null, 'Sobre seus dados de saúde'),
-        h('p', null, 'Guardamos a agenda das suas sessões, seus pagamentos e, se você usar, seu diário. Isso indica que você faz acompanhamento psicológico, por isso são dados de saúde.'),
-        h('p', null, 'Usamos só para o portal funcionar. Não vendemos nem fazemos anúncios. Você pode baixar uma cópia ou apagar a conta quando quiser.'))));
+    var patBox = h('div', { class: 'hide' }, pf.parts.identity, pf.parts.invite, pf.parts.consent);
     var general = h('div', { 'aria-live': 'polite' });
     var btn = UI.button('Concluir cadastro', { type: 'submit' });
 
-    function checkAge() {
-      var a = UI.ageFrom(birth.value());
-      var minor = a !== null && a < 18;
-      minorBox.classList.toggle('hide', !minor);
-      btn.disabled = role === 'patient' && minor;
-      return minor;
-    }
-    birth.input.addEventListener('change', checkAge);
-    birth.input.addEventListener('input', checkAge);
     function drawRole() {
       proBox.classList.toggle('hide', role !== 'professional');
       patBox.classList.toggle('hide', role !== 'patient');
-      btn.disabled = false;
-      if (role === 'patient') checkAge();
     }
 
     var form = h('form', { novalidate: true, onsubmit: function (ev) {
       ev.preventDefault();
       general.textContent = '';
-      var firstBad = null;
-      function bad(f) { if (!firstBad) firstBad = f.input; }
+      var bads = [], data;
       if (!role) { roleErr.classList.remove('hide'); roleSeg.el.querySelector('button').focus(); return; }
-      if (name.value().trim().split(/\s+/).length < 2 || name.value().trim().length < 3) { name.setError('Digite nome e sobrenome.'); bad(name); }
-      var data = { fullName: name.value().trim() };
       if (role === 'professional') {
+        if (name.value().trim().split(/\s+/).length < 2 || name.value().trim().length < 3) { name.setError('Digite nome e sobrenome.'); bads.push(name.input); }
+        data = { fullName: name.value().trim() };
         var c = UI.parseCrp(crp.value());
-        if (!c) { crp.setError('CRP inválido. Use região de 01 a 24 e o número, como 06/123456.'); bad(crp); } else { data.crpRegion = c.region; data.crpNumber = c.number; }
+        if (!c) { crp.setError('CRP inválido. Use região de 01 a 24 e o número, como 06/123456.'); bads.push(crp.input); } else { data.crpRegion = c.region; data.crpNumber = c.number; }
         data.phone = phone.value().trim();
-        if (!termsPro.checked()) { termsPro.setError('Aceite os Termos e a Política para continuar.'); bad(termsPro); }
-        if (!dpa.checked()) { dpa.setError('Aceite o Contrato para continuar.'); bad(dpa); }
+        if (!termsPro.checked()) { termsPro.setError('Aceite os Termos e a Política para continuar.'); bads.push(termsPro.input); }
+        if (!dpa.checked()) { dpa.setError('Aceite o Contrato para continuar.'); bads.push(dpa.input); }
       } else {
-        var age = UI.ageFrom(birth.value());
-        if (age === null || age > 120) { birth.setError('Informe sua data de nascimento.'); bad(birth); }
-        else if (age < 18) { checkAge(); bad(birth); }
-        data.birthDate = birth.value();
-        if (!termsPat.checked()) { termsPat.setError('Aceite os Termos e a Política para continuar.'); bad(termsPat); }
-        if (!health.checked()) { health.setError('Sem essa autorização não dá para criar a conta.'); bad(health); }
+        var r = pf.collect(); data = r.data; bads = r.bads;
       }
-      if (firstBad) { firstBad.focus(); return; }
+      if (S.focusFirst(bads)) return;
       UI.busy(btn, true);
-      API.completeSignup(role, data).then(function () { Diag.log('signup:completo:' + role); go('#/inicio'); })
+      API.completeSignup(role, data).then(function () { Diag.log('signup:completo:' + role); S.invite.clear(); go('#/inicio'); })
         .catch(function (e) {
           UI.busy(btn, false);
           if (/already_completed/.test(String((e && e.message) || ''))) { go('#/inicio'); return; }
@@ -433,7 +386,7 @@
       ev.preventDefault(); general.textContent = '';
       if (!UI.passwordCheck(pw.value(), '').valid) { pw.setError('A senha ainda não atende aos requisitos.'); pw.input.focus(); return; }
       UI.busy(btn, true);
-      API.updatePassword(pw.value()).then(function () { if (window.Idle) window.Idle.fresh(); UI.toast('Senha alterada.', 'circle-check'); go('#/inicio'); })
+      API.updatePassword(pw.value()).then(function () { if (window.Idle) window.Idle.fresh(); go('#/senha-alterada'); })
         .catch(function (e) { UI.busy(btn, false); general.appendChild(UI.notice('bad', friendly(e) || unexpected('reset', e))); });
     } }, pw.el, meter.el, general, btn);
     return authPage([h('h1', null, 'Nova senha'), form], q.interna ? { back: { href: '#/conta', text: 'Conta' } } : {});

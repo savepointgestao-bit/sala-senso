@@ -43,6 +43,38 @@
     'completar-cadastro': 'Completar cadastro', 'ativar-2fa': 'Verificação em duas etapas'
   };
 
+  /* Rotas da area logada. who: quem pode abrir ('patient', 'professional' ou 'any'). build recebe (ctx, query, match). */
+  function screen(name) {
+    return function () {
+      var f = S[name];
+      if (typeof f !== 'function') return null;
+      return f.apply(S, arguments);
+    };
+  }
+  var ROUTES = [
+    { re: /^inicio$/, who: 'any', title: 'Início', build: function (ctx) { return ctx.me.profile.role === 'professional' ? S.homeProfessional(ctx) : S.homePatient(ctx); } },
+    { re: /^conta$/, who: 'any', title: 'Conta', build: function (ctx) { return S.account(ctx); } },
+    { re: /^diario$/, who: 'patient', title: 'Diário', build: function (ctx) { return S.diary(ctx); } },
+    { re: /^diario\/([A-Za-z0-9-]+)$/, who: 'patient', title: function (m) { return m[1] === 'novo' ? 'Novo registro' : 'Editar registro'; },
+      build: function (ctx, q, m) { return S.diaryEditor(ctx, m[1] === 'novo' ? null : m[1]); } },
+    { re: /^consultas$/, who: 'patient', title: 'Consultas', build: function (ctx, q) { return S.appointments(ctx, q); } },
+    { re: /^psicologo$/, who: 'patient', title: 'Meu psicólogo(a)', build: function (ctx) { return S.myPsychologist(ctx); } },
+    { re: /^lab$/, who: 'patient', title: 'Lab', build: function (ctx) { return S.lab(ctx); } },
+    { re: /^ajuda$/, who: 'patient', title: 'Preciso de ajuda', build: screen('help') },
+    { re: /^pacientes$/, who: 'professional', title: 'Pacientes', build: function (ctx, q) { return screen('patients')(ctx, q); } },
+    { re: /^pacientes\/([A-Za-z0-9-]+)$/, who: 'professional', title: 'Ficha do paciente', build: function (ctx, q, m) { return screen('patientFile')(ctx, m[1], q); } },
+    { re: /^agenda$/, who: 'professional', title: 'Agenda', build: function (ctx, q) { return screen('agenda')(ctx, q); } },
+    { re: /^avaliacoes$/, who: 'professional', title: 'Avaliações', build: function (ctx) { return screen('proReviews')(ctx); } },
+    { re: /^atendimento$/, who: 'professional', title: 'Atendimento', build: function (ctx) { return screen('service')(ctx); } }
+  ];
+  function matchRoute(path) {
+    for (var i = 0; i < ROUTES.length; i++) {
+      var m = ROUTES[i].re.exec(path);
+      if (m) return { r: ROUTES[i], m: m };
+    }
+    return null;
+  }
+
   /* ---------------------------------------------------------------- saida por inatividade
      Psicologo: sempre. Paciente: so se nao marcou "Manter conectado". A ultima atividade fica no aparelho (vale entre abas),
      entao fechar o navegador e voltar depois do limite tambem sai. */
@@ -124,7 +156,7 @@
     var my = ++token;
     var r = parse();
     var path = r.path, q = r.q;
-    var isOpen = path === 'suporte' || path.indexOf('legal/') === 0;
+    var isOpen = path === 'suporte' || path === 'convite' || path.indexOf('legal/') === 0;
 
     document.getElementById('demo-banner').classList.toggle('hide', API.mode !== 'demo');
     Diag.log('rota:' + (path || 'raiz'));
@@ -146,10 +178,17 @@
       /* Telas abertas a todos: suporte e textos legais. Se ha sessao completa, usam a moldura logada. */
       if (isOpen) {
         var build = function (ctx) {
+          if (path === 'convite') return mount(S.inviteLanding(ctx, q), 'Convite');
           mount(path === 'suporte' ? S.support(ctx, q) : S.legal(ctx, path.slice(6)), path === 'suporte' ? 'Suporte' : 'Documento');
         };
         if (!sess) return build(null);
         return loadContext().then(function (c) { if (my !== token) return; build(c.me && c.mfaOk ? c : null); });
+      }
+
+      /* Senha trocada: aviso depois da nova senha. */
+      if (path === 'senha-alterada') {
+        if (!sess) { location.hash = '#/entrar'; return; }
+        return mount(S.passwordDone(), 'Senha alterada');
       }
 
       /* Nova senha: precisa de sessao (vinda do link do e-mail ou da conta). */
@@ -167,8 +206,8 @@
 
       /* Daqui para baixo: area logada. */
       if (!sess) { location.hash = '#/entrar'; return; }
-      var isDiary = path === 'diario' || /^diario\/[A-Za-z0-9-]+$/.test(path);
-      if (['inicio', 'conta', 'equipe', 'completar-cadastro', 'ativar-2fa'].indexOf(path) < 0 && !isDiary) { location.hash = '#/inicio'; return; }
+      var found = matchRoute(path);
+      if (['equipe', 'completar-cadastro', 'ativar-2fa'].indexOf(path) < 0 && !found) { location.hash = '#/inicio'; return; }
 
       return loadContext().then(function (ctx) {
         if (my !== token) return;
@@ -192,15 +231,14 @@
           if (!ctx.admin || ctx.mode !== 'admin') { location.hash = '#/inicio'; return; }
           return mount(S.team(ctx), TITLES.equipe);
         }
-        if (path === 'conta') return mount(S.account(ctx), TITLES.conta);
-        if (isDiary) {
-          if (pro) { location.hash = '#/inicio'; return; }
-          if (path === 'diario') return mount(S.diary(ctx), TITLES.diario);
-          var rest = path.slice(7);
-          return mount(S.diaryEditor(ctx, rest === 'novo' ? null : rest), rest === 'novo' ? 'Novo registro' : 'Editar registro');
-        }
-        if (pro) return mount(S.homeProfessional(ctx), TITLES.inicio);
-        return mount(S.homePatient(ctx), TITLES.inicio);
+        /* Equipe no modo Administrador so usa Equipe, Conta e Suporte; as telas de psicologo e de paciente ficam para os outros modos. */
+        if (ctx.admin && ctx.mode === 'admin' && path !== 'conta') { location.hash = '#/equipe'; return; }
+        if (!found) { location.hash = '#/inicio'; return; }
+        var rt = found.r;
+        if ((rt.who === 'patient' && pro) || (rt.who === 'professional' && !pro)) { location.hash = '#/inicio'; return; }
+        var node = rt.build(ctx, q, found.m);
+        if (!node) { location.hash = '#/inicio'; return; }
+        return mount(node, typeof rt.title === 'function' ? rt.title(found.m) : rt.title);
       });
     }).catch(function (e) {
       if (my !== token) return;

@@ -5,6 +5,8 @@ window.PSI_CONFIG = {
   supabaseUrl: 'https://ycdonordctlxpfthvhzs.supabase.co',
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljZG9ub3JkY3RseHBmdGh2aHpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1OTE0MDcsImV4cCI6MjEwODE2NzQwN30.bTgRBL778jbRiUKdY3oyZCBviu-SMmgOsFZuePXmKHU',
   appName: 'Senso',
+  /* Endereco publico do portal (usado no link de convite dentro do app e quando o portal roda fora de http). Troque quando houver dominio proprio. */
+  portalUrl: 'https://savepointgestao-bit.github.io/sala-senso/',
   docVersion: '0.1',
   /* Saida automatica por inatividade, em minutos. Psicólogo sempre; paciente só se não marcou "Manter conectado". 0 desliga. */
   idleMinutes: { professional: 20, patient: 60 },
