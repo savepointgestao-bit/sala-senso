@@ -1,5 +1,5 @@
 /* Psicólogo: agenda (pedidos para aprovar, semana, fechar dias e horas, horários de atendimento), marcar consulta direto,
-   avaliações anônimas e a tela Atendimento (WhatsApp, avisos que quer receber, link de convite). */
+   avaliações anônimas e a tela Atendimento (WhatsApp, avisos que quer receber, link de cadastro). */
 (function () {
   'use strict';
   var h = UI.h;
@@ -321,7 +321,7 @@
         if (r && r.conflicts) general.appendChild(UI.notice('warn', r.conflicts === 1 ? 'Atenção: 1 consulta já marcada cai nesse período. Ela não foi cancelada. Remarque ou cancele na aba Agenda.' : 'Atenção: ' + r.conflicts + ' consultas já marcadas caem nesse período. Elas não foram canceladas. Remarque ou cancele na aba Agenda.'));
         loadList();
       }).catch(function (er) { UI.busy(btn, false); Diag.error('fechar-horarios', er); general.appendChild(UI.notice('bad', UI.errorText(er, 'Não foi possível fechar agora.'))); });
-    } }, h('h2', null, 'Fechar um período'), h('p', { class: 'muted small' }, 'Férias, feriado, um compromisso. Os pacientes deixam de ver esses horários para pedir consulta.'),
+    } }, h('h2', null, 'Fechar um período'), h('p', { class: 'muted small' }, 'Férias, feriado, um compromisso. Os pacientes deixam de ver esses horários para marcar consulta.'),
       h('div', { class: 'field' }, h('div', { class: 'lbl' }, 'O que fechar'), seg.el), h('div', { class: 'grid2' }, from.el, to.el), times, reason.el, general, btn);
     function loadList() {
       API.agenda.get().then(function (g) {
@@ -495,9 +495,9 @@
     return node;
   };
 
-  /* ---------------------------------------------------------------- Atendimento: WhatsApp, avisos e link de convite */
+  /* ---------------------------------------------------------------- Atendimento: WhatsApp, avisos e link de cadastro */
   var PREF_LABEL = { requests: ['calendar-plus', 'Pedidos de consulta', 'Quando um paciente pede um horário.'], replies: ['calendar-check', 'Respostas dos pacientes', 'Quando o paciente aceita ou recusa um horário que você sugeriu.'],
-    cancellations: ['calendar-x', 'Cancelamentos', 'Quando um paciente cancela uma consulta.'], birthdays: ['cake', 'Aniversários', 'No dia do aniversário dos seus pacientes.'], new_patients: ['user-plus', 'Paciente novo pelo seu link', 'Quando alguém cria a conta pelo seu convite.'] };
+    cancellations: ['calendar-x', 'Cancelamentos', 'Quando um paciente cancela uma consulta.'], birthdays: ['cake', 'Aniversários', 'No dia do aniversário dos seus pacientes.'], new_patients: ['user-plus', 'Pedidos de vínculo e encaminhamentos', 'Quando alguém pede para ser seu paciente pelo seu link, ou um colega encaminha um paciente.'] };
 
   function whatsappCard() {
     var holder = h('section', { class: 'card' }, UI.loading());

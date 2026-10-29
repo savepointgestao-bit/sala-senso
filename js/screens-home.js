@@ -171,6 +171,10 @@
       var asks = D.view.pending.filter(function (a) { return a.status === 'requested'; }).length;
       if (asks) holder.appendChild(S.pendingStrip('calendar-plus', asks === 1 ? '1 pedido de consulta esperando você' : asks + ' pedidos de consulta esperando você', '#/agenda?aba=pedidos', 'Responder'));
       if (toVerify) holder.appendChild(S.pendingStrip('hourglass', toVerify === 1 ? '1 cadastro para conferir' : toVerify + ' cadastros para conferir', '#/pacientes?f=verify', 'Conferir'));
+      var reqIn = (D.requests || []).filter(function (q) { return q.origin === 'patient'; }).length;
+      if (reqIn) holder.appendChild(S.pendingStrip('user-plus', reqIn === 1 ? '1 pedido de vínculo esperando você' : reqIn + ' pedidos de vínculo esperando você', '#/pacientes', 'Responder'));
+      var trIn = ((D.transfers || {}).incoming || []).length;
+      if (trIn) holder.appendChild(S.pendingStrip('arrow-right', trIn === 1 ? '1 paciente encaminhado por um colega' : trIn + ' pacientes encaminhados por colegas', '#/pacientes', 'Ver'));
 
       var t = UI.dt.today();
       var todays = D.view.appointments.filter(function (a) { return UI.dt.dayOf(a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at) === t && a.status !== 'requested'; });
@@ -190,7 +194,7 @@
       holder.appendChild(S.patientsOverview(D.overview));
       var bc = S.birthdayCard ? S.birthdayCard(D.births) : null;
       if (bc) holder.appendChild(bc);
-      holder.appendChild(h('div', { class: 'group-title' }, 'Convite'));
+      holder.appendChild(h('div', { class: 'group-title' }, 'Link de cadastro'));
       holder.appendChild(S.inviteCard());
       var ck = proChecklist(ctx, { hasPatients: D.patients.length > 0, bookingOn: D.booking });
       if (ck) { holder.appendChild(h('div', { class: 'group-title' }, 'Primeiros passos')); holder.appendChild(ck); }
@@ -199,14 +203,14 @@
     if (verified) {
       var t0 = UI.dt.today(), empty = { appointments: [], pending: [], blocks: [] };
       Promise.all([proSafe(API.pro.patients(), []), proSafe(API.agenda.view(t0, UI.dt.addDays(t0, 14)), empty), proSafe(API.pro.birthdays(14), []), proSafe(API.pro.overview(30), []),
-        proSafe(API.agenda.get(), { settings: {} })]).then(function (r) {
-        draw({ patients: r[0], view: r[1], births: r[2], overview: r[3], booking: !!(r[4].settings && r[4].settings.booking_enabled) });
+        proSafe(API.agenda.get(), { settings: {} }), proSafe(API.pro.linkRequests(), []), proSafe(API.pro.transfers(), { incoming: [], outgoing: [] })]).then(function (r) {
+        draw({ patients: r[0], view: r[1], births: r[2], overview: r[3], booking: !!(r[4].settings && r[4].settings.booking_enabled), requests: r[5], transfers: r[6] });
       });
     } else {
       holder.appendChild(h('div', { class: 'group-title' }, 'Pacientes'));
       holder.appendChild(h('div', { class: 'group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('lock', 20)),
         h('span', null, h('span', { class: 't' }, 'Acompanhar pacientes e agenda'), h('span', { class: 's' }, 'Libera quando o seu CRP for confirmado')))));
-      holder.appendChild(h('div', { class: 'group-title' }, 'Convite'));
+      holder.appendChild(h('div', { class: 'group-title' }, 'Link de cadastro'));
       holder.appendChild(S.inviteCard());
       var ck = proChecklist(ctx, {});
       if (ck) { holder.appendChild(h('div', { class: 'group-title' }, 'Primeiros passos')); holder.appendChild(ck); }
@@ -240,8 +244,14 @@
       });
       var next = list.filter(function (a) { return a.status === 'scheduled' && Date.parse(a.starts_at) > now; }).sort(function (a, b) { return Date.parse(a.starts_at) - Date.parse(b.starts_at); })[0];
       if (next) out.push(S.pendingStrip('calendar-check', 'Próxima consulta: ' + UI.dt.whenLabel(next.starts_at) + ' com ' + next.professional_name, '#/consultas', 'Ver'));
+      (D.reqs || []).filter(function (q) { return q.origin === 'professional'; }).forEach(function (q) {
+        out.unshift(S.pendingStrip('heart-handshake', q.name + ' pediu para acompanhar você', '#/psicologo', 'Ver pedido'));
+      });
+      (D.reqs || []).filter(function (q) { return q.origin === 'patient'; }).forEach(function (q) {
+        out.unshift(S.pendingStrip('hourglass', 'Pedido enviado para ' + q.name + '. Avisamos você quando ' + UI.firstName(q.name) + ' aceitar.', '#/psicologo', 'Ver'));
+      });
       D.psy.filter(function (x) { return x.verified === false; }).forEach(function (x) {
-        out.unshift(S.pendingStrip('hourglass', 'Aguardando ' + x.full_name + ' conferir o seu cadastro. Depois disso você pede consultas por aqui.', '#/psicologo', 'Ver'));
+        out.unshift(S.pendingStrip('hourglass', 'Aguardando ' + x.full_name + ' conferir o seu cadastro. Depois disso você marca consultas por aqui.', '#/psicologo', 'Ver'));
       });
       var waiting = list.filter(function (a) { return a.status === 'requested'; });
       if (waiting.length) out.push(S.pendingStrip('hourglass', waiting.length === 1 ? 'Pedido de consulta aguardando resposta de ' + waiting[0].professional_name : waiting.length + ' pedidos de consulta aguardando resposta', '#/consultas', 'Ver'));
@@ -254,7 +264,7 @@
         var link = x.whatsapp ? UI.waLink(x.whatsapp, 'Olá, ' + UI.firstName(x.full_name) + '. Aqui é ' + UI.firstName(p.full_name) + '.') : null;
         if (link) tiles.push(h('a', { class: 'tile act', href: link, target: '_blank', rel: 'noopener' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com ' + UI.firstName(x.full_name)), h('span', { class: 'pill' }, 'Abre o WhatsApp')));
       });
-      if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) tiles.push(h('a', { class: 'tile act', href: '#/consultas' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Pedir uma consulta'), h('span', { class: 'pill' }, 'Escolha o horário')));
+      if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) tiles.push(h('a', { class: 'tile act', href: '#/consultas' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar uma consulta'), h('span', { class: 'pill' }, 'Escolha o horário')));
       tiles.push(h('a', { class: 'tile act help', href: '#/ajuda' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 22)), h('span', { class: 't' }, 'Preciso de ajuda'), h('span', { class: 'pill' }, 'Acalmar e pedir apoio')));
       return h('div', { class: 'tiles' }, tiles);
     }
@@ -264,10 +274,10 @@
       var wel = S.welcomeCard(ctx); if (wel) holder.appendChild(wel);
       var pend = S.pendingInvite(); if (pend) holder.appendChild(pend);
       apptStrips().forEach(function (n) { holder.appendChild(n); });
-      if (!D.pros.length && !D.psy.length) {
+      if (!D.pros.length && !D.psy.length && !(D.reqs || []).length) {
         holder.appendChild(h('div', { class: 'cta-card' }, h('span', { class: 'ico-box' }, UI.svg('heart-handshake', 22)),
-          h('div', { class: 'grow' }, h('div', { class: 't' }, 'Vincule-se ao seu psicólogo(a)'), h('div', { class: 's' }, 'Com o link que ele(a) mandou, vocês ficam conectados.')),
-          h('a', { class: 'btn auto sm', href: '#/psicologo' }, 'Vincular')));
+          h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu psicólogo(a) vincula você'), h('div', { class: 's' }, 'Ele(a) procura você pelo celular da sua conta, ou você usa o link de cadastro que ele(a) mandou.')),
+          h('a', { class: 'btn auto sm', href: '#/psicologo' }, 'Ver como')));
       }
       holder.appendChild(S.levelCard(D.prog));
       if (D.consent) {
@@ -284,8 +294,8 @@
       return load().then(draw).catch(function (e) { Diag.error('home-paciente', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar agora. Atualize a página.')); });
     }
     function load() {
-      return Promise.all([API.progress(), API.hasConsent('diary'), safe(API.sharing.mine(), []), safe(API.booking.psychologists(), []), safe(API.booking.mine(), [])]).then(function (r) {
-        D = { prog: r[0], consent: r[1], pros: r[2], psy: r[3], appts: r[4], entries: [], shares: [] };
+      return Promise.all([API.progress(), API.hasConsent('diary'), safe(API.sharing.mine(), []), safe(API.booking.psychologists(), []), safe(API.booking.mine(), []), safe(API.linkRequests.mine(), [])]).then(function (r) {
+        D = { prog: r[0], consent: r[1], pros: r[2], psy: r[3], appts: r[4], reqs: r[5], entries: [], shares: [] };
         if (!D.consent) return null;
         return Promise.all([API.diary.list(), safe(API.sharing.entryShares(), [])]).then(function (x) { D.entries = x[0]; D.shares = x[1]; });
       });
@@ -417,6 +427,24 @@
 
     var dados = S.profileGroup(ctx);
 
+    /* atalhos: telas que moravam no menu e agora ficam aqui dentro (Meu psicologo(a) e Avaliacoes tambem) */
+    var adminMode = !!ctx.admin && (ctx.mode || 'admin') === 'admin';
+    var atalhos = [];
+    if (!isPro) {
+      var pendBadge = h('span', { class: 'badge warn tag hide' });
+      var psyRow = linkRow('heart-handshake', 'Meu psicólogo(a)', '#/psicologo', 'Quem acompanha você, o que ele(a) vê e o diário');
+      psyRow.insertBefore(pendBadge, psyRow.querySelector('.chev'));
+      API.linkRequests.mine().then(function (list) {
+        var n = (list || []).filter(function (x) { return x.origin === 'professional'; }).length;
+        if (n) { pendBadge.textContent = n === 1 ? '1 pedido' : n + ' pedidos'; pendBadge.classList.remove('hide'); }
+      }).catch(function () { /* sem aviso, sem problema */ });
+      atalhos.push(psyRow);
+    } else if (!adminMode) {
+      atalhos.push(linkRow('star', 'Avaliações', '#/avaliacoes', 'O que seus pacientes acham, sem mostrar quem avaliou'));
+    }
+    atalhos.push(linkRow('life-buoy', 'Suporte', '#/suporte', 'Dúvidas, ajuda e fale com a gente'));
+    var atalhosGroup = h('div', { class: 'group' }, atalhos);
+
     /* seguranca */
     var othersT = h('span', { class: 't' }, 'Sair dos outros aparelhos');
     var othersBtn = h('button', { type: 'button', class: 'item', onclick: function () {
@@ -514,6 +542,7 @@
 
     /* abas: Perfil (dados, seguranca, privacidade) e Conquistas (individuais, so da propria pessoa) */
     var perfil = h('div', { id: 'aba-perfil' }, head, levelHolder,
+      atalhosGroup,
       dados,
       h('div', { class: 'group-title' }, 'Segurança'), seguranca,
       h('div', { class: 'group-title' }, 'Aparência'), aparencia,

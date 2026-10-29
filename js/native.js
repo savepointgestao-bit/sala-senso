@@ -39,6 +39,8 @@
     /* secoes do menu: voltam para o Inicio. Telas de entrada/ajuda para quem nao entrou voltam ao historico. */
     var GUEST = { 'criar-conta': 1, 'esqueci-senha': 1, 'redefinir-senha': 1, 'senha-alterada': 1, 'confirmar-email': 1, convite: 1, legal: 1 };
     if (GUEST[path]) { goBack('#/entrar'); return true; }
+    /* Suporte, Meu psicólogo(a) e Avaliações ficam dentro da Conta */
+    if (path === 'psicologo' || path === 'suporte' || path === 'avaliacoes') { goBack('#/conta'); return true; }
     location.hash = '#/inicio';
     return true;
   };

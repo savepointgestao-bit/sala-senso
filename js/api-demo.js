@@ -56,7 +56,7 @@
       xp_today: sumPts(u.xp.filter(function (e) { return e.day === day; })), daily_cap: DAILY_CAP, days_this_week: Object.keys(days).length, entries: u.diary.length
     };
   }
-  function copyEntry(e) { return { id: e.id, entry_date: e.entry_date, period: e.period || null, mood: e.mood, energy: e.energy, anxiety: e.anxiety, tags: e.tags.slice(), body: e.body, updated_at: e.updated_at }; }
+  function copyEntry(e) { return { id: e.id, entry_date: e.entry_date, entry_time: e.entry_time || '12:00:00', mood: e.mood, energy: e.energy, anxiety: e.anxiety, tags: e.tags.slice(), body: e.body, updated_at: e.updated_at }; }
   function inScale(v) { return v == null || (v >= 1 && v <= 5 && v % 1 === 0); }
 
   var api = {
@@ -359,7 +359,7 @@
     deleteMyAccount: function () { var u = cur(); return tick(null).then(function () { sensitive(u); care().afterDelete(u); delete users[session.email]; session = null; emit('SIGNED_OUT'); return true; }); }
   };
 
-  /* Parte de cuidado (vinculo, diario com periodos, agenda, avisos, avaliacoes) fica em api-demo-care.js e usa estas pecas. */
+  /* Parte de cuidado (vinculo, diario com hora, agenda, avisos, avaliacoes) fica em api-demo-care.js e usa estas pecas. */
   function care() { return api._care; }
   api._core = {
     users: function () { return users; }, cur: cur, session: function () { return session; }, tick: tick, err: err, spDay: spDay, round1: round1,

@@ -172,7 +172,7 @@
     items.push(h('a', { class: 'item', href: 'tel:188' }, h('span', { class: 'ico-box' }, UI.svg('phone-call', 20)),
       h('span', null, h('span', { class: 't' }, 'CVV, ligue 188'), h('span', { class: 's' }, '24 horas, de graça. Também há chat no site cvv.org.br.')), h('span', { class: 'chev' }, UI.svg('chevron-right', 18))));
     if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) items.push(h('a', { class: 'item', href: '#/consultas?novo=1' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 20)),
-      h('span', null, h('span', { class: 't' }, 'Pedir uma consulta'), h('span', { class: 's' }, 'Escolha um horário com o seu psicólogo(a).')), h('span', { class: 'chev' }, UI.svg('chevron-right', 18))));
+      h('span', null, h('span', { class: 't' }, 'Marcar uma consulta'), h('span', { class: 's' }, 'Escolha um horário com o seu psicólogo(a).')), h('span', { class: 'chev' }, UI.svg('chevron-right', 18))));
     var msg = 'Não estou bem agora. Pode conversar comigo ou ficar por perto?';
     return h('div', null,
       h('p', { class: 'lead' }, 'Falar com alguém já alivia. Você não precisa explicar tudo, basta começar.'),

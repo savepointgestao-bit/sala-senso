@@ -86,103 +86,150 @@
     ok.focus();
   };
 
-  /* ---------------------------------------------------------------- humor do dia (início) e popup
-     Até 3 registros por dia (manhã, tarde, noite) ou um só para o dia todo. Com um só, ele vale o dia; com mais, o dia vale a média. */
-  var PERIODS = [['morning', 'Manhã', 'sunrise'], ['afternoon', 'Tarde', 'sun'], ['evening', 'Noite', 'moon-star'], ['day', 'Dia todo', 'sun-moon']];
-  var PERIOD_LABEL = { morning: 'Manhã', afternoon: 'Tarde', evening: 'Noite', day: 'Dia todo' };
-  function periodNow() { var hr = +UI.dt.hmOf(Date.now()).slice(0, 2); return hr < 12 ? 'morning' : hr < 18 ? 'afternoon' : 'evening'; }
-  function periodOf(e) { return e.period || 'day'; }
+  /* ---------------------------------------------------------------- humor do dia (início), barra de humor e popup
+     Cada registro guarda a data e a hora. O humor do dia vale a média dos registros do dia. */
   function fmt1(n) { return (Math.round(n * 10) / 10).toString().replace('.', ','); }
+  function nowHm() { return UI.dt.hmOf(Date.now()); }
+  function timeOf(e) { return String((e && e.entry_time) || '').slice(0, 5); }
 
-  /* Humor de hoje a partir da lista do diário (a vaga de cada período vale o registro mais recente). */
-  function todaySlots(entries, date) {
-    var slots = {};
-    entries.filter(function (e) { return e.entry_date === date && e.mood != null; }).slice().reverse().forEach(function (e) { slots[periodOf(e)] = e.mood; });
-    var vals = Object.keys(slots).map(function (k) { return slots[k]; });
-    return { slots: slots, avg: vals.length ? vals.reduce(function (s, x) { return s + x; }, 0) / vals.length : null, n: vals.length };
+  /* Registros de humor de uma data, do mais cedo ao mais tarde, e a média. */
+  function todayInfo(entries, date) {
+    var list = entries.filter(function (e) { return e.entry_date === date && e.mood != null; }).slice().sort(function (a, b) { return timeOf(a) < timeOf(b) ? -1 : (timeOf(a) > timeOf(b) ? 1 : 0); });
+    return { list: list, avg: list.length ? list.reduce(function (s, x) { return s + x.mood; }, 0) / list.length : null, n: list.length };
   }
-  S.todaySlots = todaySlots;
+  S.todayInfo = todayInfo;
 
   function sharedWithAny(shares, entryId) { return (shares || []).some(function (s) { return s.entry_id === entryId; }); }
 
-  /* o = { mood, date, period?, entries, pros: [{ professional_id, name, auto_share }], shares, onSaved } */
-  S.moodSheet = function (o) {
-    var date = o.date || UI.today(), mood = o.mood, period = o.period || periodNow();
-    var pros = o.pros || [];
-    var faceBtns = [], word = h('div', { class: 'mood-word', 'aria-live': 'polite' });
-    var faces = h('div', { class: 'faces compact', role: 'group', 'aria-label': 'Humor' });
-    MOOD.forEach(function (label, i) {
-      var b = h('button', { type: 'button', class: 'face', 'data-m': String(i + 1), 'aria-label': label, onclick: function () { mood = i + 1; paintMood(); } }, UI.svg(FACE[i], 28));
-      faceBtns.push(b); faces.appendChild(b);
-    });
-    function paintMood() {
-      faceBtns.forEach(function (b, i) { b.setAttribute('aria-pressed', mood === i + 1 ? 'true' : 'false'); });
-      UI.clear(word);
-      if (mood) { word.setAttribute('data-m', String(mood)); word.appendChild(h('b', null, MOOD[mood - 1])); } else { word.removeAttribute('data-m'); word.appendChild(document.createTextNode('Toque numa carinha')); }
+  /* Barra de humor: desliza de 1 a 5 e o rosto ao lado muda conforme a posição da barra.
+     o = { value, label, clearable, onChange }. Sem valor até a pessoa mexer (a barra fica apagada). */
+  S.moodSlider = function (o) {
+    o = o || {};
+    var value = o.value == null ? null : o.value;
+    var face = h('span', { class: 'mood-face', 'aria-hidden': 'true' });
+    var word = h('div', { class: 'mood-word', 'aria-live': 'polite' });
+    var input = h('input', { type: 'range', class: 'range mood', min: '1', max: '5', step: '1', value: String(value || 3), 'aria-label': o.label || 'Como você está?' });
+    var clearBtn = o.clearable ? h('button', { type: 'button', class: 'linkbtn small', 'aria-label': 'Limpar humor' }, 'Limpar') : null;
+    function paint() {
+      var set = value != null;
+      UI.clear(face); UI.clear(word);
+      input.setAttribute('data-set', set ? 'true' : 'false');
+      input.setAttribute('aria-valuetext', set ? MOOD[value - 1] : 'Não escolhido');
+      face.appendChild(UI.svg(set ? FACE[value - 1] : 'meh', 40));
+      if (set) { el.setAttribute('data-m', String(value)); word.appendChild(h('b', null, MOOD[value - 1])); }
+      else { el.removeAttribute('data-m'); word.appendChild(document.createTextNode('Deslize para escolher')); }
+      if (clearBtn) clearBtn.classList.toggle('hide', !set);
     }
+    function set(v) { value = v; paint(); if (o.onChange) o.onChange(v); }
+    input.addEventListener('input', function () { set(+input.value); });
+    input.addEventListener('pointerup', function () { if (value == null) set(+input.value); });
+    if (clearBtn) clearBtn.addEventListener('click', function () { input.value = '3'; set(null); });
+    var el = h('div', { class: 'mood-slider' }, face,
+      h('div', { class: 'grow' }, h('div', { class: 'top' }, word, clearBtn), input,
+        h('div', { class: 'ends' }, h('span', null, MOOD[0]), h('span', null, MOOD[4]))));
+    paint();
+    return { el: el, input: input, get: function () { return value; }, set: function (v) { value = v == null ? null : v; input.value = String(value || 3); paint(); } };
+  };
 
-    var seg = UI.segmented({ label: 'Quando foi?', value: period, options: PERIODS.map(function (p) { return [p[0], p[1]]; }), onChange: function (v) { period = v; onPeriod(); } });
-    var existsNote = h('p', { class: 'small muted mb0', 'aria-live': 'polite' });
-    var body = UI.field({ label: 'Quer contar como está se sentindo?', type: 'textarea', optional: true, maxlength: 20000, rows: 4, placeholder: 'Escreva como foi o seu dia, o que está sentindo, o que quiser.' });
-    var shareOn = false, shareTouched = false;
-    var shareSw = pros.length ? UI.toggle({ value: false, label: 'Compartilhar o texto com meu psicólogo(a)', onChange: function (v) { shareOn = v; shareTouched = true; } }) : null;
-    var shareNames = pros.map(function (p) { return p.name; }).join(' e ');
-    var shareRow = pros.length ? h('div', { class: 'item flat share-row' }, h('span', null, h('span', { class: 't' }, 'Compartilhar o texto com ' + shareNames),
-      h('span', { class: 's' }, 'O humor ele(a) já vê. O texto só aparece se você ligar aqui.')), shareSw.el) : null;
+  /* Data e hora do registro (a hora de agora, se a pessoa não mexer). */
+  function whenFields(date, time) {
+    var d = h('input', { type: 'date', value: date, max: UI.today(), required: true, 'aria-label': 'Data do registro' });
+    var t = h('input', { type: 'time', value: time, required: true, 'aria-label': 'Hora do registro' });
+    return { el: h('div', { class: 'when-row' }, d, t), date: d, time: t };
+  }
 
-    function existing() { return o.entries.filter(function (e) { return e.entry_date === date && periodOf(e) === period; })[0] || null; }
-    function onPeriod() {
-      var e = existing();
-      body.input.value = e ? (e.body || '') : '';
-      if (shareSw) {
-        shareOn = e ? sharedWithAny(o.shares, e.id) : pros.some(function (p) { return p.auto_share; });
-        shareSw.set(shareOn); shareTouched = false;
+  /* Pergunta que aparece depois de registrar: compartilhar com o psicólogo(a)?
+     o = { entryId, pros: [{ professional_id, name }], hasText }. Resolve quando a janela fecha.
+     Sim: compartilha este e os próximos; Agora não: pergunta de novo no próximo; Não e não perguntar mais: nunca compartilha nem pergunta. */
+  S.sharePrompt = function (o) {
+    return new Promise(function (resolve) {
+      var pros = o.pros || [];
+      if (!pros.length) { resolve(); return; }
+      var ids = pros.map(function (p) { return p.professional_id; });
+      var names = pros.map(function (p) { return p.name; }).join(' e ');
+      var where = pros.length === 1 ? 'ele(a)' : 'eles(as)';
+      var general = h('div', { 'aria-live': 'polite' });
+      var finished = false, sh;
+      function done() { if (finished) return; finished = true; resolve(); }
+      function answer(choice, btn) {
+        UI.busy(btn, true);
+        API.sharing.answerPrompt(o.entryId, ids, choice).then(function () {
+          if (choice === 'no') { sh.close('no'); UI.toast('Tudo bem. Perguntamos de novo no próximo registro.', 'info'); return; }
+          sh.setTitle(choice === 'yes' ? 'Compartilhado' : 'Combinado');
+          UI.clear(sh.body);
+          sh.body.appendChild(h('p', { class: 'mt0' }, choice === 'yes'
+            ? 'Este registro e os próximos ficam visíveis para ' + names + '.'
+            : 'Não vamos mais perguntar e seus registros ficam só com você.'));
+          sh.body.appendChild(UI.notice('info', h('span', null, 'Você pode mudar isso quando quiser em ', h('b', null, 'Conta, Meu psicólogo(a)'), '.')));
+          var ok = UI.button('Entendi', { onclick: function () { sh.close('ok'); } });
+          sh.body.appendChild(h('div', { class: 'mt16' }, ok));
+          try { ok.focus(); } catch (e) { /* ignore */ }
+        }).catch(function (e) { UI.busy(btn, false); Diag.error('compartilhar-pergunta', e); UI.clear(general); general.appendChild(UI.notice('bad', UI.errorText(e, 'Não deu para salvar. Tente de novo.'))); });
       }
-      existsNote.textContent = e ? 'Você já registrou ' + (period === 'day' ? 'o dia todo' : 'a ' + PERIOD_LABEL[period].toLowerCase()) + ' hoje' + (e.mood ? ' (' + MOOD[e.mood - 1].toLowerCase() + ')' : '') + '. Salvar atualiza esse registro.' : '';
-    }
+      var yes = UI.button('Sim, compartilhar', { onclick: function () { answer('yes', yes); } });
+      var later = UI.button('Agora não', { variant: 'ghost', onclick: function () { answer('no', later); } });
+      var never = h('button', { type: 'button', class: 'linkbtn small center-link', onclick: function () { answer('never', never); } }, 'Não, e não perguntar mais');
+      var text = o.hasText
+        ? names + ' já vê o seu humor, a energia e a ansiedade. Se você compartilhar, ' + where + ' também lê o texto e as emoções deste registro.'
+        : names + ' já vê o seu humor, a energia e a ansiedade. Compartilhando, ' + where + ' também passa a ler o texto e as emoções dos seus próximos registros.';
+      sh = UI.sheet({ title: 'Compartilhar com ' + names + '?', onClose: done, focus: null, content: [
+        h('p', { class: 'mt0' }, text),
+        h('p', { class: 'small muted' }, 'Dizendo sim, os próximos registros também são compartilhados, sem perguntar. Você muda isso quando quiser.'),
+        general, h('div', { class: 'stack-btns' }, yes, later), h('div', { class: 'center' }, never)] });
+    });
+  };
+  function promptShare(saved) {
+    if (!saved || !saved.created || !saved.ask || !saved.ask.length) return Promise.resolve();
+    return S.sharePrompt({ entryId: saved.id, pros: saved.ask, hasText: !!String(saved.body || '').trim() || (saved.tags || []).length > 0 });
+  }
 
+  /* Janela de registro rápido: o humor vem da barra do Início. o = { mood, entries, onSaved } */
+  S.moodSheet = function (o) {
+    var when = whenFields(UI.today(), nowHm());
+    var slider = S.moodSlider({ value: o.mood, label: 'Como você está?' });
+    var body = UI.field({ label: 'Quer contar como está se sentindo?', type: 'textarea', optional: true, maxlength: 20000, rows: 4, placeholder: 'Escreva como foi o seu dia, o que está sentindo, o que quiser.' });
     var general = h('div', { 'aria-live': 'polite' });
     var save = UI.button('Salvar', { type: 'submit' });
     var sh;
     var form = h('form', { novalidate: true, onsubmit: function (ev) {
       ev.preventDefault(); general.textContent = '';
-      if (!mood) { general.appendChild(UI.notice('warn', 'Escolha uma carinha para registrar o humor.')); return; }
-      var e = existing(), text = body.value().trim();
+      if (!slider.get()) { general.appendChild(UI.notice('warn', 'Deslize a barra para escolher o humor.')); return; }
+      if (!when.date.value || !when.time.value) { general.appendChild(UI.notice('warn', 'Confira a data e a hora do registro.')); return; }
+      var text = body.value().trim();
       UI.busy(save, true);
-      var before;
+      var before, saved;
       API.progress().then(function (p) {
         before = p;
-        var row = { id: e ? e.id : null, entry_date: date, period: period === 'day' ? null : period, mood: mood, energy: e ? e.energy : null, anxiety: e ? e.anxiety : null, tags: e ? e.tags : [], body: text,
-          share: pros.length && text ? shareOn : (e && sharedWithAny(o.shares, e.id) && !text ? false : null) };
-        return API.diary.save(row);
-      }).then(function (saved) {
-        return S.afterSave(before).then(function () { sh.close('saved'); if (o.onSaved) o.onSaved(saved); });
-      }).catch(function (err) { UI.busy(save, false); Diag.error('humor-popup', err); general.appendChild(UI.notice('bad', saveError(err))); });
+        return API.diary.save({ id: null, entry_date: when.date.value, entry_time: when.time.value, mood: slider.get(), energy: null, anxiety: null, tags: [], body: text });
+      }).then(function (row) {
+        saved = row;
+        return S.afterSave(before);
+      }).then(function () {
+        sh.close('saved');
+        return promptShare(saved);
+      }).then(function () { if (o.onSaved) o.onSaved(saved); })
+        .catch(function (err) { UI.busy(save, false); Diag.error('humor-popup', err); general.appendChild(UI.notice('bad', saveError(err))); });
     } },
-      word, faces,
-      h('div', { class: 'field mt16' }, h('div', { class: 'lbl' }, 'Quando foi?'), seg.el, existsNote,
-        h('p', { class: 'hint-line' }, UI.svg('info', 14), 'Você pode registrar até 3 vezes por dia: manhã, tarde e noite. Sem escolher, o registro vale o dia todo.')),
-      body.el, shareRow, general, save);
-    paintMood(); onPeriod();
+      slider.el,
+      h('div', { class: 'field mt16' }, h('div', { class: 'lbl' }, 'Quando foi?'), when.el),
+      body.el, general, save);
     sh = UI.sheet({ title: 'Como você está?', content: form, focus: body.input });
     return sh;
   };
 
-  /* Cartão do início: carinhas + o humor de hoje por período. state = { entries, pros, shares, onSaved } */
+  /* Cartão do início: barra de humor com o rosto ao lado + os registros de hoje. state = { entries, pros, shares, onSaved } */
   S.moodCard = function (st) {
-    var date = UI.today(), t = todaySlots(st.entries, date);
-    var faces = h('div', { class: 'faces', role: 'group', 'aria-label': 'Humor de hoje' });
-    MOOD.forEach(function (label, i) {
-      faces.appendChild(h('button', { type: 'button', class: 'face', 'data-m': String(i + 1), onclick: function () {
-        S.moodSheet({ mood: i + 1, entries: st.entries, pros: st.pros, shares: st.shares, onSaved: st.onSaved });
-      } }, UI.svg(FACE[i], 30), h('span', null, label)));
+    var date = UI.today(), t = todayInfo(st.entries, date);
+    var slider = S.moodSlider({ label: 'Como você está agora?', onChange: function () { btn.disabled = false; } });
+    var btn = UI.button('Registrar', { disabled: true, onclick: function () {
+      if (!slider.get()) return;
+      S.moodSheet({ mood: slider.get(), entries: st.entries, onSaved: st.onSaved });
+    } });
+    var chips = t.list.map(function (e) {
+      return h('span', { class: 'slot on', 'data-m': String(e.mood) }, UI.svg(FACE[e.mood - 1], 14), timeOf(e) + ' ', h('b', null, MOOD[e.mood - 1]));
     });
-    var chips = PERIODS.filter(function (p) { return p[0] !== 'day' || t.slots.day != null; }).map(function (p) {
-      var v = t.slots[p[0]];
-      return h('span', { class: 'slot' + (v ? ' on' : ''), 'data-m': v ? String(v) : null }, UI.svg(p[2], 14), p[1] + ' ', h('b', null, v ? String(v) : 'não registrado'));
-    });
-    return h('section', { class: 'checkin' }, h('h2', null, 'Como você está agora?'), faces,
-      h('div', { class: 'slots', 'aria-label': 'Humor de hoje por período' }, chips),
+    return h('section', { class: 'checkin' }, h('h2', null, 'Como você está agora?'), slider.el, h('div', { class: 'mt16' }, btn),
+      chips.length ? h('div', { class: 'slots mt16', 'aria-label': 'Registros de hoje' }, chips) : null,
       t.n ? h('p', { class: 'day-avg' }, 'Humor do dia: ', h('b', null, fmt1(t.avg) + '/5'), t.n > 1 ? ' (média de ' + t.n + ' registros)' : '') : null,
       h('p', { class: 'hint-line' }, UI.svg('eye', 14), 'Seu psicólogo(a) vinculado(a) vê o humor. O texto só se você compartilhar.'));
   };
@@ -203,7 +250,7 @@
     var text = String(e.body || '').trim();
     var tagNodes = (e.tags || []).slice(0, 3).map(function (t) { return h('span', { class: 'tag' }, TAG_LABEL[t] || t); });
     if ((e.tags || []).length > 3) tagNodes.push(h('span', { class: 'tag' }, '+' + (e.tags.length - 3)));
-    var per = h('span', { class: 'tag period' }, PERIOD_LABEL[periodOf(e)]);
+    var per = timeOf(e) ? h('span', { class: 'tag time' }, timeOf(e)) : null;
     return h('a', { class: 'entry', href: '#/diario/' + e.id },
       h('span', { class: 'mood', 'data-m': m ? String(m) : null }, UI.svg(m ? FACE[m - 1] : 'pencil-line', 22)),
       h('div', { class: 'grow' }, text ? h('div', { class: 'txt' }, text) : h('div', { class: 'txt none' }, m ? MOOD[m - 1] : 'Sem texto'), h('div', { class: 'tags' }, per, tagNodes)),
@@ -249,7 +296,7 @@
         calBox.appendChild(h('div', { class: 'card' }, Charts.calendar(days, { min: series[0].date })));
         calBox.appendChild(h('div', { class: 'group-title' }, 'Últimos 30 dias'));
         calBox.appendChild(h('div', { class: 'card' }, Charts.line(series.filter(function (d) { return d.date >= last[0].date; }), { from: UI.dt.addDays(UI.dt.today(), -29), to: UI.dt.today() })));
-        calBox.appendChild(h('p', { class: 'group-hint' }, 'Em dias com mais de um registro (manhã, tarde, noite), o humor do dia é a média.'));
+        calBox.appendChild(h('p', { class: 'group-hint' }, 'Em dias com mais de um registro, o humor do dia é a média.'));
       }).catch(function (e) { Diag.error('diario-calendario', e); clear(calBox); calBox.appendChild(UI.notice('bad', 'Não foi possível carregar o calendário agora.')); });
     }
 
@@ -319,29 +366,24 @@
     return UI.errorText(e, 'Não foi possível salvar. Tente de novo.');
   }
 
-  /* Registro novo: sugere o periodo do horario de agora; se ele ja tem registro hoje, o primeiro periodo livre. */
-  function freePeriod(entries) {
-    var taken = (entries || []).filter(function (e) { return e.entry_date === UI.today(); }).map(periodOf);
-    var first = periodNow(), order = [first].concat(['morning', 'afternoon', 'evening', 'day'].filter(function (p) { return p !== first; }));
-    for (var i = 0; i < order.length; i++) if (taken.indexOf(order[i]) < 0) return order[i];
-    return first;
-  }
-
   S.diaryEditor = function (ctx, id) {
     var holder = h('div');
     var head = h('div', { class: 'editor-head' }, h('h1', null, id ? 'Editar registro' : 'Novo registro'));
     var node = S.shell(ctx, 'diario', [UI.backLink('#/diario', 'Diário'), head, holder]);
 
-    function build(prog, entry, pros, shares, all) {
+    function build(prog, entry, pros, shares) {
       var st = { tags: entry ? entry.tags.slice() : [] };
-      var period = entry ? periodOf(entry) : freePeriod(all);
-      var date = h('input', { type: 'date', value: entry ? entry.entry_date : UI.today(), max: UI.today(), required: true, 'aria-label': 'Data do registro' });
-      head.appendChild(date);
-      var perSeg = UI.segmented({ label: 'Quando foi?', value: period, options: PERIODS.map(function (p) { return [p[0], p[1]]; }), onChange: function (v) { period = v; } });
-      var shareOn = entry ? sharedWithAny(shares, entry.id) : pros.some(function (p) { return p.auto_share; });
-      var shareSw = pros.length ? UI.toggle({ value: shareOn, label: 'Compartilhar o texto com meu psicólogo(a)', onChange: function (v) { shareOn = v; } }) : null;
-      var shareRow = pros.length ? h('div', { class: 'group share-group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('share-2', 20)),
+      var when = whenFields(entry ? entry.entry_date : UI.today(), entry ? (timeOf(entry) || nowHm()) : nowHm());
+      head.appendChild(when.el);
+      /* Registro novo: o app pergunta se compartilha depois de salvar (ou segue o que a pessoa escolheu antes). Registro que já existe: liga e desliga aqui. */
+      var shareOn = entry ? sharedWithAny(shares, entry.id) : false, shareTouched = false;
+      var shareSw = pros.length && entry ? UI.toggle({ value: shareOn, label: 'Compartilhar o texto com meu psicólogo(a)', onChange: function (v) { shareOn = v; shareTouched = true; } }) : null;
+      var shareRow = shareSw ? h('div', { class: 'group share-group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('share-2', 20)),
         h('span', null, h('span', { class: 't' }, 'Compartilhar o texto com ' + pros.map(function (p) { return p.name; }).join(' e ')), h('span', { class: 's' }, 'O humor ele(a) já vê. O texto só aparece se você ligar aqui.')), shareSw.el)) : null;
+      var askNames = pros.filter(function (p) { return p.mode === 'ask'; }).map(function (p) { return p.name; }).join(' e ');
+      var alwaysNames = pros.filter(function (p) { return p.mode === 'always'; }).map(function (p) { return p.name; }).join(' e ');
+      var shareHint = !entry && askNames ? h('p', { class: 'hint-line' }, UI.svg('share-2', 14), 'Ao salvar, perguntamos se você quer compartilhar com ' + askNames + '.')
+        : (!entry && alwaysNames ? h('p', { class: 'hint-line' }, UI.svg('share-2', 14), 'Este registro vai ser compartilhado com ' + alwaysNames + ', como você escolheu. Mude em Conta, Meu psicólogo(a).') : null);
       var pill = h('span', { class: 'pill-xp hide' }, UI.svg('sparkles', 16), h('span'));
       var body = UI.field({ label: 'Anotações', type: 'textarea', optional: true, maxlength: 20000, rows: 6, placeholder: 'Escreva como quiser.' });
       if (entry) body.input.value = entry.body;
@@ -352,7 +394,7 @@
         pill.classList.toggle('hide', g <= 0);
         pill.lastChild.textContent = '+' + UI.fmtXp(g) + ' XP';
       }
-      var mood = barBlock({ label: 'Como você está?', kind: 'mood', labels: MOOD, faces: FACE, ends: ['Muito mal', 'Muito bem'] }, entry ? entry.mood : null, refresh);
+      var mood = S.moodSlider({ label: 'Como você está?', clearable: true, value: entry ? entry.mood : null, onChange: refresh });
       var energy = barBlock({ label: 'Energia', kind: 'fill', labels: ENERGY, ends: ['Baixa', 'Alta'] }, entry ? entry.energy : null, function () {});
       var anxiety = barBlock({ label: 'Ansiedade', kind: 'fill', labels: ANXIETY, ends: ['Nenhuma', 'Muita'] }, entry ? entry.anxiety : null, function () {});
       body.input.addEventListener('input', refresh);
@@ -403,20 +445,20 @@
         if (mood.get() == null && energy.get() == null && anxiety.get() == null && !st.tags.length && !text.trim()) {
           general.appendChild(UI.notice('warn', 'Escolha seu humor ou escreva algo para salvar.')); return;
         }
-        if (!date.value) { general.appendChild(UI.notice('warn', 'Escolha a data do registro.')); return; }
+        if (!when.date.value || !when.time.value) { general.appendChild(UI.notice('warn', 'Confira a data e a hora do registro.')); return; }
         UI.busy(saveBtn, true);
-        var row = { id: entry ? entry.id : null, entry_date: date.value, period: mood.get() == null || period === 'day' ? null : period, mood: mood.get(), energy: energy.get(), anxiety: anxiety.get(), tags: st.tags.slice(), body: text,
-          share: pros.length ? (text.trim() ? shareOn : (entry && sharedWithAny(shares, entry.id) ? false : null)) : null };
+        var row = { id: entry ? entry.id : null, entry_date: when.date.value, entry_time: when.time.value, mood: mood.get(), energy: energy.get(), anxiety: anxiety.get(), tags: st.tags.slice(), body: text,
+          share: shareTouched ? shareOn : (entry && !text.trim() && sharedWithAny(shares, entry.id) ? false : null) };
+        var saved;
         API.progress().then(function (before) {
-          return API.diary.save(row).then(function () { return S.afterSave(before); });
-        }).then(function () { Diag.log('diario:salvou'); go('#/diario'); })
+          return API.diary.save(row).then(function (r) { saved = r; return S.afterSave(before); });
+        }).then(function () { Diag.log('diario:salvou'); return promptShare(saved); })
+          .then(function () { go('#/diario'); })
           .catch(function (e) { UI.busy(saveBtn, false); Diag.error('diario-salvar', e); general.appendChild(UI.notice('bad', saveError(e))); });
       } },
-        mood.el,
-        h('div', { class: 'bar-block' }, h('div', { class: 'q' }, h('b', null, 'Quando foi?')), perSeg.el,
-          h('p', { class: 'hint-line' }, UI.svg('info', 14), 'Até 3 registros por dia. Sem escolher o período, vale o dia todo. Sem humor, o período não é usado.')),
+        h('div', { class: 'bar-block' }, h('div', { class: 'q' }, h('b', null, 'Como você está?')), mood.el),
         h('div', { class: 'bar-block' }, h('div', { class: 'q' }, h('b', null, 'O que você sente?')), chips),
-        body.el, shareRow, more, general,
+        body.el, shareRow, shareHint, more, general,
         h('div', { class: 'savebar' }, actions));
       holder.appendChild(form);
       holder.appendChild(h('p', { class: 'private' }, UI.svg('lock', 14), 'O texto e as emoções são só seus, a menos que você compartilhe. Humor, energia e ansiedade aparecem para seu psicólogo(a) vinculado(a).'));
@@ -424,11 +466,10 @@
     }
 
     Promise.all([API.hasConsent('diary'), API.progress(), id ? API.diary.get(id) : Promise.resolve(null),
-      API.sharing.mine().catch(function () { return []; }), API.sharing.entryShares().catch(function () { return []; }),
-      id ? Promise.resolve([]) : API.diary.list().catch(function () { return []; })]).then(function (r) {
+      API.sharing.mine().catch(function () { return []; }), API.sharing.entryShares().catch(function () { return []; })]).then(function (r) {
       if (!r[0] && !id) return go('#/diario');
       if (id && !r[2]) { holder.appendChild(UI.notice('bad', 'Registro não encontrado.')); return; }
-      build(r[1], r[2], r[3], r[4], r[5]);
+      build(r[1], r[2], r[3], r[4]);
     }).catch(function (e) { Diag.error('diario-editor', e); holder.appendChild(UI.notice('bad', 'Não foi possível abrir agora. Atualize a página.')); });
     return node;
   };

@@ -10,34 +10,29 @@
   function crp(x) { return x.crp_region && x.crp_number ? 'CRP ' + x.crp_region + '/' + x.crp_number : ''; }
   var MODE = { in_person: 'Presencial', online: 'Online' };
 
-  /* ---------------------------------------------------------------- Meu psicólogo(a) */
-  /* Campo para colar o link do convite e vincular (quando a pessoa já tem conta). */
-  function linkBox(onLinked) {
-    var code = UI.field({ label: 'Link ou código do convite', maxlength: 200, placeholder: 'Cole aqui o link que seu psicólogo(a) mandou' });
-    var out = h('div', { 'aria-live': 'polite' });
-    var btn = UI.button('Conferir', { onclick: function () {
-      out.textContent = '';
-      var c = S.invite.parse(code.value());
-      if (!c) { code.setError('Cole o link inteiro ou o código.'); code.input.focus(); return; }
-      UI.busy(btn, true);
-      API.invite.info(c).then(function (info) {
-        UI.busy(btn, false);
-        if (!info || !info.ok) { out.appendChild(UI.notice('warn', 'Não encontramos esse convite. Confira com seu psicólogo(a) ou peça um link novo.')); return; }
-        S.invite.set(c);
-        go('#/convite?c=' + c);
-      }).catch(function (e) { UI.busy(btn, false); Diag.error('colar-convite', e); out.appendChild(UI.notice('bad', UI.errorText(e))); });
-    } });
-    return h('div', null, code.el, out, btn);
-  }
+  /* ---------------------------------------------------------------- Meu psicólogo(a)
+     Só o psicólogo(a) vincula: ele(a) pede pelo celular do seu cadastro, ou você pede pelo link de cadastro e ele(a) aceita.
+     Aqui o paciente aceita ou recusa o que o psicólogo(a) pediu, vê o que mandou pelo link e escolhe como o diário é compartilhado. */
+  var SHARE_MODES = [['ask', 'Perguntar'], ['always', 'Sempre'], ['never', 'Nunca']];
+  var SHARE_TEXT = {
+    ask: 'Depois de cada registro novo, perguntamos se você quer compartilhar o texto.',
+    always: 'Os textos dos registros novos são compartilhados sem perguntar.',
+    never: 'Seus textos ficam só com você e não perguntamos mais. Você ainda pode compartilhar um registro de cada vez, editando ele.'
+  };
 
   S.myPsychologist = function (ctx) {
     var holder = h('div', null, UI.loading());
     var node = S.shell(ctx, 'psicologo', [UI.pageHead('Meu psicólogo(a)', 'Quem acompanha você e o que ele(a) vê'), holder]);
 
     function proCard(x, contact) {
-      var auto = UI.toggle({ value: x.auto_share, label: 'Compartilhar automaticamente os textos novos com ' + x.name, onChange: function (v) {
-        return API.sharing.setAuto(x.professional_id, v).then(function () { UI.toast(v ? 'Os próximos textos do diário serão compartilhados.' : 'Os próximos textos ficam só com você.', 'circle-check'); })
-          .catch(function (e) { UI.toast(UI.errorText(e)); throw e; });
+      var modeNote = h('p', { class: 'group-hint', 'aria-live': 'polite' }, SHARE_TEXT[x.mode || 'ask']);
+      var cur = x.mode || 'ask';
+      var seg = UI.segmented({ label: 'Compartilhar o diário com ' + x.name, value: cur, options: SHARE_MODES, onChange: function (v) {
+        var prev = cur;
+        API.sharing.setMode(x.professional_id, v).then(function () {
+          cur = v; modeNote.textContent = SHARE_TEXT[v];
+          UI.toast(v === 'always' ? 'Os próximos textos serão compartilhados.' : (v === 'never' ? 'Seus textos ficam só com você.' : 'Vamos perguntar depois de cada registro.'), 'circle-check');
+        }).catch(function (e) { seg.set(prev); UI.toast(UI.errorText(e)); });
       } });
       var wa = contact && contact.whatsapp ? UI.waLink(contact.whatsapp, 'Olá, ' + UI.firstName(x.name) + '. Aqui é ' + UI.firstName(ctx.me.profile.full_name) + '.') : null;
       var waiting = contact && contact.verified === false;
@@ -47,13 +42,14 @@
           h('div', { class: 'grow' }, h('b', null, x.name), h('div', { class: 'muted small' }, crp(x)), h('div', { class: 'mt8' }, x.verified ? h('span', { class: 'badge ok' }, UI.svg('badge-check', 14), 'CRP verificado') : h('span', { class: 'badge warn' }, 'CRP em análise')))),
         h('div', { class: 'btn-row mt16' },
           wa ? h('a', { class: 'btn', href: wa, target: '_blank', rel: 'noopener' }, UI.svg('message-circle', 18), 'Falar pelo WhatsApp') : null,
-          open ? h('a', { class: 'btn ' + (wa ? 'ghost' : ''), href: '#/consultas' }, UI.svg('calendar-plus', 18), 'Pedir consulta') : null),
-        waiting ? h('div', { class: 'mt16' }, UI.notice('warn', h('span', null, h('b', null, 'Aguardando a conferência do cadastro. '), x.name + ' vai conferir os seus dados. Assim que confirmar, você pode pedir consultas por aqui e avisamos você.'))) : null,
+          open ? h('a', { class: 'btn ' + (wa ? 'ghost' : ''), href: '#/consultas' }, UI.svg('calendar-plus', 18), 'Marcar consulta') : null),
+        waiting ? h('div', { class: 'mt16' }, UI.notice('warn', h('span', null, h('b', null, 'Aguardando a conferência do cadastro. '), x.name + ' vai conferir os seus dados. Assim que confirmar, você pode marcar consultas por aqui e avisamos você.'))) : null,
         !wa ? h('p', { class: 'small muted mt16 mb0' }, 'Seu psicólogo(a) ainda não colocou o WhatsApp aqui.') : null,
         h('div', { class: 'group-title' }, 'Seu diário com ele(a)'),
-        h('div', { class: 'group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('share-2', 20)),
-          h('span', null, h('span', { class: 't' }, 'Compartilhar os textos novos'), h('span', { class: 's' }, x.shared_entries ? x.shared_entries + (x.shared_entries === 1 ? ' registro compartilhado' : ' registros compartilhados') : 'Nenhum registro compartilhado ainda')), auto.el)),
-        h('p', { class: 'group-hint' }, 'Para compartilhar só um registro, abra ele no Diário e ligue a opção. Você pode desligar quando quiser.'),
+        h('div', { class: 'item flat share-mode' }, h('span', { class: 'ico-box' }, UI.svg('share-2', 20)),
+          h('span', { class: 'grow' }, h('span', { class: 't' }, 'Compartilhar os textos novos'), h('span', { class: 's' }, x.shared_entries ? x.shared_entries + (x.shared_entries === 1 ? ' registro compartilhado' : ' registros compartilhados') : 'Nenhum registro compartilhado ainda'))),
+        seg.el, modeNote,
+        h('p', { class: 'group-hint' }, 'Humor, energia e ansiedade ele(a) sempre vê. Para compartilhar só um texto, abra o registro no Diário e ligue a opção.'),
         h('div', { class: 'row-actions' }, h('button', { type: 'button', class: 'linkbtn small danger-link', onclick: function () {
           UI.confirmBox({ title: 'Desvincular de ' + x.name + '?', text: 'Ele(a) deixa de ver seu humor e os textos compartilhados. O histórico de consultas e o cadastro dele(a) ficam com o próprio psicólogo(a).', ok: 'Desvincular', danger: true }).then(function (yes) {
             if (!yes) return;
@@ -62,17 +58,61 @@
         } }, 'Desvincular')));
     }
 
-    Promise.all([API.sharing.mine(), API.booking.psychologists().catch(function () { return []; })]).then(function (r) {
+    /* Pedido que o psicólogo(a) mandou: aceitar vincula; recusar encerra. */
+    function inviteCard(q) {
+      var general = h('div', { 'aria-live': 'polite' });
+      var yes = UI.button('Aceitar', { onclick: function () { answer(true, yes); } });
+      var no = UI.button('Recusar', { variant: 'ghost', onclick: function () { answer(false, no); } });
+      function answer(accept, btn) {
+        UI.clear(general); UI.busy(btn, true);
+        API.linkRequests.answer(q.id, accept).then(function () {
+          UI.toast(accept ? 'Pronto! Você está vinculado(a) a ' + q.name + '.' : 'Pedido recusado.', accept ? 'circle-check' : 'info');
+          refresh();
+        }).catch(function (e) { UI.busy(btn, false); Diag.error('responder-pedido', e); general.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível responder agora. Tente de novo.'))); });
+      }
+      return h('section', { class: 'card pro-card', 'aria-label': 'Pedido de ' + q.name },
+        h('div', { class: 'invite-who' }, UI.avatar(q.name, { size: 'lg' }),
+          h('div', { class: 'grow' }, h('b', null, q.name), h('div', { class: 'muted small' }, crp(q)), h('div', { class: 'mt8' }, q.verified ? h('span', { class: 'badge ok' }, UI.svg('badge-check', 14), 'CRP verificado') : h('span', { class: 'badge warn' }, 'CRP em análise')))),
+        h('p', { class: 'lead mt16' }, q.name + ' pediu para acompanhar você no Senso.'),
+        h('ul', { class: 'plain-list what-list' },
+          h('li', null, UI.svg('user', 18), 'Ele(a) passa a ver seu nome, celular, e-mail e data de nascimento.'),
+          h('li', null, UI.svg('smile', 18), 'Ele(a) acompanha o humor, a energia e a ansiedade que você registrar.'),
+          h('li', null, UI.svg('lock', 18), 'O texto do diário só vai para ele(a) se você escolher compartilhar.')),
+        h('p', { class: 'small muted' }, 'Aceite só se você é paciente dele(a). Você pode desvincular quando quiser.'),
+        general, h('div', { class: 'stack-btns' }, yes, no));
+    }
+
+    /* Pedido que o paciente fez pelo link: espera o psicólogo(a) aceitar. */
+    function sentCard(q) {
+      var cancel = h('button', { type: 'button', class: 'linkbtn small danger-link', onclick: function () {
+        cancel.disabled = true;
+        API.linkRequests.answer(q.id, false).then(function () { UI.toast('Pedido cancelado.', 'info'); refresh(); })
+          .catch(function (e) { cancel.disabled = false; Diag.error('cancelar-pedido', e); UI.toast(UI.errorText(e)); });
+      } }, 'Cancelar pedido');
+      return h('section', { class: 'card pro-card', 'aria-label': 'Pedido enviado para ' + q.name },
+        h('div', { class: 'invite-who' }, UI.avatar(q.name, { size: 'lg' }),
+          h('div', { class: 'grow' }, h('b', null, q.name), h('div', { class: 'muted small' }, crp(q)))),
+        UI.notice('warn', h('span', null, h('b', null, 'Pedido enviado. '), 'Quem vincula é o seu psicólogo(a): assim que ' + UI.firstName(q.name) + ' aceitar, vocês ficam conectados e avisamos você.')),
+        h('div', { class: 'row-actions' }, cancel));
+    }
+
+    Promise.all([API.sharing.mine(), API.booking.psychologists().catch(function () { return []; }), API.linkRequests.mine().catch(function () { return []; })]).then(function (r) {
       clear(holder);
-      var list = r[0], contacts = {};
+      var list = r[0], contacts = {}, reqs = r[2];
       r[1].forEach(function (c) { contacts[c.professional_id] = c; });
+      var invites = reqs.filter(function (q) { return q.origin === 'professional'; }), sent = reqs.filter(function (q) { return q.origin === 'patient'; });
       var pend = S.pendingInvite(); if (pend) holder.appendChild(pend);
-      if (!list.length) {
-        holder.appendChild(UI.empty('heart-handshake', 'Você ainda não está vinculado(a)', 'Seu psicólogo(a) manda um link para você. Ao aceitar, vocês ficam conectados: ele(a) acompanha seu humor e você pede consultas por aqui.'));
-        holder.appendChild(h('div', { class: 'card' }, h('h2', null, 'Tenho um link'), linkBox()));
+      invites.forEach(function (q) { holder.appendChild(inviteCard(q)); });
+      sent.forEach(function (q) { holder.appendChild(sentCard(q)); });
+      if (!list.length && !reqs.length) {
+        var ph = ctx.me.profile.phone;
+        holder.appendChild(UI.empty('heart-handshake', 'Você ainda não está vinculado(a)', 'Quem vincula é o seu psicólogo(a). Ele(a) procura você pelo celular do seu cadastro e você aceita aqui. Se ele(a) mandou um link de cadastro, é só abrir o link.'));
+        holder.appendChild(h('div', { class: 'card' }, h('h2', null, 'Seu celular no Senso'),
+          ph ? h('p', null, 'Seu psicólogo(a) precisa ter este número no cadastro dele(a): ', h('b', null, UI.formatPhone ? UI.formatPhone(ph) : ph), '.')
+            : h('p', null, 'Você não colocou um celular na conta. Sem ele, o psicólogo(a) não encontra você. Coloque em ', h('a', { href: '#/conta' }, 'Conta'), '.'),
+          h('p', { class: 'small muted mb0' }, 'Se o número do cadastro dele(a) for outro, peça para ele(a) corrigir ou mude o seu em Conta.')));
       } else {
         list.forEach(function (x) { holder.appendChild(proCard(x, contacts[x.professional_id])); });
-        holder.appendChild(h('details', { class: 'invite-more mt24' }, h('summary', null, 'Vincular outro psicólogo(a)'), linkBox()));
       }
       holder.appendChild(h('div', { class: 'group-title' }, 'O que o(a) psicólogo(a) vê'));
       holder.appendChild(h('div', { class: 'card' }, h('ul', { class: 'plain-list what-list mb0' },
@@ -156,14 +196,14 @@
       h('div', { class: 'metas' }, details), extra, actions.length ? h('div', { class: 'btn-row mt16' }, actions) : null);
   }
 
-  /* Janela para pedir uma consulta. */
+  /* Janela para marcar uma consulta (o pedido vai para o psicólogo(a) confirmar). */
   function bookingSheet(psy, onDone, pre) {
     var open = psy.filter(function (x) { return x.booking_enabled && x.verified !== false; });
     var proId = (pre && open.some(function (x) { return x.professional_id === pre; })) ? pre : open[0].professional_id;
     var sel = open.length > 1 ? UI.field({ label: 'Com quem', type: 'select', options: open.map(function (x) { return [x.professional_id, x.full_name]; }) }) : null;
     if (sel) { sel.input.value = proId; sel.input.addEventListener('change', function () { proId = sel.input.value; load(); }); }
     var area = h('div', { 'aria-live': 'polite' });
-    var sh = UI.sheet({ title: 'Pedir uma consulta', wide: true, content: [sel ? sel.el : null, area] });
+    var sh = UI.sheet({ title: 'Marcar uma consulta', wide: true, content: [sel ? sel.el : null, area] });
 
     function load() {
       clear(area); area.appendChild(UI.loading('Buscando horários...'));
@@ -183,7 +223,7 @@
       var modeSeg = info.accepts_in_person && info.accepts_online ? UI.segmented({ label: 'Tipo de atendimento', value: mode, options: [['in_person', 'Presencial'], ['online', 'Online']], onChange: function (v) { mode = v; } }) : null;
       var note = UI.field({ label: 'Quer deixar um recado?', type: 'textarea', optional: true, rows: 2, maxlength: 300, placeholder: 'Ex.: prefiro de manhã.' });
       var general = h('div', { 'aria-live': 'polite' });
-      var send = UI.button('Pedir consulta', { disabled: true });
+      var send = UI.button('Marcar consulta', { disabled: true });
       send.disabled = true;
       function chooseDay(d) {
         pick.day = d; pick.slot = null; send.disabled = true;
@@ -214,7 +254,7 @@
           if (/slot_taken/.test(String((e && e.message) || ''))) load();
         });
       });
-      area.appendChild(h('p', { class: 'muted' }, 'Consulta de ' + info.session_minutes + ' minutos com ', h('b', null, name), '. O pedido vai para ele(a) aprovar.'));
+      area.appendChild(h('p', { class: 'muted' }, 'Consulta de ' + info.session_minutes + ' minutos com ', h('b', null, name), '. O pedido vai para ele(a) confirmar.'));
       area.appendChild(h('div', { class: 'lbl' }, '1. Escolha o dia')); area.appendChild(strip);
       area.appendChild(h('div', { class: 'lbl mt16' }, '2. Escolha o horário'));
       slotBox.appendChild(h('p', { class: 'muted small mb0' }, 'Escolha um dia para ver os horários.'));
@@ -232,7 +272,7 @@
 
   S.appointments = function (ctx, q) {
     var holder = h('div', null, UI.loading());
-    var openBtn = h('button', { type: 'button', class: 'btn auto sm hide' }, UI.svg('calendar-plus', 18), 'Pedir consulta');
+    var openBtn = h('button', { type: 'button', class: 'btn auto sm hide' }, UI.svg('calendar-plus', 18), 'Marcar consulta');
     var node = S.shell(ctx, 'consultas', [h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Consultas'), h('p', null, 'Seus pedidos e horários')), openBtn), holder]);
     var psy = [], auto = q && q.novo;
 
@@ -246,18 +286,18 @@
         openBtn.classList.toggle('hide', !canBook);
         openBtn.onclick = function () { bookingSheet(psy, reload); };
         if (!psy.length) {
-          holder.appendChild(UI.empty('heart-handshake', 'Primeiro, vincule-se ao seu psicólogo(a)', 'Com o vínculo você pede consultas por aqui.', h('a', { class: 'btn auto', href: '#/psicologo' }, 'Vincular agora')));
+          holder.appendChild(UI.empty('heart-handshake', 'Primeiro, o seu psicólogo(a) precisa vincular você', 'Com o vínculo você marca consultas por aqui. Veja como ele(a) vincula você.', h('a', { class: 'btn auto', href: '#/psicologo' }, 'Ver como')));
           return;
         }
         waiting.forEach(function (x) {
-          holder.appendChild(UI.notice('warn', h('span', null, h('b', null, 'Aguardando ' + x.full_name + ' conferir o seu cadastro. '), 'Assim que ele(a) confirmar, você pode pedir consultas por aqui e avisamos você.')));
+          holder.appendChild(UI.notice('warn', h('span', null, h('b', null, 'Aguardando ' + x.full_name + ' conferir o seu cadastro. '), 'Assim que ele(a) confirmar, você pode marcar consultas por aqui e avisamos você.')));
         });
         if (!canBook && !waiting.length) holder.appendChild(UI.notice('info', 'Seu psicólogo(a) ainda não abriu a agenda para pedidos. Você pode combinar pelo WhatsApp em "Meu psicólogo(a)".'));
         var live = list.filter(function (a) { return ['requested', 'reschedule_proposed'].indexOf(a.status) >= 0 || (a.status === 'scheduled' && !a.past); });
         var hist = list.filter(function (a) { return live.indexOf(a) < 0; });
         live.sort(function (a, b) { return Date.parse(a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at) - Date.parse(b.status === 'reschedule_proposed' ? b.proposed_starts_at : b.starts_at); });
         if (canBook && !live.length && !hist.length) {
-          holder.appendChild(UI.empty('calendar-plus', 'Nenhuma consulta ainda', 'Escolha um horário livre e peça. Seu psicólogo(a) confirma.', h('button', { type: 'button', class: 'btn auto', onclick: function () { bookingSheet(psy, reload); } }, 'Pedir uma consulta')));
+          holder.appendChild(UI.empty('calendar-plus', 'Nenhuma consulta ainda', 'Escolha um horário livre. Seu psicólogo(a) confirma.', h('button', { type: 'button', class: 'btn auto', onclick: function () { bookingSheet(psy, reload); } }, 'Marcar uma consulta')));
         }
         if (live.length) { holder.appendChild(h('div', { class: 'group-title' }, 'Próximas e pedidos')); live.forEach(function (a) { holder.appendChild(apptCard(a, reload)); }); }
         if (hist.length) { holder.appendChild(h('div', { class: 'group-title' }, 'Histórico')); hist.forEach(function (a) { holder.appendChild(apptCard(a, reload)); }); }

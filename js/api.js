@@ -34,7 +34,7 @@
   var listeners = [];
   sb.auth.onAuthStateChange(function (event) { listeners.forEach(function (f) { try { f(event); } catch (e) { /* ignore */ } }); });
 
-  var DIARY_COLS = 'id, entry_date, period, mood, energy, anxiety, tags, body, updated_at';
+  var DIARY_COLS = 'id, entry_date, entry_time, mood, energy, anxiety, tags, body, updated_at';
 
   window.API = {
     mode: 'live',
@@ -250,16 +250,18 @@
        a gravacao vai na tabela (o banco cifra ao gravar e nunca guarda o texto em claro). */
     diary: {
       list: function () {
-        return sb.from('diary_entries_read').select(DIARY_COLS).order('entry_date', { ascending: false }).order('created_at', { ascending: false }).limit(300).then(ok);
+        return sb.from('diary_entries_read').select(DIARY_COLS).order('entry_date', { ascending: false }).order('entry_time', { ascending: false }).order('created_at', { ascending: false }).limit(300).then(ok);
       },
       get: function (id) { return sb.from('diary_entries_read').select(DIARY_COLS).eq('id', id).maybeSingle().then(ok); },
-      /* Grava pelo banco (save_diary_entry): periodo (manha, tarde, noite ou o dia todo), compartilhamento e XP ficam numa funcao so.
-         e.share: true compartilha com os psicologos vinculados; false nao; ausente segue o "compartilhar automatico". */
+      /* Grava pelo banco (save_diary_entry): data, hora, humor, compartilhamento e XP ficam numa funcao so.
+         e.entry_time: 'HH:MM' (vazio = agora; ao editar, vazio mantem a hora que ja estava).
+         e.share: true compartilha com os psicologos vinculados; false nao; ausente segue o modo de cada psicologo.
+         Devolve a anotacao e, em row.ask, os psicologos para quem o app deve perguntar se compartilha ([{ professional_id, name }]). */
       save: function (e) {
-        return sb.rpc('save_diary_entry', { p_date: e.entry_date, p_period: e.period || null, p_mood: e.mood == null ? null : e.mood, p_energy: e.energy == null ? null : e.energy,
+        return sb.rpc('save_diary_entry', { p_date: e.entry_date, p_time: e.entry_time || null, p_mood: e.mood == null ? null : e.mood, p_energy: e.energy == null ? null : e.energy,
           p_anxiety: e.anxiety == null ? null : e.anxiety, p_tags: e.tags || [], p_body: e.body || '', p_id: e.id || null, p_share: e.share == null ? null : !!e.share })
           .then(ok).then(function (r) {
-            return sb.from('diary_entries_read').select(DIARY_COLS).eq('id', r.id).single().then(ok).then(function (row) { row.created = !!r.created; return row; });
+            return sb.from('diary_entries_read').select(DIARY_COLS).eq('id', r.id).single().then(ok).then(function (row) { row.created = !!r.created; row.ask = r.ask || []; return row; });
           });
       },
       /* Humor de cada dia: a media dos periodos registrados (com um so, e o proprio humor). */
@@ -273,7 +275,9 @@
       mine: function () { return sb.rpc('my_invite_link').then(ok); },
       regenerate: function () { return sb.rpc('regenerate_invite_link').then(ok); },
       setEnabled: function (on) { return sb.rpc('set_invite_enabled', { p_on: !!on }).then(ok); },
-      /* Paciente que ja tem conta: devolve { ok, error?, name? } (erros: patients_only, consent_required, invalid_code, already_linked). */
+      /* Paciente que ja tem conta pede para ser paciente de quem mandou o link: devolve { ok, status?, name?, error? }.
+         status: 'requested' (espera o psicologo aceitar), 'already_requested' ou 'linked' (os dois lados tinham pedido).
+         Erros: patients_only, consent_required, invalid_code, already_linked. */
       use: function (code, accept) { return sb.rpc('use_invite_link', { p_code: String(code || ''), p_accept: !!accept }).then(ok); }
     },
 
@@ -281,9 +285,20 @@
     sharing: {
       mine: function () { return sb.rpc('my_sharing').then(ok); },
       setAuto: function (professionalId, on) { return sb.rpc('set_diary_auto_share', { p_professional: professionalId, p_on: !!on }).then(ok).then(function () { return true; }); },
+      /* mode: 'ask' (perguntar depois de cada registro), 'always' (compartilhar sempre) ou 'never' (nunca, sem perguntar) */
+      setMode: function (professionalId, mode) { return sb.rpc('set_diary_share_mode', { p_professional: professionalId, p_mode: mode }).then(ok).then(function () { return true; }); },
+      /* Resposta da pergunta que aparece depois de registrar. choice: 'yes' (compartilha este e os proximos), 'no' (agora nao, pergunta de novo) ou 'never' (nao compartilha nem pergunta mais). */
+      answerPrompt: function (entryId, professionalIds, choice) { return sb.rpc('answer_share_prompt', { p_entry: entryId, p_professionals: professionalIds || [], p_choice: choice }).then(ok).then(function () { return true; }); },
       share: function (entryId, professionalId, shared) { return sb.rpc('share_entry', { p_entry: entryId, p_professional: professionalId, p_shared: !!shared }).then(ok).then(function () { return true; }); },
       entryShares: function () { return sb.from('diary_shares').select('entry_id, professional_id').limit(2000).then(ok); },
       unlink: function (professionalId) { return sb.rpc('unlink_professional', { p_professional: professionalId }).then(ok).then(function () { return true; }); }
+    },
+
+    /* Paciente: pedidos de vinculo em aberto. Os que o psicologo mandou (origin 'professional') ele aceita ou recusa; os que ele mesmo fez
+       pelo link (origin 'patient') ficam esperando o psicologo, e da para cancelar (accept false). */
+    linkRequests: {
+      mine: function () { return sb.rpc('my_link_requests').then(ok); },
+      answer: function (requestId, accept) { return sb.rpc('answer_link_request', { p_request: requestId, p_accept: !!accept }).then(ok); }
     },
 
     /* psicologo: acompanhamento, pacientes (com ou sem conta), relatorio, aniversarios, avaliacoes e WhatsApp. O banco confere tudo de novo. */
@@ -293,6 +308,21 @@
       linkedPatients: function () { return sb.rpc('pro_linked_patients').then(ok); },
       unlinkPatient: function (recordId) { return sb.rpc('unlink_patient', { p_record: recordId }).then(ok).then(function () { return true; }); },
       patients: function () { return sb.rpc('pro_patient_list').then(ok); },
+      /* Pedidos de vinculo em aberto: os que chegaram pelo link (origin 'patient', para aceitar ou recusar) e os que voce mandou pelo celular (origin 'professional'). */
+      linkRequests: function () { return sb.rpc('pro_link_requests').then(ok); },
+      /* approve true aceita (recordId opcional: ligar a um cadastro que voce ja tem; vazio acha pelo celular e e-mail ou cria um novo). Devolve o id da ficha. */
+      decideLink: function (requestId, approve, recordId) { return sb.rpc('decide_link_request', { p_request: requestId, p_approve: !!approve, p_record: recordId || null }).then(ok); },
+      /* Pede o vinculo pelo celular do cadastro. Devolve { ok, status } ou { ok: false, error: no_account | phone_ambiguous | phone_required | already_linked }. */
+      requestLink: function (recordId) { return sb.rpc('pro_request_link', { p_record: recordId }).then(ok); },
+      cancelLinkRequest: function (requestId) { return sb.rpc('pro_cancel_link_request', { p_request: requestId }).then(ok).then(function () { return true; }); },
+      /* Transferir paciente para um colega pelo CRP. findColleague devolve { ok, name, crp_region, crp_number } ou { ok: false, error: crp_invalid | not_registered }. */
+      findColleague: function (region, number) { return sb.rpc('pro_find_colleague', { p_region: region, p_number: number }).then(ok); },
+      requestTransfer: function (recordId, region, number, attest, note) {
+        return sb.rpc('pro_request_transfer', { p_record: recordId, p_region: region, p_number: number, p_attest: !!attest, p_note: note || null }).then(ok);
+      },
+      transfers: function () { return sb.rpc('pro_transfers').then(ok); },
+      cancelTransfer: function (id) { return sb.rpc('pro_cancel_transfer', { p_id: id }).then(ok).then(function () { return true; }); },
+      decideTransfer: function (id, accept) { return sb.rpc('pro_decide_transfer', { p_id: id, p_accept: !!accept }).then(ok); },
       /* d = { id (vazio = novo), name, phone, email, birth ('AAAA-MM-DD'), guardianName, guardianPhone }. Devolve o id da ficha. */
       savePatient: function (d) {
         return sb.rpc('pro_save_patient', { p_record: d.id || null, p_name: d.name, p_phone: d.phone || null, p_email: d.email || null, p_birth: d.birth || null,

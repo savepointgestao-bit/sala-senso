@@ -126,6 +126,7 @@
   function button(label, o) {
     o = o || {};
     var b = h('button', { type: o.type || 'button', class: 'btn' + (o.variant ? ' ' + o.variant : '') + (o.auto ? ' auto' : ''), onclick: o.onclick, 'data-label': label }, o.icon ? svg(o.icon) : null, label);
+    if (o.disabled) b.disabled = true;
     return b;
   }
   function busy(btn, on) {

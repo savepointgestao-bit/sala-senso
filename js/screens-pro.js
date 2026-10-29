@@ -14,7 +14,6 @@
     return UI.fmtDate(day);
   }
   function meta(icon, text, cls) { return h('span', { class: 'meta' + (cls ? ' ' + cls : '') }, UI.svg(icon, 14), text); }
-  var PERIOD = { morning: 'Manhã', afternoon: 'Tarde', evening: 'Noite', day: 'Dia todo' };
   var WEEKDAY = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   var MODE = { in_person: 'Presencial', online: 'Online' };
   var STATUS = { scheduled: ['ok', 'Confirmada'], done: ['ok', 'Realizada'], no_show: ['', 'Faltou'], canceled_by_patient: ['', 'Cancelada pelo paciente'], canceled_by_professional: ['', 'Cancelada por você'] };
@@ -22,6 +21,7 @@
   /* Selos do cadastro (lista e ficha). */
   function badges(p, full) {
     var out = [];
+    if (p.transferred_at) { out.push(h('span', { class: 'badge soft' }, UI.svg('arrow-right', 14), 'Transferido' + (p.transferred_to_name ? ' para ' + p.transferred_to_name : ''))); return out; }
     if (!p.verified) out.push(h('span', { class: 'badge warn' }, UI.svg('hourglass', 14), 'Por conferir'));
     else if (full) out.push(h('span', { class: 'badge ok' }, UI.svg('circle-check', 14), 'Cadastro confirmado'));
     if (p.minor) out.push(h('span', { class: 'badge minor' }, 'Menor de 18'));
@@ -108,7 +108,7 @@
   S.birthdayCard = birthdayCard;
 
   /* ---------------------------------------------------------------- lista de pacientes */
-  var FILTERS = [['all', 'Todos'], ['verify', 'Por conferir'], ['minor', 'Menores'], ['nolink', 'Sem conta']];
+  var FILTERS = [['all', 'Todos'], ['verify', 'Por conferir'], ['minor', 'Menores'], ['nolink', 'Sem conta'], ['moved', 'Transferidos']];
 
   function patientRow(p) {
     var ms = [];
@@ -134,12 +134,15 @@
       holder.appendChild(UI.empty('lock', 'Libera quando o seu CRP for confirmado', 'Enquanto isso, você pode explorar o resto do Senso.'));
       return node;
     }
-    var all = [], births = [], filter = FILTERS.some(function (f) { return f[0] === (q && q.f); }) ? q.f : 'all', term = '';
+    var all = [], births = [], reqs = [], transfers = { incoming: [], outgoing: [] }, filter = FILTERS.some(function (f) { return f[0] === (q && q.f); }) ? q.f : 'all', term = '';
     var listBox = h('div', { 'aria-live': 'polite' }), chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrar pacientes' });
     var search = UI.field({ label: 'Buscar paciente', type: 'search', placeholder: 'Nome, e-mail ou celular', maxlength: 80 });
     search.input.addEventListener('input', function () { term = plain(search.value()); drawList(); });
 
+    function isMoved(p) { return !!p.transferred_at; }
     function matches(p) {
+      if (filter === 'moved') { if (!isMoved(p)) return false; }
+      else if (isMoved(p)) return false;
       if (filter === 'verify' && p.verified) return false;
       if (filter === 'minor' && !p.minor) return false;
       if (filter === 'nolink' && p.linked) return false;
@@ -149,7 +152,7 @@
     function drawChips() {
       clear(chips);
       FILTERS.forEach(function (f) {
-        var n = all.filter(function (p) { return f[0] === 'verify' ? !p.verified : (f[0] === 'minor' ? p.minor : (f[0] === 'nolink' ? !p.linked : true)); }).length;
+        var n = all.filter(function (p) { return f[0] === 'moved' ? isMoved(p) : (!isMoved(p) && (f[0] === 'verify' ? !p.verified : (f[0] === 'minor' ? p.minor : (f[0] === 'nolink' ? !p.linked : true)))); }).length;
         if (f[0] !== 'all' && f[0] !== filter && !n) return;
         chips.appendChild(h('button', { type: 'button', class: 'chip', 'aria-pressed': filter === f[0] ? 'true' : 'false', onclick: function () { filter = f[0]; drawChips(); drawList(); } }, f[1] + (f[0] === 'all' ? '' : ' (' + n + ')')));
       });
@@ -168,13 +171,16 @@
     }
     function draw() {
       clear(holder);
+      var trBox = S.transfersSection(transfers, onChange), rqBox = S.linkRequestsSection(reqs, all.filter(function (p) { return !p.linked && !isMoved(p); }), onChange);
+      if (trBox) holder.appendChild(trBox);
+      if (rqBox) holder.appendChild(rqBox);
       if (!all.length) {
-        holder.appendChild(UI.empty('users', 'Nenhum paciente ainda', 'Cadastre quem você atende, ou mande o seu link de convite para a pessoa criar a própria conta.',
+        holder.appendChild(UI.empty('users', 'Nenhum paciente ainda', 'Cadastre quem você atende, ou mande o seu link de cadastro para a pessoa criar a própria conta e pedir para ser seu paciente.',
           h('div', { class: 'btn-row' }, h('button', { type: 'button', class: 'btn auto', onclick: function () { S.patientSheet(null, function (id) { go('#/pacientes/' + id); }); } }, UI.svg('user-plus', 18), 'Cadastrar paciente'),
             h('a', { class: 'btn ghost auto', href: '#/inicio' }, UI.svg('link', 18), 'Ver meu link'))));
         return;
       }
-      var toVerify = all.filter(function (p) { return !p.verified; }).length;
+      var toVerify = all.filter(function (p) { return !p.verified && !isMoved(p); }).length;
       var pending = all.reduce(function (s, p) { return s + (p.pending_requests || 0); }, 0);
       if (pending) holder.appendChild(S.pendingStrip('calendar-plus', pending === 1 ? '1 pedido de consulta esperando você' : pending + ' pedidos de consulta esperando você', '#/agenda?aba=pedidos', 'Responder'));
       if (toVerify) holder.appendChild(S.pendingStrip('hourglass', toVerify === 1 ? '1 cadastro para conferir' : toVerify + ' cadastros para conferir', '#/pacientes?f=verify', 'Conferir'));
@@ -183,8 +189,14 @@
       drawList(); holder.appendChild(listBox);
       var bc = birthdayCard(births); if (bc) holder.appendChild(bc);
     }
-    Promise.all([API.pro.patients(), API.pro.birthdays(30).catch(function () { return []; })]).then(function (r) { all = r[0]; births = r[1]; draw(); })
-      .catch(function (e) { Diag.error('pacientes', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar os pacientes agora. Atualize a página.')); });
+    /* depois de aceitar ou recusar: recarrega a lista (e abre a ficha, se veio um cadastro) */
+    function onChange(recordId) { if (recordId) { go('#/pacientes/' + recordId); return; } load(); }
+    function load() {
+      return Promise.all([API.pro.patients(), API.pro.birthdays(30).catch(function () { return []; }), API.pro.linkRequests().catch(function () { return []; }),
+        API.pro.transfers().catch(function () { return { incoming: [], outgoing: [] }; })]).then(function (r) { all = r[0]; births = r[1]; reqs = r[2]; transfers = r[3]; draw(); })
+        .catch(function (e) { Diag.error('pacientes', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar os pacientes agora. Atualize a página.')); });
+    }
+    load();
     return node;
   };
 
@@ -197,7 +209,7 @@
   S.patientFile = function (ctx, id, q) {
     var holder = h('div', null, UI.loading());
     var node = S.shell(ctx, 'pacientes', [UI.backLink('#/pacientes', 'Pacientes'), holder]);
-    var R = null, tab = ['resumo', 'diario', 'consultas', 'cadastro'].indexOf(q && q.aba) >= 0 ? q.aba : 'resumo', days = 90;
+    var R = null, X = { linkReq: null, transfer: null }, tab = ['resumo', 'diario', 'consultas', 'cadastro'].indexOf(q && q.aba) >= 0 ? q.aba : 'resumo', days = 90;
 
     function fail(e) {
       Diag.error('ficha-paciente', e);
@@ -206,7 +218,18 @@
         ? UI.empty('user-x', 'Paciente não encontrado', 'Esse cadastro não existe ou não é seu.', h('a', { class: 'btn auto', href: '#/pacientes' }, 'Voltar para a lista'))
         : UI.notice('bad', 'Não foi possível carregar a ficha agora. Atualize a página.'));
     }
-    function load() { return API.pro.report(id, days).then(function (r) { R = r; draw(); }).catch(fail); }
+    /* A ficha vem do relatório; o que não está nele (transferência, pedido de vínculo em aberto) vem da lista, dos pedidos e dos encaminhamentos. */
+    function load() {
+      return Promise.all([API.pro.report(id, days), API.pro.patients().catch(function () { return []; }), API.pro.linkRequests().catch(function () { return []; }),
+        API.pro.transfers().catch(function () { return { incoming: [], outgoing: [] }; })]).then(function (r) {
+        R = r[0];
+        var item = r[1].filter(function (x) { return x.record_id === R.record_id; })[0];
+        R.transferred_at = item ? item.transferred_at : null; R.transferred_to_name = item ? item.transferred_to_name : null;
+        X.linkReq = r[2].filter(function (x) { return x.origin === 'professional' && x.record_id === R.record_id; })[0] || null;
+        X.transfer = (r[3].outgoing || []).filter(function (x) { return x.record_id === R.record_id && x.status === 'pending'; })[0] || null;
+        draw();
+      }).catch(fail);
+    }
 
     /* ------ cabeçalho e conferência */
     function header() {
@@ -215,12 +238,13 @@
       return h('section', { class: 'card pt-header' },
         h('div', { class: 'invite-who' }, UI.avatar(R.full_name, { size: 'lg', level: R.level }),
           h('div', { class: 'grow' }, h('h1', { class: 'mb0' }, R.full_name), bits ? h('div', { class: 'muted small' }, bits) : null, h('div', { class: 'row-gap mt8' }, badges(R, true)))),
-        h('div', { class: 'btn-row mt16' },
+        R.transferred_at ? h('div', { class: 'mt16' }, UI.notice('info', 'Transferido' + (R.transferred_to_name ? ' para ' + R.transferred_to_name : '') + ' em ' + UI.fmtDate(UI.dt.dayOf(R.transferred_at)) + '. O cadastro fica aqui só para você consultar.'))
+        : h('div', { class: 'btn-row mt16' },
           h('button', { type: 'button', class: 'btn', onclick: function () { S.newAppointmentSheet({ record: { id: R.record_id, name: R.full_name }, onDone: load }); } }, UI.svg('calendar-plus', 18), 'Marcar consulta'),
           wa ? h('a', { class: 'btn ghost', href: wa, target: '_blank', rel: 'noopener' }, UI.svg('message-circle', 18), 'WhatsApp') : null));
     }
     function verifyBanner() {
-      if (R.verified) return null;
+      if (R.verified || R.transferred_at) return null;
       var btn = UI.button('Confirmar cadastro', { auto: true, icon: 'badge-check', onclick: function () {
         UI.busy(btn, true);
         API.pro.setVerified(R.record_id, true).then(function () {
@@ -230,24 +254,80 @@
       } });
       return h('section', { class: 'cta-card verify-card', role: 'region', 'aria-label': 'Conferir o cadastro' }, h('span', { class: 'ico-box' }, UI.svg('badge-check', 22)),
         h('div', { class: 'grow' }, h('div', { class: 't' }, 'Confirme que esse cadastro é de quem você atende'),
-          h('div', { class: 's' }, R.linked ? 'A pessoa criou a conta pelo seu link. Confira nome, e-mail e celular. Enquanto você não confirmar, ela não consegue pedir consulta.'
+          h('div', { class: 's' }, R.linked ? 'A pessoa aceitou o seu pedido, mas o e-mail da conta é diferente do cadastro. Confira nome, e-mail e celular. Enquanto você não confirmar, ela não consegue marcar consulta.'
             : 'Enquanto o cadastro não for confirmado, ele fica marcado como pendente.')),
         btn);
     }
 
     /* ------ resumo: humor */
-    function inviteNudge() {
-      var box = h('section', { class: 'card' }, h('h2', null, 'Esse paciente ainda não tem conta'),
-        h('p', { class: 'muted' }, 'Com a conta no Senso, você acompanha o humor dele(a) e ele(a) pede consultas por aqui. Se criar a conta com o e-mail ', h('b', null, R.email || 'deste cadastro'), ', ela se junta a este cadastro.'));
+    /* Vincular a conta: pelo celular do cadastro (o paciente aceita) ou pelo link de cadastro (você aceita). */
+    function linkCard() {
+      var box = h('section', { class: 'card' }, h('h2', null, R.linked ? 'Vínculo com a conta' : 'Este paciente ainda não tem conta ligada a você'));
+      if (R.transferred_at) { box.appendChild(h('p', { class: 'muted mb0' }, 'Este paciente foi transferido. Para acompanhar de novo, o colega ou o próprio paciente precisa pedir o vínculo.')); return box; }
+      if (R.linked) {
+        box.appendChild(h('p', { class: 'muted' }, 'Se desvincular, você deixa de ver o humor e os textos compartilhados. O cadastro e o histórico de consultas continuam com você. Para vincular de novo, você pede pelo celular ou o paciente pede pelo seu link.'));
+        box.appendChild(h('button', { type: 'button', class: 'btn ghost auto danger-link', onclick: function () {
+          UI.confirmBox({ title: 'Desvincular a conta de ' + R.full_name + '?', text: 'Você deixa de acompanhar o humor dele(a). O cadastro fica com você.', ok: 'Desvincular', danger: true }).then(function (yes) {
+            if (!yes) return;
+            return API.pro.unlinkPatient(R.record_id).then(function () { UI.toast('Vínculo desfeito.', 'circle-check'); return load(); });
+          }).catch(function (e) { UI.toast(UI.errorText(e)); });
+        } }, 'Desvincular conta'));
+        return box;
+      }
+      box.appendChild(h('p', { class: 'muted' }, 'Com a conta no Senso, você acompanha o humor dele(a) e ele(a) marca consultas por aqui. Quem vincula é você.'));
+      var out = h('div', { 'aria-live': 'polite' });
+      if (X.linkReq) {
+        var cancel = h('button', { type: 'button', class: 'linkbtn small danger-link', onclick: function () {
+          cancel.disabled = true;
+          API.pro.cancelLinkRequest(X.linkReq.id).then(function () { UI.toast('Pedido cancelado.', 'info'); return load(); })
+            .catch(function (e) { cancel.disabled = false; Diag.error('cancelar-pedido', e); UI.toast(UI.errorText(e)); });
+        } }, 'Cancelar pedido');
+        box.appendChild(UI.notice('warn', h('span', null, h('b', null, 'Pedido enviado. '), 'Esperando ' + UI.firstName(R.full_name) + ' aceitar. Avisamos você. ', cancel)));
+      } else {
+        var btn = UI.button('Vincular pelo celular', { icon: 'link', onclick: function () {
+          UI.clear(out); UI.busy(btn, true);
+          API.pro.requestLink(R.record_id).then(function (r) {
+            if (r && r.ok) { UI.toast(r.status === 'linked' ? 'Pronto! A conta foi vinculada.' : (r.status === 'already_requested' ? 'O pedido já estava enviado.' : 'Pedido enviado. Avisamos você quando ' + UI.firstName(R.full_name) + ' aceitar.'), 'circle-check'); return load(); }
+            UI.busy(btn, false);
+            out.appendChild(UI.notice(r && r.error === 'already_linked' ? 'info' : 'warn', S.linkError(r && r.error)));
+          }).catch(function (e) { UI.busy(btn, false); Diag.error('vincular-celular', e); out.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível vincular agora. Tente de novo.'))); });
+        } });
+        box.appendChild(h('p', { class: 'small muted' }, R.phone ? 'Procuramos uma conta de paciente com o celular do cadastro, ' + UI.formatPhone(R.phone) + '. A pessoa recebe o pedido e aceita.'
+          : 'Este cadastro não tem celular. Edite o cadastro e coloque o celular para vincular.'));
+        if (R.phone) box.appendChild(btn);
+        box.appendChild(out);
+      }
+      box.appendChild(h('div', { class: 'group-title' }, 'Ou mande o seu link de cadastro'));
+      var linkBox = h('div');
+      box.appendChild(linkBox);
       API.invite.mine().then(function (st) {
-        if (!st || !st.enabled) { box.appendChild(h('p', { class: 'small muted mb0' }, 'O seu link de convite está desativado. Ative na tela Atendimento.')); return; }
+        if (!st || !st.enabled) { linkBox.appendChild(h('p', { class: 'small muted mb0' }, 'O seu link de cadastro está desativado. Ative na tela Atendimento.')); return; }
         var url = S.invite.url(st.code);
-        var msg = 'Olá, ' + UI.firstName(R.full_name) + '! Aqui está o meu link para você criar a sua conta no Senso e ficar ligado(a) a mim: ' + url;
+        var msg = 'Olá, ' + UI.firstName(R.full_name) + '! Aqui está o meu link para você criar a sua conta no Senso e pedir para ser meu paciente: ' + url;
         var wa = UI.waLink(R.phone, msg);
-        box.appendChild(h('div', { class: 'btn-row' },
-          UI.button('Copiar link', { icon: 'copy', onclick: function () { UI.copyText(url).then(function () { UI.toast('Link copiado.', 'circle-check'); }, function () { UI.toast('Não deu para copiar.'); }); } }),
+        linkBox.appendChild(h('p', { class: 'small muted' }, 'A pessoa cria a conta pelo link e faz um pedido. Você aceita em Pacientes, e a conta se junta a este cadastro.'));
+        linkBox.appendChild(h('div', { class: 'btn-row' },
+          UI.button('Copiar link', { icon: 'copy', variant: 'ghost', onclick: function () { UI.copyText(url).then(function () { UI.toast('Link copiado.', 'circle-check'); }, function () { UI.toast('Não deu para copiar.'); }); } }),
           wa ? h('a', { class: 'btn ghost', href: wa, target: '_blank', rel: 'noopener' }, UI.svg('message-circle', 18), 'Enviar pelo WhatsApp') : null));
       }).catch(function () { /* sem o link, o resto da ficha continua */ });
+      return box;
+    }
+
+    /* Transferir o paciente para um colega (pelo CRP). */
+    function transferCard() {
+      if (R.transferred_at) return null;
+      var box = h('section', { class: 'card' }, h('h2', null, 'Transferir paciente'));
+      if (X.transfer) {
+        var cancel = h('button', { type: 'button', class: 'linkbtn small danger-link', onclick: function () {
+          cancel.disabled = true;
+          API.pro.cancelTransfer(X.transfer.id).then(function () { UI.toast('Encaminhamento cancelado.', 'info'); return load(); })
+            .catch(function (e) { cancel.disabled = false; Diag.error('cancelar-encaminhamento', e); UI.toast(UI.errorText(e)); });
+        } }, 'Cancelar encaminhamento');
+        box.appendChild(UI.notice('warn', h('span', null, h('b', null, 'Encaminhamento enviado. '), 'Esperando ' + X.transfer.to_name + ' (CRP ' + X.transfer.to_crp_region + '/' + X.transfer.to_crp_number + ') aceitar. ', cancel)));
+        return box;
+      }
+      box.appendChild(h('p', { class: 'muted' }, 'Encaminhe este paciente para um colega que usa o Senso, pelo CRP. Passa só o cadastro; prontuário, financeiro e o diário do paciente não passam.'));
+      box.appendChild(h('button', { type: 'button', class: 'btn ghost auto', onclick: function () { S.transferSheet(R, load); } }, UI.svg('arrow-right', 18), 'Transferir para outro psicólogo(a)'));
       return box;
     }
 
@@ -268,13 +348,13 @@
       box.appendChild(h('div', { class: 'stat-row' }, stats));
       if (m.low_days) box.appendChild(UI.notice('info', (m.low_days === 1 ? 'Foi 1 dia' : 'Foram ' + m.low_days + ' dias') + ' com humor 1 ou 2 no período. O último foi ' + rel(m.last_low_day) + '.'));
       var from = UI.dt.addDays(UI.dt.today(), -R.period_days);
-      box.appendChild(card('Calendário do humor', Charts.calendar(m.days, { min: from }), 'Cor de cada dia: a média dos registros. Toque em um dia para ver manhã, tarde e noite.'));
+      box.appendChild(card('Calendário do humor', Charts.calendar(m.days, { min: from }), 'Cor de cada dia: a média dos registros. Toque em um dia para ver o humor de manhã, tarde e noite.'));
       box.appendChild(card('Evolução', Charts.line(m.series, { from: from, to: UI.dt.today(), metrics: ['mood'] })));
       var wk = m.by_weekday || [];
       box.appendChild(card('Humor médio por dia da semana', Charts.bars(WEEKDAY.map(function (d, i) { return { label: d, value: wk[i] == null ? null : wk[i] }; }), { mood: true, label: 'Humor médio por dia da semana' })));
       var bp = m.by_period || {};
-      box.appendChild(card('Humor médio por período do dia', Charts.bars([['Manhã', bp.morning], ['Tarde', bp.afternoon], ['Noite', bp.evening], ['Dia todo', bp.whole]].map(function (x) { return { label: x[0], value: x[1] == null ? null : x[1] }; }), { mood: true, label: 'Humor médio por período do dia' }),
-        'Só aparecem os períodos que o paciente registrou.'));
+      box.appendChild(card('Humor médio por horário do dia', Charts.bars([['Manhã', bp.morning], ['Tarde', bp.afternoon], ['Noite', bp.evening]].map(function (x) { return { label: x[0], value: x[1] == null ? null : x[1] }; }), { mood: true, label: 'Humor médio por horário do dia' }),
+        'Pela hora do registro: manhã até 11h59, tarde de 12h às 17h59, noite a partir das 18h.'));
       var dist = m.distribution || {};
       box.appendChild(card('Quantos dias em cada humor', Charts.bars([5, 4, 3, 2, 1].map(function (v) { return { label: Charts.MOOD[v - 1], value: dist[v] || 0 }; }), { max: Math.max(1, m.days_with_record), int: true, label: 'Dias em cada humor' })));
       var hi = [];
@@ -286,7 +366,7 @@
 
     function summaryPanel() {
       var box = h('div');
-      if (!R.linked) { box.appendChild(inviteNudge()); return box; }
+      if (!R.linked) { box.appendChild(linkCard()); var tcu = transferCard(); if (tcu) box.appendChild(tcu); return box; }
       if (!R.consent) { box.appendChild(UI.notice('info', 'Esse paciente não autorizou (ou retirou a autorização do) diário. Você não vê o humor dele(a).')); return box; }
       var moodBox = h('div', { 'aria-live': 'polite' });
       var seg = UI.segmented({ label: 'Período', value: String(days), options: [['30', '30 dias'], ['90', '90 dias'], ['365', '1 ano']], onChange: function (v) {
@@ -316,7 +396,7 @@
           if (e.energy != null) vals.push(h('span', { class: 'val' }, 'Energia ', h('b', null, e.energy + '/5')));
           if (e.anxiety != null) vals.push(h('span', { class: 'val' }, 'Ansiedade ', h('b', null, e.anxiety + '/5')));
           box.appendChild(h('article', { class: 'card pt-entry' },
-            h('div', { class: 'appt-head' }, h('div', { class: 'appt-when' }, UI.dt.dayLabel(e.entry_date)), h('span', { class: 'tag period' }, PERIOD[e.period || 'day'])),
+            h('div', { class: 'appt-head' }, h('div', { class: 'appt-when' }, UI.dt.dayLabel(e.entry_date)), e.entry_time ? h('span', { class: 'tag time' }, String(e.entry_time).slice(0, 5)) : null),
             vals.length ? h('div', { class: 'pt-vals' }, vals) : null,
             e.tags && e.tags.length ? h('div', { class: 'chips' }, e.tags.map(function (t) { return h('span', { class: 'tag' }, t); })) : null,
             e.body ? h('p', { class: 'pt-body' }, e.body) : null));
@@ -357,7 +437,7 @@
       rows.forEach(function (r) { if (r[1]) { kv.appendChild(h('dt', null, r[0])); kv.appendChild(h('dd', null, r[1])); } });
       var actions = [h('button', { type: 'button', class: 'btn ghost auto', onclick: function () { S.patientSheet(R, load); } }, UI.svg('pencil', 18), 'Editar cadastro')];
       if (R.verified) actions.push(h('button', { type: 'button', class: 'btn ghost auto', onclick: function () {
-        UI.confirmBox({ title: 'Desfazer a conferência?', text: 'O cadastro volta a ficar “por conferir” e o paciente não consegue pedir consulta até você confirmar de novo.', ok: 'Desfazer' }).then(function (yes) {
+        UI.confirmBox({ title: 'Desfazer a conferência?', text: 'O cadastro volta a ficar “por conferir” e o paciente não consegue marcar consulta até você confirmar de novo.', ok: 'Desfazer' }).then(function (yes) {
           if (!yes) return;
           return API.pro.setVerified(R.record_id, false).then(function () { UI.toast('Conferência desfeita.', 'circle-check'); return load(); });
         }).catch(function (e) { UI.toast(UI.errorText(e)); });
@@ -377,16 +457,8 @@
           gkv, gwa ? h('div', { class: 'btn-row mt16' }, h('a', { class: 'btn ghost auto', href: gwa, target: '_blank', rel: 'noopener' }, UI.svg('message-circle', 18), 'Falar com o responsável')) : null,
           h('div', { class: 'item flat mt16' }, h('span', null, h('span', { class: 't' }, 'Autorização do responsável'), h('span', { class: 's' }, 'Marque quando ele(a) tiver autorizado o atendimento.')), auth.el)));
       }
-      if (R.linked) {
-        box.appendChild(h('section', { class: 'card' }, h('h2', null, 'Vínculo com a conta'),
-          h('p', { class: 'muted' }, 'Se desvincular, você deixa de ver o humor e os textos compartilhados. O cadastro e o histórico de consultas continuam com você, e o paciente pode se vincular de novo pelo seu link.'),
-          h('button', { type: 'button', class: 'btn ghost auto danger-link', onclick: function () {
-            UI.confirmBox({ title: 'Desvincular a conta de ' + R.full_name + '?', text: 'Você deixa de acompanhar o humor dele(a). O cadastro fica com você.', ok: 'Desvincular', danger: true }).then(function (yes) {
-              if (!yes) return;
-              return API.pro.unlinkPatient(R.record_id).then(function () { UI.toast('Vínculo desfeito.', 'circle-check'); return load(); });
-            }).catch(function (e) { UI.toast(UI.errorText(e)); });
-          } }, 'Desvincular conta')));
-      }
+      box.appendChild(linkCard());
+      var tc = transferCard(); if (tc) box.appendChild(tc);
       return box;
     }
 

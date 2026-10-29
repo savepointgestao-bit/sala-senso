@@ -1,5 +1,5 @@
 /* Modo demonstracao, parte do cuidado: link do psicologo, cadastro com nascimento e responsavel, pacientes (com e sem conta),
-   diario com periodos e compartilhamento, relatorio, aniversarios, avaliacoes anonimas, avisos e WhatsApp.
+   diario com data e hora e compartilhamento, pedidos de vinculo, transferencia de paciente, relatorio, aniversarios, avaliacoes anonimas, avisos e WhatsApp.
    Espelha as regras do banco (supabase/migrations) para as telas poderem ser testadas sem servidor. */
 (function () {
   'use strict';
@@ -8,7 +8,7 @@
   function pgErr(msg) { return err('P0001', msg); }
 
   /* ------------------------------------------------------------ estado (some ao recarregar) */
-  var S = api._state = { records: [], appts: [], reviews: [], receipts: {}, notes: [], shares: {}, auto: {} };
+  var S = api._state = { records: [], appts: [], reviews: [], receipts: {}, notes: [], shares: {}, mode: {}, requests: [], transfers: [] };
   var seq = 0;
   function nid(p) { seq += 1; return p + '-' + seq; }
 
@@ -106,31 +106,66 @@
   function myRec(pro, rid) { var r = recById(rid); return r && r.proId === pro.id ? r : null; }
   function linked(proId, userId) { return !!recFor(proId, userId); }
 
-  /* Liga a conta ao psicologo do codigo (cria a ficha ou reaproveita a ficha cadastrada na mao com o mesmo celular ou e-mail). */
-  function linkByCode(u, email, code) {
-    var pro = proByCode(code);
-    if (!pro || !isPatient(u)) return pro;
-    if (linked(pro.id, u.id)) return pro;
-    var m = u.meta || {};
-    var rec = S.records.filter(function (r) {
-      return r.proId === pro.id && !r.userId && ((key8(m.phone) && key8(r.phone) === key8(m.phone)) || (email && r.email && r.email.toLowerCase() === email.toLowerCase()));
-    })[0];
-    var matched = !!rec, sameMail = false;
-    if (rec) {
-      /* reaproveitou um cadastro do psicologo: a conferencia so continua se o e-mail tambem bate (celular sozinho nao prova quem e) */
-      sameMail = String(rec.email || '').toLowerCase() === String(email || '').toLowerCase();
-      rec.userId = u.id; rec.name = m.fullName; rec.phone = m.phone || rec.phone; rec.email = email; rec.birth = m.birthDate || rec.birth;
-      rec.guardianName = m.guardianName || rec.guardianName; rec.guardianPhone = m.guardianPhone || rec.guardianPhone;
-      if (!sameMail) rec.verifiedAt = null;
+  /* Pedidos de vinculo (so o psicologo vincula): o paciente pede pelo link ou o psicologo pede pelo celular; o outro lado aceita.
+     Se os dois lados pedirem, vincula na hora. Aceitar do psicologo deixa o cadastro conferido. */
+  var REQ_LIFE = 14 * 86400000;
+  function pendingReq(q) { return q.status === 'pending' && q.expiresAt > Date.now(); }
+  /* Liga de verdade. by: 'professional' (o psicologo aceitou) ou 'patient' (o paciente aceitou). Usa a ficha indicada, a que bate por celular ou e-mail, ou cria. */
+  function makeLink(pro, pt, recordId, by) {
+    var already = recFor(pro.id, pt.id);
+    if (already) return already;
+    var email = emailOf(pt), m = pt.meta || {}, rec = null;
+    if (recordId) {
+      rec = S.records.filter(function (r) { return r.id === recordId && r.proId === pro.id && !r.userId; })[0];
+      if (!rec) throw pgErr('record_not_available');
     } else {
-      rec = { id: nid('rec'), proId: pro.id, userId: u.id, name: m.fullName, phone: m.phone || null, email: email, birth: m.birthDate || null,
-        guardianName: m.guardianName || null, guardianPhone: m.guardianPhone || null, guardianAuthAt: null, verifiedAt: null, status: 'active', createdAt: Date.now() };
+      rec = S.records.filter(function (r) {
+        return r.proId === pro.id && !r.userId && ((key8(m.phone) && key8(r.phone) === key8(m.phone)) || (email && r.email && r.email.toLowerCase() === email.toLowerCase()));
+      })[0] || null;
+    }
+    if (rec) {
+      var sameMail = String(rec.email || '').toLowerCase() === String(email || '').toLowerCase();
+      rec.userId = pt.id; rec.name = m.fullName; rec.phone = m.phone || rec.phone; rec.email = email; rec.birth = m.birthDate || rec.birth;
+      rec.guardianName = m.guardianName || rec.guardianName; rec.guardianPhone = m.guardianPhone || rec.guardianPhone;
+      if (rec.status === 'discharged') rec.status = 'active';
+      if (by === 'professional') rec.verifiedAt = rec.verifiedAt || Date.now(); else if (!sameMail) rec.verifiedAt = null;
+    } else {
+      rec = { id: nid('rec'), proId: pro.id, userId: pt.id, name: m.fullName, phone: m.phone || null, email: email, birth: m.birthDate || null,
+        guardianName: m.guardianName || null, guardianPhone: m.guardianPhone || null, guardianAuthAt: null, verifiedAt: by === 'professional' ? Date.now() : null, status: 'active', createdAt: Date.now() };
       S.records.push(rec);
     }
-    var link = '#/pacientes/' + rec.id;
-    if (matched && rec.verifiedAt) notify(pro.id, 'patient_linked', 'Paciente vinculado', m.fullName + ' criou a conta e já está ligado(a) ao cadastro que você fez.', link);
-    else if (matched) notify(pro.id, 'patient_linked', 'Confira o cadastro', m.fullName + ' criou a conta e parece ser o cadastro que você fez, mas o e-mail é outro. Confirme se é a mesma pessoa.', link);
-    else notify(pro.id, 'patient_linked', 'Confira o cadastro', m.fullName + ' entrou pelo seu link. Confirme se é seu paciente.', link);
+    if (by === 'professional') notify(pt.id, 'link_accepted', 'Vínculo confirmado', nameOf(pro) + ' aceitou seu pedido. Agora você pode marcar consultas.', '#/psicologo');
+    else if (rec.verifiedAt) notify(pro.id, 'patient_linked', 'Paciente vinculado', m.fullName + ' aceitou seu pedido e já está ligado(a) ao cadastro que você fez.', '#/pacientes/' + rec.id);
+    else notify(pro.id, 'patient_linked', 'Confira o cadastro', m.fullName + ' aceitou seu pedido, mas o e-mail da conta é outro. Confirme se é a mesma pessoa.', '#/pacientes/' + rec.id);
+    return rec;
+  }
+  function approveRequest(q, by, recordId) {
+    var rec = makeLink(byId(q.proId), byId(q.patientId), recordId || q.recordId, by);
+    q.status = 'approved'; q.decidedAt = Date.now();
+    return rec;
+  }
+  /* Abre o pedido. Devolve: linked, already_linked, already_requested ou requested. notice troca o texto do aviso ao paciente (transferencia). */
+  function openRequest(pro, pt, origin, recordId, notice) {
+    if (linked(pro.id, pt.id)) return 'already_linked';
+    S.requests.forEach(function (x) { if (x.status === 'pending' && x.expiresAt <= Date.now()) x.status = 'expired'; });
+    var q = S.requests.filter(function (x) { return x.patientId === pt.id && x.proId === pro.id && x.status === 'pending'; })[0];
+    if (q) {
+      if (q.origin === origin) {
+        if (origin === 'professional' && recordId && q.recordId !== recordId) q.recordId = recordId;
+        return 'already_requested';
+      }
+      approveRequest(q, origin, recordId);
+      return 'linked';
+    }
+    S.requests.push({ id: nid('req'), patientId: pt.id, proId: pro.id, origin: origin, recordId: origin === 'professional' ? (recordId || null) : null, status: 'pending', createdAt: Date.now(), expiresAt: Date.now() + REQ_LIFE });
+    if (origin === 'patient') notify(pro.id, 'link_request', 'Pedido de vínculo', nameOf(pt) + ' pediu para ser seu paciente. Aceite se você reconhece.', '#/pacientes');
+    else notify(pt.id, 'link_invite', 'Pedido de vínculo', notice || (nameOf(pro) + ' pediu para acompanhar você no Senso. Aceite se você é paciente dele(a).'), '#/psicologo');
+    return 'requested';
+  }
+  /* Cadastro pelo link: a conta nasce e faz um pedido (nao vira paciente sozinha). */
+  function requestByCode(u, code) {
+    var pro = proByCode(code);
+    if (pro && isPatient(u)) openRequest(pro, u, 'patient');
     return pro;
   }
 
@@ -145,7 +180,7 @@
   }
 
   /* ------------------------------------------------------------ avisos */
-  var CATEGORY = { appointment_requested: 'requests', appointment_accepted: 'replies', appointment_refused: 'replies', appointment_canceled: 'cancellations', birthday: 'birthdays', patient_linked: 'new_patients' };
+  var CATEGORY = { appointment_requested: 'requests', appointment_accepted: 'replies', appointment_refused: 'replies', appointment_canceled: 'cancellations', birthday: 'birthdays', patient_linked: 'new_patients', link_request: 'new_patients', transfer_received: 'new_patients' };
   function notify(userId, kind, title, body, link) {
     if (!userId) return;
     var u = byId(userId);
@@ -209,7 +244,8 @@
     },
     mine: function () {
       var u = needPro();
-      return tick({ code: P(u).code, enabled: P(u).enabled, linked: S.records.filter(function (r) { return r.proId === u.id && r.userId; }).length });
+      return tick({ code: P(u).code, enabled: P(u).enabled, linked: S.records.filter(function (r) { return r.proId === u.id && r.userId; }).length,
+        pending: S.requests.filter(function (q) { return q.proId === u.id && q.origin === 'patient' && pendingReq(q); }).length });
     },
     regenerate: function () { var u = needPro(); P(u).code = newCode(); return api.invite.mine(); },
     setEnabled: function (on) { var u = needPro(); P(u).enabled = !!on; return api.invite.mine(); },
@@ -222,39 +258,42 @@
         if (!pro) return { ok: false, error: 'invalid_code' };
         if (linked(pro.id, u.id)) return { ok: false, error: 'already_linked' };
         if (accept !== true) return { ok: false, error: 'consent_required' };
-        linkByCode(u, emailOf(u), code);
-        return { ok: true, professional_id: pro.id, name: nameOf(pro) };
+        var status = openRequest(pro, u, 'patient');
+        return { ok: true, status: status, professional_id: pro.id, name: nameOf(pro) };
       });
     }
   };
 
-  /* ------------------------------------------------------------ diario com periodos e compartilhamento */
-  var PERIODS = ['morning', 'afternoon', 'evening'];
+  /* ------------------------------------------------------------ diario com data e hora, e compartilhamento */
   function validEntryScale(v) { return core.inScale(v); }
   function shareKey(entryId, proId) { return entryId + '|' + proId; }
   function isShared(entryId, proId) { return !!S.shares[shareKey(entryId, proId)]; }
   function myPros(u) { return S.records.filter(function (r) { return r.userId === u.id; }).map(function (r) { return r.proId; }); }
-  function entryPeriodBusy(u, date, period, exceptId) {
-    return period && u.diary.some(function (e) { return e.id !== exceptId && e.entry_date === date && e.period === period; });
-  }
+  /* Modo de compartilhar com cada psicologo: ask (pergunta depois de registrar, padrao), always ou never. */
+  function modeOf(uid, proId) { return S.mode[uid + '|' + proId] || 'ask'; }
+  function nowHm() { return hmOf(Date.now()); }
+  function hmOnly(t) { var m = /^(\d{2}):(\d{2})/.exec(String(t || '')); return m && +m[1] < 24 && +m[2] < 60 ? m[1] + ':' + m[2] : null; }
 
-  /* Humor de cada dia: cada "vaga" (manha, tarde, noite e sem periodo) conta uma vez, pelo registro mais recente; o dia vale a media. */
+  /* Humor de cada dia = media dos registros do dia (uma casa). Manha, tarde e noite sao so uma leitura da hora do registro (ate 11:59, 12:00 a 17:59, a partir das 18:00). */
   function moodDays(u, fromDay) {
-    var slots = {};
-    u.diary.filter(function (e) { return e.entry_date >= fromDay && e.mood != null; }).sort(function (a, b) { return a.created - b.created; }).forEach(function (e) {
-      slots[e.entry_date + '|' + (e.period || 'day')] = e.mood;
-    });
     var days = {};
-    Object.keys(slots).forEach(function (k) { var d = k.split('|'); (days[d[0]] = days[d[0]] || {})[d[1]] = slots[k]; });
+    u.diary.filter(function (e) { return e.entry_date >= fromDay && e.mood != null; }).forEach(function (e) { (days[e.entry_date] = days[e.entry_date] || []).push(e); });
+    function part(list, f) { var v = list.filter(f).map(function (e) { return e.mood; }); return v.length ? Math.round(v.reduce(function (a, b) { return a + b; }, 0) / v.length) : null; }
     return Object.keys(days).sort().reverse().map(function (d) {
-      var v = days[d], vals = Object.keys(v).map(function (k) { return v[k]; });
-      var avg = round1(vals.reduce(function (s, x) { return s + x; }, 0) / vals.length);
-      return { date: d, mood: avg, n: vals.length, morning: v.morning == null ? null : v.morning, afternoon: v.afternoon == null ? null : v.afternoon,
-        evening: v.evening == null ? null : v.evening, whole: v.day == null ? null : v.day };
+      var list = days[d];
+      return { date: d, mood: round1(list.reduce(function (a, e) { return a + e.mood; }, 0) / list.length), n: list.length,
+        morning: part(list, function (e) { return (e.entry_time || '12:00') < '12:00'; }),
+        afternoon: part(list, function (e) { return (e.entry_time || '12:00') >= '12:00' && (e.entry_time || '12:00') < '18:00'; }),
+        evening: part(list, function (e) { return (e.entry_time || '12:00') >= '18:00'; }), whole: null };
     });
   }
   function ordered(u) {
-    return u.diary.slice().sort(function (a, b) { return a.entry_date === b.entry_date ? (a.created < b.created ? 1 : -1) : (a.entry_date < b.entry_date ? 1 : -1); });
+    return u.diary.slice().sort(function (a, b) {
+      if (a.entry_date !== b.entry_date) return a.entry_date < b.entry_date ? 1 : -1;
+      var ta = a.entry_time || '12:00', tb = b.entry_time || '12:00';
+      if (ta !== tb) return ta < tb ? 1 : -1;
+      return a.created < b.created ? 1 : -1;
+    });
   }
 
   api.diary = {
@@ -268,28 +307,30 @@
         var tags = d.tags || [], body = String(d.body || '').trim();
         var date = d.entry_date || today();
         if (date > addDays(today(), 1) || date < addDays(today(), -366)) throw pgErr('invalid_date');
-        var period = d.period || null;
-        if (period && PERIODS.indexOf(period) < 0) throw pgErr('invalid_period');
-        if (period && d.mood == null) throw pgErr('period_needs_mood');
+        var time = d.entry_time ? hmOnly(d.entry_time) : null;
+        if (d.entry_time && !time) throw pgErr('invalid_data');
         if (d.mood == null && d.energy == null && d.anxiety == null && !tags.length && !body) throw pgErr('empty_entry');
         if (tags.length > 6 || tags.some(function (t) { return core.TAGS.indexOf(t) < 0; }) || body.length > 20000 || !validEntryScale(d.mood) || !validEntryScale(d.energy) || !validEntryScale(d.anxiety)) throw err('23514', 'check violation');
-        var e = null, created = false;
+        var e = null, created = false, ask = [];
         if (d.id) {
           e = u.diary.filter(function (x) { return x.id === d.id; })[0];
           if (!e) throw pgErr('not_found');
-          if (entryPeriodBusy(u, date, period, e.id)) throw pgErr('period_taken');
-        } else if (period) {
-          e = u.diary.filter(function (x) { return x.entry_date === date && x.period === period; })[0] || null;
-        }
-        if (!e) { e = { id: 'entry-' + core.next(), created: core.next() }; u.diary.push(e); created = true; }
-        e.entry_date = date; e.period = period; e.mood = d.mood == null ? null : d.mood; e.energy = d.energy == null ? null : d.energy;
+        } else { e = { id: 'entry-' + core.next(), created: core.next() }; u.diary.push(e); created = true; }
+        e.entry_date = date; e.entry_time = time || (created ? nowHm() : e.entry_time || nowHm()); e.mood = d.mood == null ? null : d.mood; e.energy = d.energy == null ? null : d.energy;
         e.anxiety = d.anxiety == null ? null : d.anxiety; e.tags = tags.slice(); e.body = body; e.updated_at = new Date().toISOString();
         if (d.share === true) myPros(u).forEach(function (p) { S.shares[shareKey(e.id, p)] = true; });
         else if (d.share === false) Object.keys(S.shares).forEach(function (k) { if (k.indexOf(e.id + '|') === 0) delete S.shares[k]; });
-        else if (created) myPros(u).forEach(function (p) { if (S.auto[u.id + '|' + p]) S.shares[shareKey(e.id, p)] = true; });
+        else if (created) {
+          myPros(u).forEach(function (p) {
+            var pu = byId(p);
+            if (modeOf(u.id, p) === 'always') S.shares[shareKey(e.id, p)] = true;
+            else if (modeOf(u.id, p) === 'ask' && pu && (pu.verification === 'pending' || pu.verification === 'verified')) ask.push({ professional_id: p, name: nameOf(pu) });
+          });
+          ask.sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+        }
         if (body.length >= 10) core.award(u, 'diary_entry', 1, e.id);
         if (e.mood != null) core.award(u, 'mood_checkin', 0.5, e.id);
-        var out = core.copyEntry(e); out.created = created;
+        var out = core.copyEntry(e); out.created = created; out.ask = ask;
         return out;
       });
     },
@@ -306,18 +347,37 @@
     mine: function () {
       var u = needPatient();
       return tick(S.records.filter(function (r) { return r.userId === u.id; }).map(function (r) {
-        var pro = byId(r.proId);
+        var pro = byId(r.proId), md = modeOf(u.id, pro.id);
         return { professional_id: pro.id, name: nameOf(pro), crp_region: pro.meta.crpRegion, crp_number: pro.meta.crpNumber, verified: pro.verification === 'verified',
-          linked_at: iso(r.createdAt), auto_share: !!S.auto[u.id + '|' + pro.id],
+          linked_at: iso(r.createdAt), auto_share: md === 'always', mode: md,
           shared_entries: u.diary.filter(function (e) { return isShared(e.id, pro.id); }).length };
       }).filter(function (x) { var p = byId(x.professional_id); return p.verification === 'pending' || p.verification === 'verified'; }));
     },
-    setAuto: function (proId, on) {
+    setAuto: function (proId, on) { return api.sharing.setMode(proId, on ? 'always' : 'ask'); },
+    setMode: function (proId, mode) {
       var u = needPatient();
       return tick(null).then(function () {
+        if (['ask', 'always', 'never'].indexOf(mode) < 0) throw pgErr('invalid_data');
         if (!linked(proId, u.id)) throw pgErr('not_linked');
-        if (on && !consent(u, 'diary')) throw pgErr('consent_required');
-        S.auto[u.id + '|' + proId] = !!on;
+        if (mode === 'always' && !consent(u, 'diary')) throw pgErr('consent_required');
+        S.mode[u.id + '|' + proId] = mode;
+        return true;
+      });
+    },
+    /* Resposta da pergunta depois de registrar: yes (compartilha este e os proximos), no (agora nao, pergunta de novo) ou never (nao compartilha nem pergunta mais). */
+    answerPrompt: function (entryId, proIds, choice) {
+      var u = needPatient();
+      return tick(null).then(function () {
+        if (['yes', 'no', 'never'].indexOf(choice) < 0) throw pgErr('invalid_data');
+        if (!u.diary.some(function (e) { return e.id === entryId; })) throw pgErr('not_found');
+        (proIds || []).forEach(function (p) {
+          if (!linked(p, u.id)) return;
+          if (choice === 'yes') {
+            if (!consent(u, 'diary')) throw pgErr('consent_required');
+            S.shares[shareKey(entryId, p)] = true;
+          }
+          S.mode[u.id + '|' + p] = choice === 'yes' ? 'always' : (choice === 'no' ? 'ask' : 'never');
+        });
         return true;
       });
     },
@@ -345,8 +405,39 @@
         if (!r) throw pgErr('not_linked');
         r.userId = null;
         Object.keys(S.shares).forEach(function (k) { var p = k.split('|'); if (p[1] === proId && u.diary.some(function (e) { return e.id === p[0]; })) delete S.shares[k]; });
-        delete S.auto[u.id + '|' + proId];
+        delete S.mode[u.id + '|' + proId];
         return true;
+      });
+    }
+  };
+
+  /* Paciente: pedidos de vinculo em aberto (os que o psicologo mandou e os que ele fez pelo link). */
+  api.linkRequests = {
+    mine: function () {
+      var u = needPatient();
+      return tick(S.requests.filter(function (q) { return q.patientId === u.id && pendingReq(q); }).map(function (q) {
+        var p = byId(q.proId);
+        return { id: q.id, origin: q.origin, created_at: iso(q.createdAt), expires_at: iso(q.expiresAt), professional_id: p.id, name: nameOf(p), crp_region: p.meta.crpRegion, crp_number: p.meta.crpNumber, verified: p.verification === 'verified' };
+      }));
+    },
+    answer: function (id, accept) {
+      var u = needPatient();
+      return tick(null).then(function () {
+        var q = S.requests.filter(function (x) { return x.id === id && x.patientId === u.id; })[0];
+        if (!q || q.status !== 'pending') throw pgErr('request_not_found');
+        if (q.expiresAt <= Date.now()) throw pgErr('request_expired');
+        if (q.origin === 'professional' && accept) {
+          if (!consent(u, 'portal_health_data')) throw pgErr('consent_required');
+          approveRequest(q, 'patient');
+          return { ok: true, linked: true };
+        }
+        if (q.origin === 'patient' && accept) throw pgErr('invalid_data');
+        q.status = 'rejected'; q.decidedAt = Date.now();
+        if (q.origin === 'professional') {
+          var rec = q.recordId ? recById(q.recordId) : null;
+          notify(q.proId, 'link_declined', 'Pedido não aceito', (rec ? rec.name : 'O paciente') + ' não aceitou o pedido de vínculo.', '#/pacientes');
+        }
+        return { ok: true, linked: false };
       });
     }
   };
@@ -356,9 +447,20 @@
     var from = addDays(today(), -days);
     return u.diary.filter(function (c) { return c.entry_date >= from && (c.mood != null || c.energy != null || c.anxiety != null); })
       .sort(function (a, b) { return a.entry_date === b.entry_date ? b.created - a.created : (a.entry_date < b.entry_date ? 1 : -1); })
-      .map(function (c) { return { entry_date: c.entry_date, period: c.period || null, mood: c.mood, energy: c.energy, anxiety: c.anxiety }; });
+      .map(function (c) { return { entry_date: c.entry_date, entry_time: c.entry_time || '12:00', mood: c.mood, energy: c.energy, anxiety: c.anxiety }; });
   }
   function sharedCount(u, proId) { return u.diary.filter(function (e) { return isShared(e.id, proId); }).length; }
+
+  /* Colega pelo CRP (so psicologo com CRP conferido). Devolve o usuario, null ou 'invalid'. */
+  function colleague(region, number) {
+    var rg = String(region || '').trim(); while (rg.length < 2) rg = '0' + rg;
+    var nb = String(number || '').trim();
+    if (!/^(0[1-9]|1[0-9]|2[0-4])$/.test(rg) || !/^[0-9]{3,8}$/.test(nb)) return 'invalid';
+    var us = users();
+    for (var k in us) { var u = us[k]; if (u.role === 'professional' && u.verification === 'verified' && u.meta.crpRegion === rg && u.meta.crpNumber === nb) return u; }
+    return null;
+  }
+  function ageOf(birth) { var t = today(); var a = +t.slice(0, 4) - +birth.slice(0, 4); if (t.slice(5) < birth.slice(5)) a -= 1; return a; }
 
   var pro = api.pro = {
     overview: function (days) {
@@ -385,7 +487,7 @@
         if (!consent(pt, 'diary')) return [];
         var from = addDays(today(), -Math.min(Math.max(days || 90, 1), 366));
         return ordered(pt).filter(function (e) { return isShared(e.id, pu.id) && e.entry_date >= from; }).map(function (e) {
-          return { id: e.id, entry_date: e.entry_date, period: e.period || null, mood: e.mood, energy: e.energy, anxiety: e.anxiety, tags: e.tags.slice(), body: e.body, created_at: iso(e.created) };
+          return { id: e.id, entry_date: e.entry_date, entry_time: e.entry_time || '12:00', mood: e.mood, energy: e.energy, anxiety: e.anxiety, tags: e.tags.slice(), body: e.body, created_at: iso(e.created) };
         });
       });
     },
@@ -404,7 +506,7 @@
         var uid = r.userId, pt = byId(uid);
         r.userId = null;
         Object.keys(S.shares).forEach(function (k) { var p = k.split('|'); if (p[1] === pu.id && pt.diary.some(function (e) { return e.id === p[0]; })) delete S.shares[k]; });
-        delete S.auto[uid + '|' + pu.id];
+        delete S.mode[uid + '|' + pu.id];
         return true;
       });
     },
@@ -420,8 +522,177 @@
           return { record_id: r.id, full_name: r.name, phone: r.phone, email: r.email, birth_date: r.birth, status: r.status, created_at: iso(r.createdAt), linked: !!r.userId, verified: !!r.verifiedAt,
             minor: isMinor(r.birth), guardian_name: r.guardianName, guardian_phone: r.guardianPhone, guardian_authorized: !!r.guardianAuthAt, consent: c,
             next_appointment: nextAp ? iso(nextAp) : null, sessions_done: mine.filter(function (a) { return a.status === 'done'; }).length,
-            pending_requests: mine.filter(function (a) { return a.status === 'requested'; }).length, last_mood_day: moods || null };
+            pending_requests: mine.filter(function (a) { return a.status === 'requested'; }).length, last_mood_day: moods || null,
+            transferred_at: r.transferredAt ? iso(r.transferredAt) : null, transferred_to_name: r.transferredTo ? nameOf(byId(r.transferredTo)) : null };
         });
+      });
+    },
+    /* Pedidos de vinculo em aberto: os que chegaram pelo link (para aceitar) e os que eu mandei pelo celular (esperando o paciente). */
+    linkRequests: function () {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        return S.requests.filter(function (q) { return q.proId === pu.id && pendingReq(q); }).sort(function (a, b) { return a.createdAt - b.createdAt; }).map(function (q) {
+          var pt = byId(q.patientId), m = pt.meta || {}, match = null;
+          if (q.origin === 'patient') {
+            var em = emailOf(pt);
+            var r = S.records.filter(function (x) {
+              return x.proId === pu.id && !x.userId && ((key8(m.phone) && key8(x.phone) === key8(m.phone)) || (em && x.email && x.email.toLowerCase() === em.toLowerCase()));
+            })[0];
+            if (r) match = { record_id: r.id, full_name: r.name };
+          }
+          var rr = q.recordId ? recById(q.recordId) : null;
+          return { id: q.id, origin: q.origin, created_at: iso(q.createdAt), expires_at: iso(q.expiresAt), record_id: q.recordId, record_name: rr ? rr.name : null,
+            patient: q.origin === 'patient' ? { name: nameOf(pt), phone: m.phone || null, email: emailOf(pt), birth_date: m.birthDate || null, minor: isMinor(m.birthDate) } : null, match: match };
+        });
+      });
+    },
+    decideLink: function (requestId, approve, recordId) {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        var q = S.requests.filter(function (x) { return x.id === requestId && x.proId === pu.id && x.origin === 'patient'; })[0];
+        if (!q || q.status !== 'pending') throw pgErr('request_not_found');
+        if (q.expiresAt <= Date.now()) throw pgErr('request_expired');
+        if (!approve) {
+          q.status = 'rejected'; q.decidedAt = Date.now();
+          notify(q.patientId, 'link_declined', 'Pedido não aceito', nameOf(pu) + ' não aceitou o pedido de vínculo.', '#/psicologo');
+          return null;
+        }
+        return approveRequest(q, 'professional', recordId).id;
+      });
+    },
+    requestLink: function (recordId) {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        var r = myRec(pu, recordId);
+        if (!r) throw pgErr('not_found');
+        if (r.userId) return { ok: false, error: 'already_linked' };
+        var key = key8(r.phone);
+        if (!key) return { ok: false, error: 'phone_required' };
+        var us = users(), found = [];
+        Object.keys(us).forEach(function (k) { if (us[k].role === 'patient' && key8(us[k].meta && us[k].meta.phone) === key) found.push(us[k]); });
+        if (!found.length) return { ok: false, error: 'no_account' };
+        if (found.length > 1) return { ok: false, error: 'phone_ambiguous' };
+        var st = openRequest(pu, found[0], 'professional', recordId);
+        if (st === 'already_linked') return { ok: false, error: 'already_linked' };
+        return { ok: true, status: st };
+      });
+    },
+    cancelLinkRequest: function (requestId) {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        var q = S.requests.filter(function (x) { return x.id === requestId && x.proId === pu.id && x.origin === 'professional' && x.status === 'pending'; })[0];
+        if (!q) throw pgErr('request_not_found');
+        q.status = 'rejected'; q.decidedAt = Date.now();
+        return true;
+      });
+    },
+    /* ----- transferir paciente para um colega pelo CRP. Passa so o cadastro. */
+    findColleague: function (region, number) {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        var c = colleague(region, number);
+        if (c === 'invalid') return { ok: false, error: 'crp_invalid' };
+        if (!c || c.id === pu.id) return { ok: false, error: 'not_registered' };
+        return { ok: true, name: nameOf(c), crp_region: c.meta.crpRegion, crp_number: c.meta.crpNumber };
+      });
+    },
+    requestTransfer: function (recordId, region, number, attest, note) {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        if (attest !== true) throw pgErr('attest_required');
+        var r = myRec(pu, recordId);
+        if (!r) throw pgErr('not_found');
+        if (r.transferredTo) throw pgErr('already_transferred');
+        var c = colleague(region, number);
+        if (!c || c === 'invalid') return { ok: false, error: 'not_registered' };
+        if (c.id === pu.id) throw pgErr('same_professional');
+        S.transfers.forEach(function (t) { if (t.recordId === recordId && t.status === 'pending' && t.expiresAt <= Date.now()) t.status = 'canceled'; });
+        if (S.transfers.some(function (t) { return t.recordId === recordId && t.status === 'pending'; })) throw pgErr('already_pending');
+        var t = { id: nid('tr'), recordId: recordId, from: pu.id, to: c.id, status: 'pending', note: String(note || '').trim().slice(0, 300) || null, createdAt: Date.now(), expiresAt: Date.now() + REQ_LIFE, decidedAt: null, newRecordId: null };
+        S.transfers.push(t);
+        notify(c.id, 'transfer_received', 'Paciente encaminhado', nameOf(pu) + ' quer encaminhar um paciente para você. Veja em Pacientes.', '#/pacientes');
+        return { ok: true, id: t.id };
+      });
+    },
+    transfers: function () {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        var now = Date.now();
+        return {
+          incoming: S.transfers.filter(function (t) { return t.to === pu.id && t.status === 'pending' && t.expiresAt > now; }).sort(function (a, b) { return a.createdAt - b.createdAt; }).map(function (t) {
+            var r = recById(t.recordId), f = byId(t.from);
+            return { id: t.id, created_at: iso(t.createdAt), expires_at: iso(t.expiresAt), note: t.note, from_name: nameOf(f), from_crp_region: f.meta.crpRegion, from_crp_number: f.meta.crpNumber,
+              patient_name: r.name, minor: isMinor(r.birth), age: r.birth ? ageOf(r.birth) : null, has_account: !!r.userId };
+          }),
+          outgoing: S.transfers.filter(function (t) { return t.from === pu.id && ((t.status === 'pending' && t.expiresAt > now) || (t.status !== 'pending' && t.decidedAt && t.decidedAt > now - 30 * 86400000)); })
+            .sort(function (a, b) { return b.createdAt - a.createdAt; }).map(function (t) {
+              var r = recById(t.recordId), to = byId(t.to);
+              return { id: t.id, record_id: t.recordId, status: t.status, created_at: iso(t.createdAt), expires_at: iso(t.expiresAt), decided_at: iso(t.decidedAt), patient_name: r.name,
+                to_name: nameOf(to), to_crp_region: to.meta.crpRegion, to_crp_number: to.meta.crpNumber };
+            })
+        };
+      });
+    },
+    cancelTransfer: function (id) {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        var t = S.transfers.filter(function (x) { return x.id === id && x.from === pu.id && x.status === 'pending'; })[0];
+        if (!t) throw pgErr('request_not_found');
+        t.status = 'canceled'; t.decidedAt = Date.now();
+        return true;
+      });
+    },
+    /* O colega aceita ou recusa. Aceitar: cria (ou reaproveita) o cadastro dele ja conferido, encerra o de quem encaminhou ("transferido"),
+       cancela as consultas futuras, termina o vinculo e o compartilhamento do diario com quem encaminhou e manda ao paciente o pedido do colega. */
+    decideTransfer: function (id, accept) {
+      var pu = core.cur();
+      return tick(null).then(function () {
+        if (!verifiedPro(pu)) throw err('not_allowed', 'not_allowed');
+        var t = S.transfers.filter(function (x) { return x.id === id && x.to === pu.id; })[0];
+        if (!t || t.status !== 'pending') throw pgErr('request_not_found');
+        if (t.expiresAt <= Date.now()) throw pgErr('request_expired');
+        var from = byId(t.from);
+        if (!accept) {
+          t.status = 'declined'; t.decidedAt = Date.now();
+          notify(t.from, 'transfer_declined', 'Encaminhamento não aceito', nameOf(pu) + ' não aceitou o encaminhamento.', '#/pacientes');
+          return { ok: true, accepted: false };
+        }
+        var a = recById(t.recordId), uid = a.userId, mine = null;
+        if (uid) mine = recFor(pu.id, uid);
+        if (!mine) mine = S.records.filter(function (r) { return r.proId === pu.id && !r.userId && ((key8(a.phone) && key8(r.phone) === key8(a.phone)) || (a.email && r.email && r.email.toLowerCase() === a.email.toLowerCase())); })[0] || null;
+        if (!mine) {
+          mine = { id: nid('rec'), proId: pu.id, userId: null, name: a.name, phone: a.phone, email: a.email, birth: a.birth, guardianName: a.guardianName, guardianPhone: a.guardianPhone,
+            guardianAuthAt: null, verifiedAt: Date.now(), status: 'active', createdAt: Date.now() };
+          S.records.push(mine);
+        } else {
+          if (mine.status === 'discharged') mine.status = 'active';
+          mine.birth = mine.birth || a.birth; mine.phone = mine.phone || a.phone; mine.email = mine.email || a.email;
+          mine.guardianName = mine.guardianName || a.guardianName; mine.guardianPhone = mine.guardianPhone || a.guardianPhone;
+        }
+        S.appts.forEach(function (ap) {
+          if (ap.recordId === a.id && ap.proId === t.from && ['requested', 'scheduled', 'reschedule_proposed'].indexOf(ap.status) >= 0 && ap.startsAt > Date.now()) ap.status = ap.status === 'requested' ? 'declined' : 'canceled_by_professional';
+        });
+        if (uid) {
+          a.userId = null;
+          var pt = byId(uid);
+          Object.keys(S.shares).forEach(function (k) { var p = k.split('|'); if (p[1] === t.from && pt.diary.some(function (e) { return e.id === p[0]; })) delete S.shares[k]; });
+          delete S.mode[uid + '|' + t.from];
+          S.requests.forEach(function (q) { if (q.proId === t.from && q.patientId === uid && q.status === 'pending') q.status = 'rejected'; });
+        }
+        a.status = 'discharged'; a.transferredTo = pu.id; a.transferredAt = Date.now();
+        t.status = 'accepted'; t.decidedAt = Date.now(); t.newRecordId = mine.id;
+        var st = null;
+        if (uid) st = openRequest(pu, byId(uid), 'professional', mine.id, nameOf(from) + ' encaminhou você para ' + nameOf(pu) + '. Aceite o pedido para continuar o acompanhamento.');
+        notify(t.from, 'transfer_accepted', 'Encaminhamento aceito', nameOf(pu) + ' aceitou o encaminhamento de ' + a.name + '.', '#/pacientes/' + a.id);
+        return { ok: true, accepted: true, record_id: mine.id, link: st };
       });
     },
     savePatient: function (d) {
@@ -466,7 +737,7 @@
         if (on === false) r.verifiedAt = null;
         else if (!r.verifiedAt) {
           r.verifiedAt = Date.now();
-          if (r.userId) notify(r.userId, 'record_verified', 'Cadastro confirmado', nameOf(pu) + ' confirmou seu cadastro. Agora você já pode pedir consulta.', '#/consultas');
+          if (r.userId) notify(r.userId, 'record_verified', 'Cadastro confirmado', nameOf(pu) + ' confirmou seu cadastro. Agora você já pode marcar consulta.', '#/consultas');
         }
         return true;
       });
@@ -615,12 +886,14 @@
   api._care = {
     profileRules: profileRules, birthRules: birthRules, isMinor: isMinor, syncProfile: syncProfile,
     afterCreate: function (u, email, role, data) {
-      if (role === 'patient' && data.inviteCode && data.acceptLink === true) linkByCode(u, email, data.inviteCode);
+      if (role === 'patient' && data.inviteCode && data.acceptLink === true) requestByCode(u, data.inviteCode);
       if (role === 'professional') P(u);
     },
     afterDelete: function (u) {
       S.records = S.records.filter(function (r) { return r.proId !== u.id; });
       S.records.forEach(function (r) { if (r.userId === u.id) r.userId = null; });
+      S.requests = S.requests.filter(function (q) { return q.patientId !== u.id && q.proId !== u.id; });
+      S.transfers = S.transfers.filter(function (t) { return t.from !== u.id && t.to !== u.id; });
       S.appts = S.appts.filter(function (a) { return a.proId !== u.id; });
       S.notes = S.notes.filter(function (n) { return n.userId !== u.id; });
       Object.keys(S.receipts).forEach(function (k) { if (S.receipts[k] === u.id) delete S.receipts[k]; });
@@ -639,7 +912,7 @@
         { name: 'Carla Mendes', email: 'carla.mendes@exemplo.demo', consent: false, birth: '1976-05-30' }
       ];
       seeds.forEach(function (sd) {
-        var id = core.next(), pt = users()[sd.email] = { id: 'demo-' + id, password: null, confirmed: true, role: 'patient', meta: { fullName: sd.name, phone: '', birthDate: sd.birth }, factor: null,
+        var id = core.next(), em = users()[sd.email] ? u.id + '.' + sd.email : sd.email, pt = users()[em] = { id: 'demo-' + id, password: null, confirmed: true, role: 'patient', meta: { fullName: sd.name, phone: '', birthDate: sd.birth }, factor: null,
           verification: null, created: new Date().toISOString(), diary: [], xp: [], consents: [{ kind: 'portal_health_data', granted: true }] };
         if (sd.consent !== false) {
           pt.consents.push({ kind: 'diary', granted: true });
@@ -648,11 +921,11 @@
           sd.mood.forEach(function (m, i) {
             var off = 13 - i;
             if (m == null) return;
-            pt.diary.push({ id: 'entry-' + core.next(), created: core.next(), entry_date: spDay(off), period: null, mood: m, energy: Math.min(5, Math.max(1, sd.energy + (i % 3) - 1)),
+            pt.diary.push({ id: 'entry-' + core.next(), created: core.next(), entry_date: spDay(off), entry_time: i % 3 === 0 ? '09:30' : (i % 3 === 1 ? '15:10' : '20:45'), mood: m, energy: Math.min(5, Math.max(1, sd.energy + (i % 3) - 1)),
               anxiety: Math.min(5, Math.max(1, sd.anxiety + (i % 2))), tags: [], body: '', updated_at: new Date().toISOString() });
           });
         }
-        S.records.push({ id: 'rec-demo-' + (S.records.length + 1), proId: u.id, userId: pt.id, name: sd.name, phone: null, email: sd.email, birth: sd.birth, guardianName: null, guardianPhone: null,
+        S.records.push({ id: 'rec-demo-' + (S.records.length + 1), proId: u.id, userId: pt.id, name: sd.name, phone: null, email: em, birth: sd.birth, guardianName: null, guardianPhone: null,
           guardianAuthAt: null, verifiedAt: Date.now() - 20 * 86400000, status: 'active', createdAt: Date.now() - 20 * 86400000 });
       });
     },

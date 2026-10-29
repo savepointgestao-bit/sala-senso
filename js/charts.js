@@ -16,7 +16,7 @@
   function moodWord(v) { return v == null ? 'sem registro' : MOOD[Math.min(5, Math.max(1, Math.round(v))) - 1].toLowerCase(); }
 
   /* ---------------------------------------------------------------- calendario do mes
-     days: [{ date, mood, n, morning, afternoon, evening, whole }]. o.month = 'AAAA-MM'. o.onPick(dayObj|null, date) ao tocar num dia. */
+     days: [{ date, mood, n, morning, afternoon, evening }]. o.month = 'AAAA-MM'. o.onPick(dayObj|null, date) ao tocar num dia. */
   function calendar(days, o) {
     o = o || {};
     var T = UI.dt, byDay = {};
@@ -47,7 +47,7 @@
       detail.appendChild(h('div', { class: 'cal-d-title' }, T.dayLabel(picked)));
       if (!d) { detail.appendChild(h('p', { class: 'muted small mb0' }, 'Sem registro de humor neste dia.')); return; }
       var rows = [];
-      [['morning', 'Manhã'], ['afternoon', 'Tarde'], ['evening', 'Noite'], ['whole', 'Dia todo']].forEach(function (p) {
+      [['morning', 'Manhã'], ['afternoon', 'Tarde'], ['evening', 'Noite']].forEach(function (p) {
         if (d[p[0]] != null) rows.push(h('li', null, h('span', { class: 'dot ' + moodClass(d[p[0]]) }), h('span', null, p[1]), h('b', null, d[p[0]] + '/5'), h('span', { class: 'muted' }, moodWord(d[p[0]]))));
       });
       detail.appendChild(h('p', { class: 'cal-avg' }, 'Humor do dia: ', h('b', null, fmt1(d.mood) + '/5'), ' (' + moodWord(d.mood) + ')', d.n > 1 ? ', média de ' + d.n + ' registros' : ''));

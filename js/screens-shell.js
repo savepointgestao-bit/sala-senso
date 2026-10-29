@@ -8,16 +8,18 @@
   function go(hash) { if (location.hash === hash) window.dispatchEvent(new HashChangeEvent('hashchange')); else location.hash = hash; }
 
   /* ---------------------------------------------------------------- menus */
+  /* Suporte, Meu psicólogo(a) e Avaliações moraram no menu; agora ficam dentro da Conta (os endereços continuam os mesmos). */
+  var UNDER_ACCOUNT = { suporte: 1, psicologo: 1, avaliacoes: 1 };
   S.menuFor = function (ctx) {
     var p = ctx.me.profile, pro = p.role === 'professional';
     var adminMode = !!ctx.admin && (ctx.mode || 'admin') === 'admin';
-    if (adminMode) return { main: [['equipe', '#/equipe', 'shield-check', 'Equipe'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']], more: [] };
+    if (adminMode) return { main: [['equipe', '#/equipe', 'shield-check', 'Equipe'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
     if (pro) {
-      return { main: [['inicio', '#/inicio', 'house', 'Início'], ['pacientes', '#/pacientes', 'users', 'Pacientes'], ['agenda', '#/agenda', 'calendar-days', 'Agenda'], ['avaliacoes', '#/avaliacoes', 'star', 'Avaliações']],
-        more: [['atendimento', '#/atendimento', 'message-circle', 'Atendimento'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']] };
+      return { main: [['inicio', '#/inicio', 'house', 'Início'], ['pacientes', '#/pacientes', 'users', 'Pacientes'], ['agenda', '#/agenda', 'calendar-days', 'Agenda'],
+        ['atendimento', '#/atendimento', 'message-circle', 'Atendimento'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
     }
-    return { main: [['inicio', '#/inicio', 'house', 'Início'], ['diario', '#/diario', 'notebook-pen', 'Diário'], ['consultas', '#/consultas', 'calendar-days', 'Consultas'], ['psicologo', '#/psicologo', 'heart-handshake', 'Meu psicólogo(a)']],
-      more: [['lab', '#/lab', 'flask-conical', 'Lab'], ['conta', '#/conta', 'user', 'Conta'], ['suporte', '#/suporte', 'life-buoy', 'Suporte']] };
+    return { main: [['inicio', '#/inicio', 'house', 'Início'], ['diario', '#/diario', 'notebook-pen', 'Diário'], ['consultas', '#/consultas', 'calendar-days', 'Consultas'],
+      ['lab', '#/lab', 'flask-conical', 'Lab'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
   };
 
   /* ---------------------------------------------------------------- sininho */
@@ -31,7 +33,8 @@
     return UI.dt.dayLabel(d, false);
   }
   var KIND_ICON = { appointment_requested: 'calendar-plus', appointment_approved: 'calendar-check', appointment_accepted: 'calendar-check', appointment_declined: 'calendar-x', appointment_refused: 'calendar-x',
-    appointment_proposed: 'calendar-days', appointment_scheduled: 'calendar-check', appointment_moved: 'calendar-days', appointment_canceled: 'calendar-x', birthday: 'cake', patient_linked: 'user-plus', record_verified: 'circle-check' };
+    appointment_proposed: 'calendar-days', appointment_scheduled: 'calendar-check', appointment_moved: 'calendar-days', appointment_canceled: 'calendar-x', birthday: 'cake', patient_linked: 'user-plus', record_verified: 'circle-check',
+    link_request: 'user-plus', link_invite: 'heart-handshake', link_accepted: 'circle-check', link_declined: 'user-x', transfer_received: 'arrow-right', transfer_accepted: 'circle-check', transfer_declined: 'user-x' };
 
   function setCounts(n) { bells.forEach(function (b) { b.set(n); }); }
   function refreshCount() {
@@ -82,6 +85,7 @@
     var p = ctx.me.profile, pro = p.role === 'professional';
     var adminMode = !!ctx.admin && (ctx.mode || 'admin') === 'admin';
     var menu = S.menuFor(ctx), all = menu.main.concat(menu.more);
+    if (UNDER_ACCOUNT[active]) active = 'conta';
     var activeMore = menu.more.some(function (it) { return it[0] === active; });
     bells = [];
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }

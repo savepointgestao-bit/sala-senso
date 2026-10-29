@@ -39,10 +39,11 @@
 
   /* O que a pessoa precisa saber antes de aceitar (mesmo texto no convite e no cadastro). */
   var WHAT_HAPPENS = [
-    ['user', 'Seu psicólogo(a) vê seu nome, celular e data de nascimento.'],
+    ['send', 'Você faz um pedido. Quem vincula é o seu psicólogo(a): ele(a) precisa aceitar.'],
+    ['user', 'Depois que ele(a) aceitar, vê seu nome, celular e data de nascimento.'],
     ['smile', 'Ele(a) acompanha o seu humor, a energia e a ansiedade que você registrar.'],
     ['lock', 'O texto do diário é só seu. Só vai para ele(a) se você escolher compartilhar.'],
-    ['badge-check', 'Ele(a) confere o seu cadastro. Depois disso, você já pode pedir consulta pelo Senso.']
+    ['calendar-plus', 'Com o pedido aceito, você já pode marcar consulta pelo Senso.']
   ];
   function whatList() { return h('ul', { class: 'plain-list what-list' }, WHAT_HAPPENS.map(function (w) { return h('li', null, UI.svg(w[0], 18), w[1]); })); }
 
@@ -67,12 +68,12 @@
       box.appendChild(h('h1', null, 'Você foi convidado(a)'));
       box.appendChild(proLine(info));
       box.appendChild(h('p', { class: 'lead mt16' }, info.name + ' usa o Senso para cuidar de você entre as sessões.'));
-      box.appendChild(h('div', { class: 'group-title' }, 'O que acontece quando você aceita'));
+      box.appendChild(h('div', { class: 'group-title' }, 'O que acontece depois do pedido'));
       box.appendChild(whatList());
       if (!ctx) {
         box.appendChild(h('div', { class: 'stack mt24' }, h('a', { class: 'btn', href: '#/criar-conta/paciente' }, 'Criar minha conta'),
           h('a', { class: 'btn ghost', href: '#/entrar' }, 'Já tenho conta')));
-        box.appendChild(h('p', { class: 'small muted center mt16' }, 'Você escolhe se aceita na hora de criar a conta.'));
+        box.appendChild(h('p', { class: 'small muted center mt16' }, 'Você escolhe se faz o pedido na hora de criar a conta.'));
         return;
       }
       if (role !== 'patient') {
@@ -80,20 +81,26 @@
         box.appendChild(h('a', { class: 'btn ghost', href: '#/inicio' }, 'Voltar'));
         return;
       }
-      var accept = UI.checkbox({ label: 'Entendi e quero me vincular a ' + info.name + '.' });
+      var accept = UI.checkbox({ label: 'Entendi e quero pedir para ser paciente de ' + info.name + '.' });
       var general = h('div', { 'aria-live': 'polite' });
-      var btn = UI.button('Vincular', { onclick: function () {
+      var btn = UI.button('Pedir para ser paciente', { onclick: function () {
         general.textContent = '';
         if (!accept.checked()) { accept.setError('Marque para continuar.'); accept.input.focus(); return; }
         UI.busy(btn, true);
         API.invite.use(code, true).then(function (r) {
-          if (r && r.ok) { Invite.clear(); UI.toast('Pronto! Você está vinculado(a) a ' + (r.name || info.name) + '.', 'circle-check'); go('#/psicologo'); return; }
+          if (r && r.ok) {
+            Invite.clear();
+            UI.toast(r.status === 'linked' ? 'Pronto! Você está vinculado(a) a ' + (r.name || info.name) + '.'
+              : (r.status === 'already_requested' ? 'Você já tinha feito esse pedido. É só esperar ' + UI.firstName(r.name || info.name) + ' aceitar.'
+                : 'Pedido enviado. Avisamos você quando ' + UI.firstName(r.name || info.name) + ' aceitar.'), 'circle-check');
+            go('#/psicologo'); return;
+          }
           UI.busy(btn, false);
           var e = r && r.error;
           if (e === 'already_linked') { Invite.clear(); UI.toast('Você já está vinculado(a) a esse(a) psicólogo(a).', 'info'); go('#/psicologo'); return; }
           if (e === 'invalid_code') return bad();
-          general.appendChild(UI.notice('bad', e === 'consent_required' ? 'Falta a sua autorização dos dados de saúde. Fale com o suporte.' : 'Não foi possível vincular agora. Tente de novo.'));
-        }).catch(function (e) { UI.busy(btn, false); Diag.error('convite', e); general.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível vincular agora. Tente de novo.'))); });
+          general.appendChild(UI.notice('bad', e === 'consent_required' ? 'Falta a sua autorização dos dados de saúde. Fale com o suporte.' : 'Não foi possível fazer o pedido agora. Tente de novo.'));
+        }).catch(function (e) { UI.busy(btn, false); Diag.error('convite', e); general.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível fazer o pedido agora. Tente de novo.'))); });
       } });
       box.appendChild(h('div', { class: 'mt24' }, accept.el, general, btn));
     }
@@ -110,7 +117,7 @@
     var holder = h('div');
     API.invite.info(code).then(function (info) {
       if (!info || !info.ok) { Invite.clear(); return; }
-      holder.appendChild(S.pendingStrip('link', 'Convite de ' + info.name + ' esperando você', '#/convite?c=' + code, 'Ver convite'));
+      holder.appendChild(S.pendingStrip('link', 'Convite de ' + info.name + ': peça para ser paciente', '#/convite?c=' + code, 'Ver convite'));
     }).catch(function () { /* sem o cartão, sem problema */ });
     return holder;
   };
@@ -141,7 +148,7 @@
     function drawInvite() {
       UI.clear(invBox);
       if (st.info) {
-        st.accept = UI.checkbox({ label: 'Entendi e quero me vincular a ' + st.info.name + '.' });
+        st.accept = UI.checkbox({ label: 'Entendi e quero pedir para ser paciente de ' + st.info.name + '.' });
         invBox.appendChild(h('div', { class: 'invite-card' }, h('div', { class: 'row between' }, h('div', { class: 'lbl' }, 'Convite de'),
           h('button', { type: 'button', class: 'linkbtn small', onclick: function () { st.code = null; st.info = null; st.accept = null; Invite.clear(); drawInvite(); } }, 'Remover')),
           proLine(st.info), whatList(), st.accept.el));
@@ -187,7 +194,7 @@
         if (gName.value().trim().length < 2) bad(gName, 'Digite o nome do responsável.');
         if (!UI.phoneOk(gPhone.value())) bad(gPhone, 'Digite o celular do responsável.');
       }
-      if (st.info && st.accept && !st.accept.checked()) { st.accept.setError('Marque para se vincular, ou remova o convite.'); bads.push(st.accept.input); }
+      if (st.info && st.accept && !st.accept.checked()) { st.accept.setError('Marque para fazer o pedido, ou remova o convite.'); bads.push(st.accept.input); }
       if (!terms.checked()) { terms.setError('Aceite os Termos e a Política para continuar.'); bads.push(terms.input); }
       if (!health.checked()) { health.setError('Sem essa autorização não dá para criar a conta.'); bads.push(health.input); }
       var data = { fullName: nm, phone: phone.value().trim(), birthDate: birth.value() };
@@ -213,7 +220,7 @@
 
   /* ---------------------------------------------------------------- cartão do link (tela do psicólogo) */
   S.inviteCard = function () {
-    var holder = h('section', { class: 'card invite-link', 'aria-label': 'Link de convite' }, UI.loading());
+    var holder = h('section', { class: 'card invite-link', 'aria-label': 'Link de cadastro' }, UI.loading());
     function draw(st) {
       UI.clear(holder);
       var url = Invite.url(st.code);
@@ -232,10 +239,11 @@
         }).catch(function (e) { UI.toast(UI.errorText(e)); });
       } });
       holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('link', 22)),
-        h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Seu link de convite'), h('p', { class: 'muted small mb0' }, 'Quem criar a conta por ele já fica vinculado(a) a você.'))));
-      holder.appendChild(h('div', { class: 'linkbox mt16', tabindex: '0', role: 'textbox', 'aria-readonly': 'true', 'aria-label': 'Seu link de convite' }, url));
-      if (!st.enabled) holder.appendChild(UI.notice('warn', 'O link está desativado. Quem abrir não consegue se vincular.'));
+        h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Seu link de cadastro'), h('p', { class: 'muted small mb0' }, 'Quem criar a conta por ele faz um pedido, e você decide se aceita.'))));
+      holder.appendChild(h('div', { class: 'linkbox mt16', tabindex: '0', role: 'textbox', 'aria-readonly': 'true', 'aria-label': 'Seu link de cadastro' }, url));
+      if (!st.enabled) holder.appendChild(UI.notice('warn', 'O link está desativado. Quem abrir não consegue fazer o pedido.'));
       holder.appendChild(h('div', { class: 'btn-row mt16' }, copy, wa));
+      if (st.pending) holder.appendChild(S.pendingStrip('user-plus', st.pending === 1 ? '1 pedido de vínculo esperando você' : st.pending + ' pedidos de vínculo esperando você', '#/pacientes', 'Responder'));
       holder.appendChild(h('p', { class: 'small muted mt16 mb0' }, st.linked ? st.linked + (st.linked === 1 ? ' paciente com conta está' : ' pacientes com conta estão') + ' vinculados a você.' : 'Ninguém com conta vinculada ainda.'));
       holder.appendChild(h('details', { class: 'invite-more mt16' }, h('summary', null, 'Mais opções'),
         h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Link ativo'), h('span', { class: 's' }, 'Desligue para parar de receber pacientes novos por ele.')), on.el), regen));
