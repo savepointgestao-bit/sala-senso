@@ -483,6 +483,9 @@
       othersBtn,
       mfaRow, mfaOff);
 
+    /* so no app do celular: bloqueio por PIN e lembretes de consulta */
+    var device = S.deviceGroup ? S.deviceGroup(ctx) : null;
+
     /* preferencias */
     var theme = UI.segmented({ label: 'Tema', value: (window.Theme && window.Theme.get()) || 'auto', options: [['auto', 'Auto'], ['light', 'Claro'], ['dark', 'Escuro']], onChange: function (v) { if (window.Theme) window.Theme.set(v); } });
     var aparencia = h('div', { class: 'group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('palette', 20)), h('span', { class: 't' }, 'Tema'), theme.el));
@@ -545,6 +548,7 @@
       atalhosGroup,
       dados,
       h('div', { class: 'group-title' }, 'Segurança'), seguranca,
+      device ? h('div', { class: 'group-title' }, 'Neste celular') : null, device,
       h('div', { class: 'group-title' }, 'Aparência'), aparencia,
       h('div', { class: 'group-title' }, 'Privacidade'), privacidade,
       h('div', { class: 'group-title' }, 'Zona de risco'), apagar,

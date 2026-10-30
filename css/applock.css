@@ -1,0 +1,50 @@
+/* Bloqueio do app (PIN) e lembretes. So aparece dentro do APK. Cores sempre pelas variaveis do portal (claro e escuro). */
+
+body.is-locked { overflow: hidden; }
+
+/* Fica acima das janelas (30) e abaixo dos avisos rapidos (40), para os avisos ainda aparecerem na tela de bloqueio. */
+.applock { position: fixed; inset: 0; z-index: 35; background: var(--bg); color: var(--ink); overflow-y: auto; display: grid; place-items: center;
+  padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left)); }
+.al-in { width: 100%; max-width: 360px; margin: auto; display: flex; flex-direction: column; align-items: center; gap: .8rem; text-align: center; }
+.al-logo { display: grid; place-items: center; margin-bottom: .1rem; }
+.al-hello, .al-title { font-size: 1.3rem; margin: 0; }
+.al-text { margin: 0 0 .4rem; max-width: 32ch; }
+.al-list { width: 100%; text-align: left; }
+.al-form { width: 100%; display: flex; flex-direction: column; gap: .8rem; text-align: left; }
+.al-link { background: none; border: 0; color: var(--pri-text); font-weight: 650; font-size: .95rem; min-height: 44px; padding: .5rem .9rem; display: inline-flex; align-items: center; gap: .5rem; text-decoration: underline; text-underline-offset: 3px; }
+.al-link.bio { text-decoration: none; border: 1.5px solid var(--line2); border-radius: 999px; }
+
+/* teclado numerico */
+.pinpad { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.pin-sub { min-height: 1.5em; color: var(--mute); font-weight: 600; font-size: .92rem; }
+.pin-sub.bad { color: var(--bad); }
+.pin-len { width: 100%; max-width: 300px; }
+.pin-dots { display: flex; gap: .95rem; justify-content: center; min-height: 18px; }
+.pin-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line2); background: transparent; transition: background .1s, border-color .1s; }
+.pin-dots i.on { background: var(--pri); border-color: var(--pri); }
+.pin-dots.shake { animation: al-shake .35s; }
+@keyframes al-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.pin-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: .65rem; width: 100%; max-width: 300px; }
+.pin-key { min-height: 62px; border-radius: 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 1.5rem; font-weight: 650; display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.pin-key:active { background: var(--pri-soft); }
+.pin-key.ghost { background: transparent; border-color: transparent; font-size: 1.3rem; color: var(--mute); }
+.pin-key.spacer { border-color: transparent; background: transparent; pointer-events: none; }
+.pinpad.off .pin-keys { opacity: .4; pointer-events: none; }
+
+/* codigo de recuperacao */
+.reccode { font: 700 1.45rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .1em; text-align: center; padding: 1rem .5rem; border: 1.5px dashed var(--line2); border-radius: var(--r-m); background: var(--surface2); user-select: all; word-break: break-all; margin: 0 0 .7rem; }
+
+/* telas Bloqueio do app e Lembretes (dentro de janelas) */
+.al-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin: 0 0 1rem; }
+.al-actions .btn { width: auto; flex: 1 1 9rem; }
+.rem-all, .rem-more { display: flex; flex-direction: column; gap: 1rem; }
+.rem-all > p, .rem-all .field, .rem-all .notice, .rem-more > p { margin: 0; }
+.rem-all > div:empty { display: none; }
+.sheet-body .group + .group, .sheet-body .group + .field, .sheet-body .field + .group { margin-top: .9rem; }
+.sheet-body .group + p.small { margin-top: .5rem; }
+.rem-more .group + .group, .rem-more .group + .field, .rem-more .field + .group { margin-top: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-dots.shake { animation: none; }
+  .pin-dots i { transition: none; }
+}

@@ -90,6 +90,10 @@
     bells = [];
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     var withBell = !adminMode;
+    /* So dentro do app do celular: avisa o bloqueio (nome na tela do PIN) e os lembretes (reprogramar os avisos). */
+    if (window.AppLock) AppLock.touch(ctx);
+    if (window.AppReminders) AppReminders.touch(ctx);
+    var lockBtn = window.AppLock && AppLock.enabled() && S.lockButton ? S.lockButton() : null;
 
     function link(it) { return h('a', { href: it[1], 'aria-current': active === it[0] ? 'page' : null }, UI.svg(it[2], 22), h('span', null, it[3])); }
     function me(size) { return UI.avatar(p.full_name, { size: size, level: !pro && ctx.progress ? ctx.progress.level : null }); }
@@ -118,6 +122,7 @@
           h('div', { class: 'mhead-right' },
             ctx.admin ? h('a', { class: 'mhead-mode', href: '#/conta', 'aria-label': 'Modo de teste: ' + S.roleLabel(ctx) + '. Trocar em Conta' }, S.roleLabel(ctx)) : null,
             withHelp ? helpBtn('mhead-help') : null,
+            lockBtn,
             withBell ? bellButton(ctx) : null,
             h('a', { class: 'mhead-me', href: '#/conta', 'aria-label': 'Minha conta' }, me()))),
         h('main', { class: 'main', id: 'conteudo' }, content)),

@@ -110,6 +110,8 @@
       start: function (role) {
         var mins = Number(((window.PSI_CONFIG || {}).idleMinutes || {})[role === 'professional' ? 'professional' : 'patient']) || 0;
         if (role !== 'professional' && API.keepsSession()) mins = 0;
+        /* Com o PIN do app ligado, quem protege a tela e o PIN (trava ao sair e ao ficar parado): a saida automatica fica bem mais longa. */
+        if (mins && window.AppLock && AppLock.enabled()) mins = Math.max(mins, Number((window.PSI_CONFIG || {}).idleMinutesWithLock) || mins);
         if (!mins) { stop(); return; }
         if (on && limit === mins * 60000) return;
         stop();

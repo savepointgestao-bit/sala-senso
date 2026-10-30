@@ -27,6 +27,8 @@
     setTimeout(function () { if (location.href === before) location.hash = fallback; }, 200);
   }
   window.__back = function () {
+    /* 0. tela de bloqueio (PIN): dentro de "esqueci o PIN" volta ao teclado; no teclado, deixa o app sair */
+    if (window.AppLock && AppLock.isLocked()) return AppLock.back();
     /* 1. janela aberta (sheet ou pergunta de confirmacao): fecha */
     if (document.querySelector('.sheet-ov')) {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -85,7 +87,7 @@
       url = a.href;
     } else return;
     ev.preventDefault();
-    if (url) call('openUrl', url);
+    if (url) { if (window.AppLock) AppLock.hold(60000); call('openUrl', url); }
   }, false);
 
   /* ---------------------------------------------------------------- arquivos */
@@ -98,6 +100,7 @@
 
   /* Arquivo binario (foto ou PDF) em base64. share: abre a folha de compartilhar do Android depois de salvar. */
   function saveBinary(name, mime, b64, share) {
+    if (share && window.AppLock) AppLock.hold();
     var r = call('exportFile', name, mime, b64, true, !!share);
     if (typeof r !== 'string' || r.indexOf('ERR:') === 0) throw new Error('save');
     return r;
@@ -118,9 +121,11 @@
       if (!ok && window.UI && UI.toast) UI.toast('Não deu para concluir por esse link. Peça um novo.');
     });
   };
-  window.__notifPerm = function () { /* sem uso por enquanto */ };
-  window.__onPause = function () { /* a sessao continua; quem sai por inatividade e o proprio portal */ };
+  /* __notifPerm (resposta do pedido de notificacoes) e definido por app-reminders.js */
+  /* A sessao continua ao sair do app; quem tranca a tela e o bloqueio por PIN (applock.js) e quem desloga por inatividade e o proprio portal. */
+  window.__onPause = function () { if (window.AppLock) AppLock.onPause(); };
   window.__onResume = function () {
+    if (window.AppLock) AppLock.onResume();
     try { document.dispatchEvent(new Event('visibilitychange')); } catch (e) { /* ignore */ }
     syncBars();
   };
@@ -128,7 +133,7 @@
   window.addEventListener('load', function () { setTimeout(window.__oauth, 250); });
 
   /* Abre a impressao do Android (salvar em PDF ou imprimir) com o que estiver em #print-root. */
-  function print(title) { call('print', String(title || 'Senso')); return true; }
+  function print(title) { if (window.AppLock) AppLock.hold(); call('print', String(title || 'Senso')); return true; }
 
   window.Native = {
     saveFile: saveFile,
