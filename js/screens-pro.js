@@ -26,6 +26,7 @@
     else if (full) out.push(h('span', { class: 'badge ok' }, UI.svg('circle-check', 14), 'Cadastro confirmado'));
     if (p.minor) out.push(h('span', { class: 'badge minor' }, 'Menor de 18'));
     out.push(p.linked ? h('span', { class: 'badge soft' }, UI.svg('link', 14), 'Com conta') : h('span', { class: 'badge' }, 'Sem conta'));
+    if (p.status && p.status !== 'active') out.push(S.statusBadge(p.status));
     return out;
   }
   function ageText(birth) {
@@ -34,14 +35,15 @@
   }
 
   /* ---------------------------------------------------------------- cadastro: novo paciente e edição
-     rec = item de pro.patients() ou do relatório; vazio = novo. onSaved(id, isNew). */
-  S.patientSheet = function (rec, onSaved) {
+     rec = item de pro.patients() ou do relatório; vazio = novo. onSaved(id, isNew). prefill = { name, phone } para um cadastro novo (vindo da lista de espera). */
+  S.patientSheet = function (rec, onSaved, prefill) {
+    prefill = prefill || {};
     var isNew = !rec, linked = !!(rec && rec.linked);
     var today = UI.today();
-    var name = UI.field({ label: 'Nome completo', required: true, autocapitalize: 'words', maxlength: 120, value: rec ? rec.full_name : '' });
+    var name = UI.field({ label: 'Nome completo', required: true, autocapitalize: 'words', maxlength: 120, value: rec ? rec.full_name : (prefill.name || '') });
     var email = UI.field({ label: 'E-mail', type: 'email', required: true, inputmode: 'email', maxlength: 200, value: rec ? rec.email || '' : '',
       hint: 'Obrigatório. Se o paciente criar uma conta com esse e-mail, ela se junta a este cadastro.' });
-    var phone = UI.phoneField({ label: 'Celular', optional: true, value: rec ? rec.phone || '' : '', hint: 'Pode deixar em branco se a pessoa não tem celular.' });
+    var phone = UI.phoneField({ label: 'Celular', optional: true, value: rec ? rec.phone || '' : (prefill.phone || ''), hint: 'Pode deixar em branco se a pessoa não tem celular.' });
     var birth = UI.field({ label: 'Data de nascimento', type: 'date', required: true, max: today, min: '1900-01-01', value: rec ? rec.birth_date || '' : '', hint: 'Para lembrarmos do aniversário.' });
     var gName = UI.field({ label: 'Nome do responsável', autocapitalize: 'words', maxlength: 120, value: rec ? rec.guardian_name || '' : '' });
     var gPhone = UI.phoneField({ label: 'Celular do responsável', required: true, value: rec ? rec.guardian_phone || '' : '' });
@@ -108,7 +110,7 @@
   S.birthdayCard = birthdayCard;
 
   /* ---------------------------------------------------------------- lista de pacientes */
-  var FILTERS = [['all', 'Todos'], ['verify', 'Por conferir'], ['minor', 'Menores'], ['nolink', 'Sem conta'], ['moved', 'Transferidos']];
+  var FILTERS = [['all', 'Todos'], ['verify', 'Por conferir'], ['minor', 'Menores'], ['nolink', 'Sem conta'], ['paused', 'Em pausa'], ['closed', 'Encerrados'], ['moved', 'Transferidos']];
 
   function patientRow(p) {
     var ms = [];
@@ -118,8 +120,8 @@
     if (p.last_mood_day) ms.push(meta('smile', 'Humor: ' + rel(p.last_mood_day)));
     if (!ms.length) ms.push(meta('calendar', 'Sem consultas ainda'));
     return h('a', { class: 'card pt-item', href: '#/pacientes/' + p.record_id },
-      UI.avatar(p.full_name),
-      h('div', { class: 'grow' }, h('div', { class: 'pt-name' }, p.full_name), h('div', { class: 'row-gap' }, badges(p)), h('div', { class: 'metas' }, ms)),
+      UI.avatar(p.social_name || p.full_name),
+      h('div', { class: 'grow' }, h('div', { class: 'pt-name' }, p.social_name || p.full_name), h('div', { class: 'row-gap' }, badges(p)), h('div', { class: 'metas' }, ms)),
       h('span', { class: 'chev' }, UI.svg('chevron-right', 18)));
   }
 
@@ -134,31 +136,40 @@
       holder.appendChild(UI.empty('lock', 'Libera quando o seu CRP for confirmado', 'Enquanto isso, você pode explorar o resto do Senso.'));
       return node;
     }
-    var all = [], births = [], reqs = [], transfers = { incoming: [], outgoing: [] }, filter = FILTERS.some(function (f) { return f[0] === (q && q.f); }) ? q.f : 'all', term = '';
+    var all = [], births = [], reqs = [], wait = [], transfers = { incoming: [], outgoing: [] }, filter = FILTERS.some(function (f) { return f[0] === (q && q.f); }) || (q && q.f) === 'wait' ? q.f : 'all', term = '';
     var listBox = h('div', { 'aria-live': 'polite' }), chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrar pacientes' });
     var search = UI.field({ label: 'Buscar paciente', type: 'search', placeholder: 'Nome, e-mail ou celular', maxlength: 80 });
     search.input.addEventListener('input', function () { term = plain(search.value()); drawList(); });
 
     function isMoved(p) { return !!p.transferred_at; }
+    function inFilter(p, k) {
+      if (k === 'moved') return isMoved(p);
+      if (isMoved(p)) return false;
+      if (k === 'verify') return !p.verified;
+      if (k === 'minor') return !!p.minor;
+      if (k === 'nolink') return !p.linked;
+      if (k === 'paused') return p.status === 'paused';
+      if (k === 'closed') return p.status === 'discharged' || p.status === 'dropped' || p.status === 'referred';
+      return true;
+    }
     function matches(p) {
-      if (filter === 'moved') { if (!isMoved(p)) return false; }
-      else if (isMoved(p)) return false;
-      if (filter === 'verify' && p.verified) return false;
-      if (filter === 'minor' && !p.minor) return false;
-      if (filter === 'nolink' && p.linked) return false;
+      if (!inFilter(p, filter)) return false;
       if (!term) return true;
-      return plain(p.full_name + ' ' + (p.email || '') + ' ' + UI.digits(p.phone)).indexOf(term) >= 0 || (UI.digits(term) && UI.digits(p.phone).indexOf(UI.digits(term)) >= 0);
+      return plain(p.full_name + ' ' + (p.social_name || '') + ' ' + (p.email || '') + ' ' + UI.digits(p.phone)).indexOf(term) >= 0 || (UI.digits(term) && UI.digits(p.phone).indexOf(UI.digits(term)) >= 0);
     }
     function drawChips() {
       clear(chips);
       FILTERS.forEach(function (f) {
-        var n = all.filter(function (p) { return f[0] === 'moved' ? isMoved(p) : (!isMoved(p) && (f[0] === 'verify' ? !p.verified : (f[0] === 'minor' ? p.minor : (f[0] === 'nolink' ? !p.linked : true)))); }).length;
+        var n = all.filter(function (p) { return inFilter(p, f[0]); }).length;
         if (f[0] !== 'all' && f[0] !== filter && !n) return;
         chips.appendChild(h('button', { type: 'button', class: 'chip', 'aria-pressed': filter === f[0] ? 'true' : 'false', onclick: function () { filter = f[0]; drawChips(); drawList(); } }, f[1] + (f[0] === 'all' ? '' : ' (' + n + ')')));
       });
+      chips.appendChild(h('button', { type: 'button', class: 'chip', 'data-filter': 'wait', 'aria-pressed': filter === 'wait' ? 'true' : 'false', onclick: function () { filter = 'wait'; drawChips(); drawList(); } }, 'Lista de espera (' + wait.length + ')'));
     }
+    function loadWait() { return API.pro.waitlist().then(function (w) { wait = w; drawChips(); drawList(); }).catch(function (e) { Diag.error('lista-de-espera', e); UI.toast(UI.errorText(e)); }); }
     function drawList() {
       clear(listBox);
+      if (filter === 'wait') { listBox.appendChild(S.waitlistView(wait, term, loadWait)); return; }
       var rows = all.filter(matches).sort(function (a, b) {
         if (a.verified !== b.verified) return a.verified ? 1 : -1;
         return a.full_name.localeCompare(b.full_name, 'pt-BR');
@@ -193,7 +204,7 @@
     function onChange(recordId) { if (recordId) { go('#/pacientes/' + recordId); return; } load(); }
     function load() {
       return Promise.all([API.pro.patients(), API.pro.birthdays(30).catch(function () { return []; }), API.pro.linkRequests().catch(function () { return []; }),
-        API.pro.transfers().catch(function () { return { incoming: [], outgoing: [] }; })]).then(function (r) { all = r[0]; births = r[1]; reqs = r[2]; transfers = r[3]; draw(); })
+        API.pro.transfers().catch(function () { return { incoming: [], outgoing: [] }; }), API.pro.waitlist().catch(function () { return []; })]).then(function (r) { all = r[0]; births = r[1]; reqs = r[2]; transfers = r[3]; wait = r[4]; draw(); })
         .catch(function (e) { Diag.error('pacientes', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar os pacientes agora. Atualize a página.')); });
     }
     load();
@@ -209,7 +220,7 @@
   S.patientFile = function (ctx, id, q) {
     var holder = h('div', null, UI.loading());
     var node = S.shell(ctx, 'pacientes', [UI.backLink('#/pacientes', 'Pacientes'), holder]);
-    var R = null, X = { linkReq: null, transfer: null }, tab = ['resumo', 'diario', 'consultas', 'cadastro'].indexOf(q && q.aba) >= 0 ? q.aba : 'resumo', days = 90;
+    var R = null, F = null, X = { linkReq: null, transfer: null }, tab = ['resumo', 'diario', 'consultas', 'evolucao', 'clinico', 'financeiro', 'documentos', 'cadastro'].indexOf(q && q.aba) >= 0 ? q.aba : 'resumo', days = 90;
 
     function fail(e) {
       Diag.error('ficha-paciente', e);
@@ -221,10 +232,11 @@
     /* A ficha vem do relatório; o que não está nele (transferência, pedido de vínculo em aberto) vem da lista, dos pedidos e dos encaminhamentos. */
     function load() {
       return Promise.all([API.pro.report(id, days), API.pro.patients().catch(function () { return []; }), API.pro.linkRequests().catch(function () { return []; }),
-        API.pro.transfers().catch(function () { return { incoming: [], outgoing: [] }; })]).then(function (r) {
-        R = r[0];
+        API.pro.transfers().catch(function () { return { incoming: [], outgoing: [] }; }), API.pro.ficha(id).catch(function () { return null; })]).then(function (r) {
+        R = r[0]; F = r[4];
         var item = r[1].filter(function (x) { return x.record_id === R.record_id; })[0];
         R.transferred_at = item ? item.transferred_at : null; R.transferred_to_name = item ? item.transferred_to_name : null;
+        R.status = item ? item.status : 'active'; R.social_name = F ? F.social_name : (item ? item.social_name : null);
         X.linkReq = r[2].filter(function (x) { return x.origin === 'professional' && x.record_id === R.record_id; })[0] || null;
         X.transfer = (r[3].outgoing || []).filter(function (x) { return x.record_id === R.record_id && x.status === 'pending'; })[0] || null;
         draw();
@@ -234,10 +246,10 @@
     /* ------ cabeçalho e conferência */
     function header() {
       var wa = R.phone ? UI.waLink(R.phone, 'Olá, ' + UI.firstName(R.full_name) + '. Aqui é ' + UI.firstName(ctx.me.profile.full_name) + '.') : null;
-      var bits = [ageText(R.birth_date), R.email].filter(Boolean).join(' · ');
+      var bits = [R.social_name ? 'Nome no cadastro: ' + R.full_name : '', ageText(R.birth_date), R.email].filter(Boolean).join(' · ');
       return h('section', { class: 'card pt-header' },
-        h('div', { class: 'invite-who' }, UI.avatar(R.full_name, { size: 'lg', level: R.level }),
-          h('div', { class: 'grow' }, h('h1', { class: 'mb0' }, R.full_name), bits ? h('div', { class: 'muted small' }, bits) : null, h('div', { class: 'row-gap mt8' }, badges(R, true)))),
+        h('div', { class: 'invite-who' }, UI.avatar(R.social_name || R.full_name, { size: 'lg', level: R.level }),
+          h('div', { class: 'grow' }, h('h1', { class: 'mb0' }, R.social_name || R.full_name), bits ? h('div', { class: 'muted small' }, bits) : null, h('div', { class: 'row-gap mt8' }, badges(R, true)))),
         R.transferred_at ? h('div', { class: 'mt16' }, UI.notice('info', 'Transferido' + (R.transferred_to_name ? ' para ' + R.transferred_to_name : '') + ' em ' + UI.fmtDate(UI.dt.dayOf(R.transferred_at)) + '. O cadastro fica aqui só para você consultar.'))
         : h('div', { class: 'btn-row mt16' },
           h('button', { type: 'button', class: 'btn', onclick: function () { S.newAppointmentSheet({ record: { id: R.record_id, name: R.full_name }, onDone: load }); } }, UI.svg('calendar-plus', 18), 'Marcar consulta'),
@@ -457,6 +469,12 @@
           gkv, gwa ? h('div', { class: 'btn-row mt16' }, h('a', { class: 'btn ghost auto', href: gwa, target: '_blank', rel: 'noopener' }, UI.svg('message-circle', 18), 'Falar com o responsável')) : null,
           h('div', { class: 'item flat mt16' }, h('span', null, h('span', { class: 't' }, 'Autorização do responsável'), h('span', { class: 's' }, 'Marque quando ele(a) tiver autorizado o atendimento.')), auth.el)));
       }
+      if (!R.transferred_at) {
+        box.appendChild(h('section', { class: 'card' }, h('h2', null, 'Situação do paciente'),
+          h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, S.statusBadge(R.status || 'active')), h('span', { class: 's' }, 'Ativo, em pausa, alta, interrompeu ou encaminhado.')),
+            h('button', { type: 'button', class: 'btn ghost auto sm', onclick: function () { S.statusSheet(R, load); } }, 'Mudar'))));
+      }
+      if (F) S.fichaCards(R, F, function () { S.fichaSheet(R, F, load); }).forEach(function (n) { box.appendChild(n); });
       box.appendChild(linkCard());
       var tc = transferCard(); if (tc) box.appendChild(tc);
       return box;
@@ -465,6 +483,10 @@
     function panel(k) {
       if (k === 'diario') return diaryPanel();
       if (k === 'consultas') return sessionsPanel();
+      if (k === 'evolucao') return S.evolutionPanel(ctx, R, F);
+      if (k === 'clinico') return S.clinicalPanel(ctx, R, F);
+      if (k === 'financeiro') return S.financePanel(ctx, R, F);
+      if (k === 'documentos') return S.documentsPanel(ctx, R, F, load);
       if (k === 'cadastro') return registerPanel();
       return summaryPanel();
     }
@@ -472,7 +494,7 @@
       clear(holder);
       holder.appendChild(header());
       var v = verifyBanner(); if (v) holder.appendChild(v);
-      var t = UI.tabs({ label: 'Seções da ficha', value: tab, tabs: [['resumo', 'Resumo'], ['diario', 'Diário'], ['consultas', 'Consultas'], ['cadastro', 'Cadastro']], render: panel, onChange: function (k) { tab = k; } });
+      var t = UI.tabs({ label: 'Seções da ficha', value: tab, cls: 'dense', tabs: [['resumo', 'Resumo'], ['diario', 'Diário'], ['consultas', 'Consultas'], ['evolucao', 'Evolução'], ['clinico', 'Clínico'], ['financeiro', 'Financeiro'], ['documentos', 'Documentos'], ['cadastro', 'Cadastro']], render: panel, onChange: function (k) { tab = k; } });
       holder.appendChild(t.el);
     }
     load();

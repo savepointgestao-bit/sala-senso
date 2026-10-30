@@ -29,14 +29,17 @@
   function isVerifiedPro(ctx) { return !!(ctx.me.professional && ctx.me.professional.verification === 'verified'); }
 
   /* ---------------------------------------------------------------- marcar ou editar uma consulta
-     o.record = { id, name } (paciente já escolhido), o.appt = consulta existente (editar), o.day = dia inicial, o.onDone() */
+     o.record = { id, name } (paciente já escolhido), o.appt = consulta existente (editar), o.day e o.time = dia e horário iniciais, o.onDone().
+     Marcando: dá para repetir (toda semana, a cada 15 dias, todo mês). Editando uma consulta de série: só esta ou esta e as próximas. */
   S.newAppointmentSheet = function (o) {
     o = o || {};
     var appt = o.appt || null, rec = o.record || null;
     var area = h('div', null, UI.loading());
     var sh = UI.sheet({ title: appt ? 'Remarcar ou editar' : 'Marcar consulta', content: area });
-    Promise.all([API.agenda.get(), appt || rec ? Promise.resolve(null) : API.pro.patients()]).then(function (r) {
-      var set = r[0].settings, patients = r[1];
+    Promise.all([API.agenda.get(), appt || rec ? Promise.resolve(null) : API.pro.patients(), !appt && rec ? API.pro.ficha(rec.id).catch(function () { return null; }) : Promise.resolve(null)]).then(function (r) {
+      var set = r[0].settings, patients = r[1], fic = r[2];
+      /* Valor, duração e modalidade da ficha do paciente valem no lugar dos padrões da agenda. */
+      var fMode = fic && fic.modality === 'online' && set.accepts_online ? 'online' : (fic && fic.modality === 'in_person' && set.accepts_in_person ? 'in_person' : null);
       clear(area);
       if (!appt && !rec && !patients.length) {
         area.appendChild(UI.empty('users', 'Cadastre um paciente primeiro', 'Para marcar uma consulta, a pessoa precisa estar na sua lista.', h('button', { type: 'button', class: 'btn auto', onclick: function () { sh.close('go'); S.patientSheet(null, function (id) { go('#/pacientes/' + id); }); } }, 'Novo paciente')));
@@ -48,16 +51,29 @@
       }
       var day = UI.field({ label: 'Dia', type: 'date', required: true, value: appt ? T.dayOf(appt.starts_at) : (o.day || T.today()) });
       var now = new Date(), nextH = Math.min(20, Math.max(8, +T.hmOf(Date.now()).slice(0, 2) + 1));
-      var time = UI.field({ label: 'Horário', type: 'time', required: true, value: appt ? T.hmOf(appt.starts_at) : (nextH < 10 ? '0' : '') + nextH + ':00' });
-      var dur = UI.field({ label: 'Duração (minutos)', type: 'number', inputmode: 'numeric', required: true, value: String(appt ? appt.duration_minutes : set.session_minutes) });
+      var time = UI.field({ label: 'Horário', type: 'time', required: true, value: appt ? T.hmOf(appt.starts_at) : (o.time || (nextH < 10 ? '0' : '') + nextH + ':00') });
+      var dur = UI.field({ label: 'Duração (minutos)', type: 'number', inputmode: 'numeric', required: true, value: String(appt ? appt.duration_minutes : (fic && fic.session_minutes) || set.session_minutes) });
       dur.input.min = '15'; dur.input.max = '240'; dur.input.step = '5';
-      var mode = appt ? appt.mode : (set.accepts_in_person ? 'in_person' : 'online');
+      var mode = appt ? appt.mode : (fMode || (set.accepts_in_person ? 'in_person' : 'online'));
       var seg = UI.segmented({ label: 'Tipo de atendimento', value: mode, options: [['in_person', 'Presencial'], ['online', 'Online']], onChange: function (v) { mode = v; link.el.classList.toggle('hide', v !== 'online'); } });
-      var price = UI.field({ label: 'Valor (R$)', optional: true, inputmode: 'decimal', maxlength: 12, value: moneyText(appt ? appt.price_cents : set.price_cents), hint: 'Deixe em branco para usar o valor padrão da agenda.' });
+      var price = UI.field({ label: 'Valor (R$)', optional: true, inputmode: 'decimal', maxlength: 12, value: moneyText(appt ? appt.price_cents : (fic && fic.session_price_cents != null ? fic.session_price_cents : set.price_cents)), hint: 'Deixe em branco para usar o valor padrão da agenda.' });
       var link = UI.field({ label: 'Link da videochamada', optional: true, type: 'url', maxlength: 300, value: appt && appt.meeting_url ? appt.meeting_url : '', placeholder: 'https://' });
       link.el.classList.toggle('hide', mode !== 'online');
+      /* Repetir (só ao marcar) e alcance da mudança (só ao editar uma consulta de série). */
+      var rep = null, count = null, scope = 'one', scopeBox = null;
+      if (!appt) {
+        rep = UI.field({ label: 'Repetir', type: 'select', options: [['none', 'Não repete'], ['weekly', 'Toda semana'], ['biweekly', 'A cada 15 dias'], ['monthly', 'Todo mês']], value: 'none' });
+        count = UI.field({ label: 'Quantas consultas ao todo', type: 'number', inputmode: 'numeric', value: '8', hint: 'Conta com a primeira. De 2 a 60. Horário já ocupado fica de fora.' });
+        count.input.min = '2'; count.input.max = '60'; count.input.step = '1';
+        count.el.classList.add('hide');
+        count.input.addEventListener('input', function () { count.clearError(); });
+        rep.input.addEventListener('change', function () { count.el.classList.toggle('hide', rep.value() === 'none'); });
+      } else if (appt.status === 'scheduled' && appt.series_id && appt.series_after > 0) {
+        var scopeSeg = UI.segmented({ label: 'Aplicar a', value: 'one', options: [['one', 'Só esta'], ['following', 'Esta e as próximas (' + (appt.series_after + 1) + ')']], onChange: function (v) { scope = v; } });
+        scopeBox = h('div', { class: 'field' }, h('div', { class: 'lbl' }, 'Aplicar a'), scopeSeg.el, h('p', { class: 'small muted mb0' }, 'Se mudar o dia ou o horário, as próximas andam o mesmo tanto.'));
+      }
       var general = h('div', { 'aria-live': 'polite' });
-      var btn = UI.button(appt ? 'Salvar' : 'Marcar consulta', { type: 'submit' });
+      var btn = UI.button(appt ? 'Salvar' : (rep ? 'Marcar consulta' : 'Salvar'), { type: 'submit' });
       var form = h('form', { novalidate: true, onsubmit: function (ev) {
         ev.preventDefault(); general.textContent = '';
         var bads = [];
@@ -70,21 +86,68 @@
         if (cents !== null && isNaN(cents)) bad(price, 'Confira o valor.');
         var url = link.value().trim();
         if (mode === 'online' && url && !/^https?:\/\//i.test(url)) bad(link, 'O link deve começar com https://');
+        var every = rep ? rep.value() : 'none', n = count ? Number(count.value()) : 0;
+        if (every !== 'none' && !(n >= 2 && n <= 60 && n % 1 === 0)) bad(count, 'Use de 2 a 60 consultas.');
         if (bads.length) { S.focusFirst(bads); return; }
         var data = { startsAt: iso(day.value(), time.value()), duration: d, mode: mode, priceCents: cents, meetingUrl: mode === 'online' ? url : '' };
         UI.busy(btn, true);
-        var p = appt ? API.agenda.update(appt.id, data) : API.agenda.create(Object.assign({ recordId: rec ? rec.id : who.value() }, data));
-        p.then(function () {
-          sh.close('done'); UI.toast(appt ? 'Consulta atualizada.' : 'Consulta marcada.', 'circle-check'); if (o.onDone) o.onDone();
+        var p;
+        if (appt) p = scope === 'following' ? API.agenda.updateFollowing(appt.id, data) : API.agenda.update(appt.id, data);
+        else if (every !== 'none') p = API.agenda.createSeries(Object.assign({ recordId: rec ? rec.id : who.value(), every: every, count: n }, data));
+        else p = API.agenda.create(Object.assign({ recordId: rec ? rec.id : who.value() }, data));
+        p.then(function (r) {
+          var skipped = r && r.skipped && r.skipped.length ? r.skipped : null;
+          var done = appt ? (scope === 'following' && r && r.updated > 1 ? r.updated + ' consultas atualizadas.' : 'Consulta atualizada.')
+            : (every !== 'none' && r && r.created > 1 ? r.created + ' consultas marcadas.' : 'Consulta marcada.');
+          if (o.onDone) o.onDone();
+          if (!skipped) { sh.close('done'); UI.toast(done, 'circle-check'); return; }
+          /* Alguns horários já estavam ocupados: mostra quais ficaram de fora. */
+          clear(area);
+          area.appendChild(h('div', null, UI.notice('ok', done),
+            UI.notice('warn', (skipped.length === 1 ? '1 horário já estava ocupado e ficou de fora: ' : skipped.length + ' horários já estavam ocupados e ficaram de fora: ') + skipped.map(function (x) { return T.whenLabel(x); }).join('; ') + '.'),
+            h('div', { class: 'dialog-actions' }, UI.button('Entendi', { onclick: function () { sh.close('done'); } }))));
         }).catch(function (e) {
           UI.busy(btn, false); Diag.error('marcar-consulta', e);
-          general.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível salvar agora. Tente de novo.')));
+          var all = every !== 'none' && /slot_taken/.test(String((e && e.message) || ''));
+          general.appendChild(UI.notice('bad', all ? 'Todos esses horários já estão ocupados. Escolha outro dia ou horário.' : UI.errorText(e, 'Não foi possível salvar agora. Tente de novo.')));
         });
       } },
         rec ? h('p', { class: 'lead' }, 'Paciente: ', h('b', null, rec.name)) : (appt ? h('p', { class: 'lead' }, 'Paciente: ', h('b', null, appt.full_name)) : who.el),
-        h('div', { class: 'grid2' }, day.el, time.el), dur.el, h('div', { class: 'field' }, h('div', { class: 'lbl' }, 'Tipo de atendimento'), seg.el), link.el, price.el, general, btn);
+        scopeBox, h('div', { class: 'grid2' }, day.el, time.el), rep ? rep.el : null, count ? count.el : null, dur.el,
+        h('div', { class: 'field' }, h('div', { class: 'lbl' }, 'Tipo de atendimento'), seg.el), link.el, price.el, general, btn);
       area.appendChild(form);
     }).catch(function (e) { Diag.error('marcar-consulta-carregar', e); clear(area); area.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível abrir agora.'))); });
+    return sh;
+  };
+
+  /* ---------------------------------------------------------------- horários livres
+     Mostra, dia a dia, os horários vagos dentro do atendimento (menos consultas e dias fechados). Tocar num horário abre "Marcar consulta" já preenchida. */
+  S.freeSlotsSheet = function (o) {
+    o = o || {};
+    var span = 14, info = h('p', { class: 'muted small' }), list = h('div', { 'aria-live': 'polite' }, UI.loading());
+    var seg = UI.segmented({ label: 'Período', value: '14', options: [['7', '7 dias'], ['14', '14 dias'], ['30', '30 dias']], onChange: function (v) { span = +v; load(); } });
+    var sh = UI.sheet({ title: 'Horários livres', content: h('div', null, seg.el, info, list), focus: null });
+    function load() {
+      clear(list); list.appendChild(UI.loading());
+      API.agenda.freeSlots(T.today(), span).then(function (r) {
+        clear(list);
+        if (!r.has_hours) {
+          info.textContent = '';
+          list.appendChild(UI.empty('clock', 'Defina seus horários de atendimento', 'Os horários livres saem dos dias e horas em que você atende. Configure na aba Horários da agenda.',
+            h('a', { class: 'btn auto', href: '#/agenda?aba=ajustes', onclick: function () { sh.close('go'); } }, 'Abrir horários')));
+          return;
+        }
+        info.textContent = 'Consultas de ' + r.duration + ' minutos. Toque num horário para marcar.';
+        if (!r.days.length) { list.appendChild(UI.empty('calendar-x', 'Sem horário livre nesse período', 'Tente um período maior ou ajuste seus horários de atendimento.')); return; }
+        r.days.forEach(function (d) {
+          list.appendChild(h('div', { class: 'group-title' }, T.dayLabel(d.day)));
+          list.appendChild(h('div', { class: 'slot-grid', role: 'group', 'aria-label': 'Horários de ' + T.dayLabel(d.day) }, d.slots.map(function (hm) {
+            return h('button', { type: 'button', class: 'slot-btn', onclick: function () { sh.close('go'); S.newAppointmentSheet({ day: d.day, time: hm, record: o.record || null, onDone: o.onDone }); } }, hm);
+          })));
+        });
+      }).catch(function (e) { Diag.error('horarios-livres', e); clear(list); list.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível carregar os horários agora.'))); });
+    }
+    load();
     return sh;
   };
 
@@ -125,16 +188,26 @@
   }
 
   /* ---------------------------------------------------------------- ações de uma consulta */
-  var METHODS = [['pix', 'Pix'], ['cash', 'Dinheiro'], ['card', 'Cartão'], ['transfer', 'Transferência']];
   function paySheet(a, reload) {
-    var method = 'pix';
-    var seg = UI.segmented({ label: 'Forma de pagamento', value: method, options: METHODS, onChange: function (v) { method = v; } });
-    var sh = UI.sheet({ title: 'Registrar pagamento', content: [h('p', { class: 'muted' }, 'Consulta de ' + T.whenLabel(a.starts_at) + ' · ' + UI.money(a.price_cents)), seg.el,
+    var method = UI.field({ label: 'Forma de pagamento', type: 'select', options: window.Clinic.PAY_METHODS, value: 'pix' });
+    var sh = UI.sheet({ title: 'Registrar pagamento', content: [h('p', { class: 'muted' }, 'Consulta de ' + T.whenLabel(a.starts_at) + ' · ' + UI.money(a.price_cents)), method.el,
       h('div', { class: 'dialog-actions' }, UI.button('Marcar como pago', { onclick: function (ev) {
         UI.busy(ev.currentTarget, true);
-        API.agenda.markPaid(a.id, true, method).then(function () { sh.close('done'); UI.toast('Pagamento registrado.', 'circle-check'); reload(); })
-          .catch(function (e) { UI.busy(ev.currentTarget, false); UI.toast(UI.errorText(e)); });
+        API.agenda.markPaid(a.id, true, method.value()).then(function () { sh.close('done'); UI.toast('Pagamento registrado.', 'circle-check'); reload(); })
+          .catch(function (e) { UI.busy(ev.currentTarget, false); Diag.error('marcar-pago', e); UI.toast(UI.errorText(e)); });
       } }))] });
+  }
+  /* Falta: pergunta se vai cobrar (entra em "A receber" como uma sessão) ou não. */
+  function noShowSheet(a, reload) {
+    var s;
+    function mark(charge, btn) {
+      UI.busy(btn, true);
+      API.agenda.setStatus(a.id, 'no_show').then(function () { return charge ? null : API.agenda.setCharge(a.id, false); })
+        .then(function () { s.close('done'); UI.toast(charge ? 'Falta registrada e cobrada.' : 'Falta registrada, sem cobrança.', 'circle-check'); reload(); })
+        .catch(function (e) { UI.busy(btn, false); Diag.error('registrar-falta', e); UI.toast(UI.errorText(e)); });
+    }
+    s = UI.sheet({ title: 'Cobrar a falta?', content: [h('p', { class: 'muted' }, a.full_name + ' não compareceu em ' + T.whenLabel(a.starts_at) + '. Se você cobrar, a falta entra em “A receber” como uma sessão. Dá para mudar depois.'),
+      h('div', { class: 'btn-row' }, UI.button('Cobrar a falta', { onclick: function (ev) { mark(true, ev.currentTarget); } }), UI.button('Não cobrar', { variant: 'ghost', onclick: function (ev) { mark(false, ev.currentTarget); } }))] });
   }
   function apptSheet(a, reload) {
     var future = Date.parse(a.starts_at) > Date.now();
@@ -154,30 +227,45 @@
     if (a.status === 'scheduled') {
       if (!future) {
         row('circle-check', 'Marcar como realizada', 'A consulta aconteceu', function () { setStatus('done', 'Marcada como realizada.'); });
-        row('user-x', 'Marcar falta', 'O(a) paciente não compareceu', function () { setStatus('no_show', 'Falta registrada.'); });
+        row('user-x', 'Marcar falta', 'O(a) paciente não compareceu', function () { sh.close('go'); noShowSheet(a, reload); });
       }
-      row('pencil', 'Remarcar ou editar', 'Mudar dia, horário, tipo ou valor', function () { sh.close('go'); S.newAppointmentSheet({ appt: a, onDone: reload }); });
+      row('pencil', 'Remarcar ou editar', a.series_after > 0 ? 'Só esta, ou esta e as próximas' : 'Mudar dia, horário, tipo ou valor', function () { sh.close('go'); S.newAppointmentSheet({ appt: a, onDone: reload }); });
       if (a.mode === 'online' && a.meeting_url) rows.push(h('a', { class: 'item', href: a.meeting_url, target: '_blank', rel: 'noopener' }, h('span', { class: 'ico-box' }, UI.svg('video', 20)), h('span', null, h('span', { class: 't' }, 'Abrir a videochamada'), h('span', { class: 's' }, 'Abre o link em outra aba'))));
-      if (future) row('calendar-x', 'Cancelar consulta', 'Avisa o(a) paciente', function () {
+      if (future) row('calendar-x', a.series_after > 0 ? 'Cancelar só esta' : 'Cancelar consulta', 'Avisa o(a) paciente', function () {
         sh.close('go');
         reasonSheet({ title: 'Cancelar a consulta', text: a.full_name + ', ' + T.whenLabel(a.starts_at) + '. O(a) paciente é avisado(a).', ok: 'Cancelar consulta', danger: true, placeholder: 'Ex.: preciso remarcar, desculpe o transtorno.',
           run: function (reason) { return API.agenda.setStatus(a.id, 'canceled_by_professional', reason); }, done: 'Consulta cancelada.', reload: reload, tag: 'cancelar-consulta' });
+      }, 'danger');
+      if (future && a.series_after > 0) row('calendar-x', 'Cancelar esta e as próximas', (a.series_after + 1) + ' consultas, avisa o(a) paciente', function () {
+        sh.close('go');
+        reasonSheet({ title: 'Cancelar esta e as próximas', text: a.full_name + ', a partir de ' + T.whenLabel(a.starts_at) + ': ' + (a.series_after + 1) + ' consultas. O(a) paciente é avisado(a).', ok: 'Cancelar ' + (a.series_after + 1) + ' consultas', danger: true,
+          placeholder: 'Ex.: vou viajar, desculpe o transtorno.', run: function (reason) { return API.agenda.cancelFollowing(a.id, reason); }, done: 'Consultas canceladas.', reload: reload, tag: 'cancelar-proximas' });
       }, 'danger');
     }
     if (a.status === 'done' || a.status === 'no_show') {
       row('refresh-cw', 'Voltar para “confirmada”', 'Desfaz o registro de ' + (a.status === 'done' ? 'realizada' : 'falta'), function () { setStatus('scheduled', 'Consulta voltou para confirmada.'); });
       row('pencil', 'Editar', 'Dia, horário, tipo ou valor', function () { sh.close('go'); S.newAppointmentSheet({ appt: a, onDone: reload }); });
     }
-    if (a.price_cents != null && ['scheduled', 'done'].indexOf(a.status) >= 0) {
-      if (a.payment_status === 'paid') row('banknote', 'Pagamento recebido', 'Toque para desfazer', function () {
-        API.agenda.markPaid(a.id, false).then(function () { sh.close('done'); UI.toast('Pagamento desmarcado.', 'circle-check'); reload(); }).catch(function (e) { UI.toast(UI.errorText(e)); });
+    if (a.status === 'no_show') {
+      if (a.charge !== false) row('ban', 'Não cobrar a falta', 'Sai de “A receber”', function () {
+        API.agenda.setCharge(a.id, false).then(function () { sh.close('done'); UI.toast('A falta não será cobrada.', 'circle-check'); reload(); }).catch(function (e) { Diag.error('nao-cobrar-falta', e); UI.toast(UI.errorText(e)); });
       });
-      else row('banknote', 'Registrar pagamento', UI.money(a.price_cents), function () { sh.close('go'); paySheet(a, reload); });
+      else row('wallet', 'Cobrar a falta', 'Entra em “A receber”', function () {
+        API.agenda.setCharge(a.id, true).then(function () { sh.close('done'); UI.toast('A falta será cobrada.', 'circle-check'); reload(); }).catch(function (e) { Diag.error('cobrar-falta', e); UI.toast(UI.errorText(e)); });
+      });
+    }
+    if (['scheduled', 'done'].indexOf(a.status) >= 0 || (a.status === 'no_show' && a.charge !== false)) {
+      if (a.payment_status === 'paid') row('banknote', 'Pagamento recebido', 'Toque para desfazer', function () {
+        API.agenda.markPaid(a.id, false).then(function () { sh.close('done'); UI.toast('Pagamento desmarcado.', 'circle-check'); reload(); }).catch(function (e) { Diag.error('desfazer-pago', e); UI.toast(UI.errorText(e)); });
+      });
+      else if (a.price_cents != null) row('banknote', 'Registrar pagamento', UI.money(a.price_cents), function () { sh.close('go'); paySheet(a, reload); });
+      else row('banknote', 'Registrar pagamento', 'Informe o valor recebido', function () { sh.close('go'); S.paymentSheet({ record: { id: a.record_id, name: a.full_name }, preset: { appointment_id: a.id }, onDone: reload }); });
     }
     rows.push(h('a', { class: 'item', href: '#/pacientes/' + a.record_id, onclick: function () { sh.close('go'); } }, h('span', { class: 'ico-box' }, UI.svg('user', 20)), h('span', null, h('span', { class: 't' }, 'Abrir a ficha de ' + UI.firstName(a.full_name)))));
     var st = STATUS[a.status] || ['', a.status];
     var metas = h('div', { class: 'metas mb16' }, h('span', { class: 'meta' }, UI.svg(a.mode === 'online' ? 'video' : 'map-pin', 14), MODE[a.mode] || a.mode), h('span', { class: 'meta' }, UI.svg('clock', 14), a.duration_minutes + ' min'),
-      a.price_cents != null ? h('span', { class: 'meta' }, UI.svg('banknote', 14), UI.money(a.price_cents) + (a.payment_status === 'paid' ? ' (pago)' : '')) : null);
+      a.price_cents != null ? h('span', { class: 'meta' }, UI.svg('banknote', 14), UI.money(a.price_cents) + (a.payment_status === 'paid' ? ' (pago)' : '')) : null,
+      a.series_id ? h('span', { class: 'meta' }, UI.svg('refresh-cw', 14), a.series_after > 0 ? 'Repete, mais ' + a.series_after : 'Última da série') : null);
     sh = UI.sheet({ title: a.full_name, content: [h('p', { class: 'lead mb0' }, T.whenLabel(a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at), ' ', h('span', { class: 'badge ' + st[0] }, st[1])), metas,
       a.patient_note ? UI.notice('info', 'Recado do paciente: ' + a.patient_note) : null, h('div', { class: 'group' }, rows)], focus: null });
     return sh;
@@ -189,6 +277,7 @@
     var start = a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at;
     var parts = [MODE[a.mode] || a.mode, a.duration_minutes + ' min'];
     if (a.price_cents != null) parts.push(UI.money(a.price_cents) + (a.payment_status === 'paid' ? ' (pago)' : ''));
+    if (a.series_id) parts.push('Repete');
     return h('button', { type: 'button', class: 'appt-row ' + a.status, onclick: function () { apptSheet(a, reload); }, 'aria-label': a.full_name + ', ' + T.hmOf(start) + ', ' + st[1] },
       h('span', { class: 'when' }, T.hmOf(start)),
       h('span', { class: 'grow' }, h('span', { class: 't' }, a.full_name), h('span', { class: 's' }, parts.join(' · '))),
@@ -431,8 +520,9 @@
   S.agenda = function (ctx, q) {
     if (!isVerifiedPro(ctx)) return pageLock(ctx, 'agenda', 'Agenda', 'Pedidos, consultas e horários');
     var newBtn = h('button', { type: 'button', class: 'btn auto sm', onclick: function () { S.newAppointmentSheet({ day: q && /^\d{4}-\d{2}-\d{2}$/.test(q.d || '') ? q.d : null, onDone: function () { state.reload(); } }); } }, UI.svg('calendar-plus', 18), 'Marcar consulta');
+    var freeBtn = h('button', { type: 'button', class: 'btn ghost auto sm', onclick: function () { S.freeSlotsSheet({ onDone: function () { state.reload(); } }); } }, UI.svg('clock', 18), 'Horários livres');
     var holder = h('div');
-    var node = S.shell(ctx, 'agenda', [UI.pageHead('Agenda', 'Pedidos, consultas e horários', newBtn), holder]);
+    var node = S.shell(ctx, 'agenda', [UI.pageHead('Agenda', 'Pedidos, consultas e horários', h('div', { class: 'row-gap' }, freeBtn, newBtn)), holder]);
     var tabNames = ['pedidos', 'semana', 'fechar', 'ajustes'];
     var firstTab = tabNames.indexOf(q && q.aba) >= 0 ? q.aba : (q && q.d ? 'semana' : null);
     var count = 0, tabsApi = null;

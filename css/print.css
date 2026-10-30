@@ -1,0 +1,57 @@
+/* Documentos do psicólogo (prontuário, recibo, declaração...): folha branca para ver na tela e imprimir ou salvar em PDF.
+   A folha é sempre clara, mesmo no tema escuro, porque vira papel. */
+.paper { background: #fff; color: #111; border-radius: 10px; border: 1px solid var(--line); padding: 1.1rem 1rem; font-family: Georgia, "Times New Roman", serif; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.paper h1 { font-size: 21px; margin: 0; letter-spacing: .06em; color: #111; }
+.paper h2 { font-size: 15px; margin: 16px 0 6px; border-bottom: 1px solid #999; padding-bottom: 3px; font-family: system-ui, sans-serif; color: #111; break-after: avoid; page-break-after: avoid; }
+.paper p { margin: 0 0 12px; text-align: justify; }
+.paper .doc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-bottom: 2px solid #222; padding-bottom: 10px; margin-bottom: 16px; }
+.paper .doc-no { font-size: 13px; color: #444; margin-top: 2px; font-family: system-ui, sans-serif; }
+.paper table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-family: system-ui, sans-serif; margin: 6px 0 14px; }
+.paper th, .paper td { border: 1px solid #bbb; padding: 5px 7px; text-align: left; vertical-align: top; color: #111; }
+.paper th { background: #eee; }
+.paper td.r, .paper th.r { text-align: right; }
+.paper table.kvt th { width: 32%; }
+.paper .note { margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
+.paper .note .nh { font-weight: 700; font-family: system-ui, sans-serif; font-size: 13px; }
+.paper .note .f { margin-top: 2px; white-space: pre-wrap; }
+.paper .sig { text-align: center; margin-top: 34px; break-inside: avoid; }
+.paper .sig img { max-height: 70px; max-width: 220px; display: block; margin: 0 auto -8px; }
+.paper .sig .line { border-top: 1px solid #222; width: 260px; max-width: 80%; margin: 0 auto 6px; }
+.paper .foot { margin-top: 26px; padding-top: 8px; border-top: 1px solid #bbb; font-size: 11.5px; color: #555; text-align: center; font-family: system-ui, sans-serif; }
+.paper .rr { text-align: right; margin-top: 22px; }
+.paper .box { border: 1px solid #bbb; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-family: system-ui, sans-serif; font-size: 12.5px; }
+.paper-scroll { overflow-x: auto; max-width: 100%; }
+#print-root { display: none; }
+@media print {
+  @page { size: A4; margin: 14mm; }
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body > *:not(#print-root) { display: none !important; }
+  #print-root { display: block !important; color: #000; background: #fff; }
+  #print-root .paper { box-shadow: none; border: 0; border-radius: 0; padding: 0; overflow: visible; font-size: 13px; }
+  html.in-app #print-root { padding: 14mm; }
+}
+
+/* recibo */
+.paper.wm { position: relative; overflow: hidden; }
+.paper .doc-val { font-size: 20px; font-weight: 700; font-family: system-ui, sans-serif; white-space: nowrap; }
+.paper .stamp { position: absolute; top: 38%; left: 10%; font-size: 52px; color: rgba(190, 40, 40, .3); border: 6px solid rgba(190, 40, 40, .3); padding: 4px 18px; transform: rotate(-18deg); font-family: system-ui, sans-serif; font-weight: 800; pointer-events: none; }
+
+/* plano de rotina: quadro da semana */
+.paper table.chk { table-layout: fixed; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.paper table.chk th.c, .paper table.chk td.cb, .paper table.chk td.na { width: 38px; text-align: center; padding: 0; }
+.paper table.chk th.grp { background: #ddd; text-align: left; width: auto; padding: 4px 7px; }
+.paper table.chk td.cb { height: 32px; }
+.paper table.chk td.cb::after { content: ""; display: inline-block; width: 14px; height: 14px; border: 1.5px solid #333; border-radius: 3px; vertical-align: middle; }
+.paper table.chk td.cb.line::after { display: none; }
+.paper table.chk td.na { background: #ececec; }
+.paper table.chk tr { break-inside: avoid; page-break-inside: avoid; }
+.paper table.chk .sub { color: #555; font-size: 11.5px; }
+
+/* contrato e TCLE */
+.paper h1.sm { font-size: 16px; letter-spacing: .03em; line-height: 1.3; }
+.paper ol { padding-left: 1.3rem; margin: 0 0 12px; }
+.paper li { margin-bottom: 8px; text-align: justify; break-inside: avoid; page-break-inside: avoid; }
+.paper .sigrow { display: flex; gap: 24px; margin-top: 26px; break-inside: avoid; page-break-inside: avoid; }
+.paper .sigrow .sig { flex: 1; min-width: 0; margin-top: 8px; }
+.paper .sigrow .sig .line { width: 100%; max-width: 100%; }
+.paper .sig-gap { height: 48px; }

@@ -164,7 +164,7 @@
   function tabs(o) {
     var panels = {}, cur = o.value || o.tabs[0][0];
     var holder = h('div', { class: 'tab-panels' });
-    var seg = UI.segmented({ label: o.label || 'Seções', value: cur, options: o.tabs, onChange: show });
+    var seg = UI.segmented({ label: o.label || 'Seções', value: cur, options: o.tabs, cls: o.cls, onChange: show });
     function show(k) {
       cur = k;
       if (!panels[k]) { panels[k] = h('div', { class: 'tab-panel' }, o.render(k)); holder.appendChild(panels[k]); }
@@ -197,7 +197,23 @@
     not_found: 'Não encontramos esse item. Atualize a tela.', too_many_blocks: 'Você já tem muitos fechamentos. Apague os antigos.', request_not_found: 'Esse pedido não existe mais. Atualize a tela.', request_expired: 'Esse pedido venceu. Peça de novo.',
     record_not_available: 'Esse cadastro já está ligado a uma conta.', attest_required: 'Marque a confirmação para enviar o encaminhamento.',
     already_pending: 'Já existe um encaminhamento esperando resposta.', already_transferred: 'Esse paciente já foi transferido.', same_professional: 'Esse CRP é o seu.',
-    empty_entry: 'Escolha o humor ou escreva algo para salvar.', invalid_date: 'Essa data não é válida.', rate_limited: 'Muitas tentativas. Espere um pouco.'
+    empty_entry: 'Escolha o humor ou escreva algo para salvar.', invalid_date: 'Essa data não é válida.', rate_limited: 'Muitas tentativas. Espere um pouco.',
+    cpf_invalid: 'Confira o CPF.', document_invalid: 'Confira o CPF ou CNPJ.', social_name_invalid: 'O nome social precisa ter de 2 a 120 letras.', price_invalid: 'Confira o valor.',
+    minutes_invalid: 'A duração deve ficar entre 5 e 600 minutos.', date_invalid: 'Essa data não é válida.', image_invalid: 'Use uma imagem PNG ou JPEG pequena.',
+    field_too_long: 'Um dos textos ficou grande demais. Reduza e tente de novo.', status_invalid: 'Essa situação não existe.', file_too_large: 'O arquivo passa de 5 MB. Reduza ou comprima e tente de novo.', too_large: 'A ficha ficou grande demais. Reduza os textos.',
+    note_empty: 'Escreva ao menos um dos campos da evolução.', appointment_invalid: 'Essa sessão não é deste paciente. Escolha outra.', mood_invalid: 'O humor vai de 1 a 5.', origin_invalid: 'Origem do texto inválida.', invalid_kind: 'Esse tipo de documento ainda não está liberado.',
+    modality_invalid: 'Escolha uma modalidade válida.', frequency_invalid: 'Escolha uma frequência válida.', care_type_invalid: 'Escolha um tipo de atendimento válido.', payer_invalid: 'Escolha quem paga.',
+    name_required: 'Digite o nome da pessoa.', waitlist_full: 'A lista de espera chegou a 200 pessoas. Tire alguém para incluir outra.',
+    amount_invalid: 'Confira o valor. Ele precisa ser maior que zero.', sessions_invalid: 'Confira o número de sessões pagas.', method_invalid: 'Escolha uma forma de pagamento válida.',
+    already_paid: 'Essa sessão já está paga.', price_missing: 'Essa sessão está sem valor. Coloque o valor na consulta ou na ficha do paciente.',
+    paid_by_package: 'Essa sessão está paga por um pagamento avulso. Mude ou apague esse pagamento em Financeiro.',
+    payment_has_receipt: 'Esse pagamento tem recibo. Cancele o recibo antes de mudar o valor, a data ou apagar.', receipt_exists: 'Esse pagamento já tem recibo.',
+    payer_required: 'Informe quem pagou.', already_canceled: 'Esse recibo já está cancelado.', not_canceled: 'Esse recibo não está cancelado.',
+    range_invalid: 'Esse período não é válido.', category_invalid: 'Escolha a categoria da despesa.', description_required: 'Descreva a despesa.',
+    med_name_required: 'Digite o nome do medicamento.', plan_title_required: 'Dê um nome ao plano.', plan_items_required: 'O plano precisa de ao menos uma tarefa.', items_invalid: 'Confira as tarefas do plano.',
+    answers_invalid: 'Responda todas as perguntas da escala.', doc_type_invalid: 'Esse tipo de documento não existe.', field_required: 'Preencha os campos obrigatórios.', time_invalid: 'Confira o horário.',
+    file_invalid: 'Não foi possível ler esse arquivo. Tente outro.', file_type_invalid: 'Use uma foto (JPEG, PNG ou WebP) ou um PDF.',
+    storage_full: 'O espaço de anexos acabou (200 MB). Apague anexos antigos.', limit_reached: 'Você chegou ao limite desse tipo de registro neste paciente.'
   };
   function errorText(e, fallback) {
     var m = String((e && e.message) || '') + ' ' + String((e && e.code) || '');

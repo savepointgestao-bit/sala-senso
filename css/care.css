@@ -132,6 +132,7 @@ i.m1, .dot.m1 { background: var(--m1); } i.m2, .dot.m2 { background: var(--m2); 
 .btn-row { display: flex; flex-wrap: wrap; gap: .6rem; }
 .btn-row .btn { width: auto; flex: 1 1 10rem; }
 .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .6rem; margin: 0 0 1rem; }
+.stat-row.wide { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m); padding: .7rem .8rem; }
 .stat b { display: block; font-size: 1.35rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
 .stat span { font-size: .78rem; color: var(--mute); }
@@ -329,3 +330,91 @@ button.appt-row:hover { background: var(--surface2); }
 .ground-step { display: flex; align-items: center; gap: 1rem; background: var(--surface2); border-radius: var(--r-m); padding: 1rem; }
 .ground-step.done { display: block; }
 .ground-n { flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--pri); color: var(--pri-ink); font-size: 1.7rem; font-weight: 800; display: grid; place-items: center; }
+
+/* abas apertadas (cinco opções no celular) */
+.seg.dense { overflow-x: auto; scrollbar-width: none; }
+.seg.dense::-webkit-scrollbar { display: none; }
+.seg.dense button { flex: 1 0 auto; font-size: .8rem; padding: .5rem .55rem; white-space: nowrap; }
+
+/* evolução */
+.note-card .nf { margin-top: .6rem; }
+.note-card .nf b { display: block; font-size: .8rem; color: var(--mute); font-weight: 650; margin-bottom: .1rem; }
+.note-card h3 { margin-top: .35rem; }
+.sig-box { margin: .25rem 0 .75rem; }
+.sig-img { max-height: 70px; max-width: 220px; display: block; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
+
+/* campos de texto menores nos formulários clínicos */
+.field.short textarea { min-height: 76px; }
+.field.mid textarea { min-height: 110px; }
+
+/* financeiro */
+.item .amt { margin-left: auto; flex: none; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.amt-big { font-size: 1.15rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.item .grow > .badge { margin-top: .3rem; }
+.item.struck .t { text-decoration: line-through; color: var(--mute); }
+.card.warn-card { background: var(--warn-soft); border-color: transparent; }
+.card.warn-card h2 { color: var(--warn); }
+.chart .bar.c1 { fill: var(--pri); } .chart .bar.c2 { fill: var(--warn); } .chart .bar.c3 { fill: var(--bad); } .chart .bar.c4 { fill: var(--line2); }
+.chart-legend .chip.static { border: 0; background: none; padding: .1rem .35rem; cursor: default; color: var(--ink); font-size: .8rem; }
+.chart-legend .chip.c1 .key { background: var(--pri); } .chart-legend .chip.c2 .key { background: var(--warn); } .chart-legend .chip.c3 .key { background: var(--bad); } .chart-legend .chip.c4 .key { background: var(--line2); }
+.chart-legend .chip.static .key { width: 12px; height: 12px; border-radius: 3px; }
+@media (max-width: 400px) { .bottom a, .bottom .more-btn { font-size: .6rem; padding-left: .05rem; padding-right: .05rem; } }
+@media (max-width: 380px) { .bottom a, .bottom .more-btn { font-size: .56rem; letter-spacing: -.01em; } }
+.btn-row.compact .btn { min-height: 42px; padding: .4rem .9rem; font-size: .9rem; flex: 1 1 8rem; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- aba Clinico: escalas, medicamentos e planos de rotina */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.card-head h2 { margin: 0; }
+.card-head .btn { width: auto; flex: none; }
+.scale-block + .scale-block { margin-top: 1.5rem; }
+.scale-block h3 { margin: 0 0 .5rem; }
+.chart-svg .cutoff { stroke: var(--warn); stroke-width: 1.4; stroke-dasharray: 5 4; }
+.chart-svg .ln.l-score { stroke: var(--pri); }
+.chart-svg .pt.l-score { fill: var(--pri); }
+.score-head { display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.score-big b { font-size: 2.8rem; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.score-big span { color: var(--mute); font-weight: 600; }
+.ans-list { margin: .8rem 0 0; padding-left: 1.4rem; display: grid; gap: .6rem; }
+.ans-list li { padding-left: .2rem; }
+.ans-list .q { display: block; font-size: .9rem; }
+.ans-list .a { display: block; font-size: .85rem; color: var(--pri-text); font-weight: 650; }
+.lk-q { border: 0; padding: 0; margin: 0 0 1.2rem; min-width: 0; }
+.lk-q legend { font-weight: 650; font-size: .95rem; margin-bottom: .5rem; padding: 0; line-height: 1.4; }
+.lk-opts { display: grid; grid-template-columns: repeat(2, 1fr); gap: .45rem; }
+@media (min-width: 640px) { .lk-opts { grid-template-columns: repeat(4, 1fr); } }
+.lk-opt { position: relative; display: block; cursor: pointer; }
+.lk-opt input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.lk-box { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; text-align: center; min-height: 58px; padding: .5rem .4rem; border: 1.5px solid var(--line2); border-radius: var(--r-m); background: var(--surface); transition: border-color .15s, background .15s; }
+.lk-box b { font-size: 1.05rem; }
+.lk-box i { font-style: normal; font-size: .74rem; color: var(--mute); line-height: 1.2; }
+.lk-opt:hover .lk-box { border-color: var(--mute); }
+.lk-opt input:checked + .lk-box { border-color: var(--pri); background: var(--pri-soft); }
+.lk-opt input:checked + .lk-box i { color: var(--pri-text); }
+.lk-opt input:focus-visible + .lk-box { border-color: var(--pri); box-shadow: 0 0 0 4px var(--pri-soft); }
+.lk-q.has-error legend { color: var(--bad); }
+.lk-q.has-error .lk-box { border-color: var(--bad); }
+.lk-q .err { color: var(--bad); font-size: .82rem; margin-top: .35rem; }
+.lk-total { position: sticky; bottom: 0; z-index: 1; background: var(--surface); border-top: 1px solid var(--line); padding: .65rem 0; margin: .5rem 0 1rem; font-weight: 700; }
+.field .lbl { display: block; font-size: .85rem; font-weight: 650; margin-bottom: .35rem; }
+.daychips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.daychip { min-width: 3.1rem; min-height: 40px; padding: 0 .7rem; border: 1.5px solid var(--line2); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 650; font-size: .85rem; text-transform: capitalize; cursor: pointer; }
+.daychip:hover { border-color: var(--mute); }
+.daychip[aria-pressed="true"] { background: var(--pri); border-color: var(--pri); color: var(--pri-ink); }
+.daychip:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--pri-soft); }
+.plan-item { border: 1px solid var(--line); border-radius: var(--r-m); padding: .85rem; margin-bottom: .8rem; background: var(--bg); }
+.plan-item-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .6rem; }
+.plan-item-head .btn.sm { min-height: 36px; padding: .3rem .6rem; width: auto; flex: none; }
+.plan-grp { margin: 1rem 0 .4rem; font-size: .85rem; color: var(--mute); }
+.plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.plan-list li { display: grid; gap: .1rem; padding: .65rem .85rem; border: 1px solid var(--line); border-radius: var(--r-m); background: var(--surface); }
+.plan-list .s { font-size: .82rem; color: var(--mute); }
+.plan-list .s.hint { font-style: italic; }
+.hist-box { margin: 0 0 1rem; padding: .7rem .9rem; border: 1px solid var(--line); border-radius: var(--r-m); }
+.hist-box h3 { margin: 0 0 .3rem; font-size: .9rem; }
+.hist-box ul { margin: 0; padding-left: 1.2rem; font-size: .88rem; color: var(--mute); }
+.item:disabled { opacity: .55; cursor: not-allowed; }
+.sigpad { display: block; width: 100%; height: auto; aspect-ratio: 8 / 3; touch-action: none; background: #fff; border: 1.5px dashed var(--line2); border-radius: var(--r-m); cursor: crosshair; }
+.sigline { border-top: 1px solid var(--line2); margin: .2rem 12% 1rem; text-align: center; }
+.sigline span { position: relative; top: .3rem; font-size: .75rem; color: var(--mute); }
+.att-view { display: grid; place-items: center; gap: .5rem; padding: 1rem; border: 1px solid var(--line); border-radius: var(--r-m); background: var(--surface2); text-align: center; overflow-wrap: anywhere; }
+.att-view img { max-width: 100%; max-height: 60vh; border-radius: 8px; }

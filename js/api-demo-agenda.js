@@ -54,10 +54,20 @@
     return { id: a.id, record_id: a.recordId, full_name: r ? r.name : '', phone: r ? r.phone : null, linked: !!(r && r.userId), starts_at: iso(a.startsAt), duration_minutes: a.duration,
       mode: a.mode, meeting_url: a.meetingUrl || null, status: a.status, proposed_starts_at: iso(a.proposedStartsAt), patient_note: a.patientNote || null,
       decline_reason: a.declineReason || null, price_cents: a.priceCents == null ? null : a.priceCents, payment_status: a.paymentStatus, requested_by_patient: !!a.requestedByPatient,
-      created_at: iso(a.createdAt) };
+      created_at: iso(a.createdAt), series_id: a.seriesId || null, charge: a.charge !== false,
+      series_after: a.seriesId ? S.appts.filter(function (x) { return x.seriesId === a.seriesId && x.proId === a.proId && x.id !== a.id && x.startsAt > a.startsAt && x.status === 'scheduled'; }).length : 0 };
   }
   function userOfRecord(recordId) { var r = H.recById(recordId); return r ? r.userId : null; }
   function mineAppt(proId, id) { return S.appts.filter(function (a) { return a.id === id && a.proId === proId; })[0] || null; }
+
+  /* Dia da n-esima consulta da serie. Mensal conta a partir da primeira e ajusta o fim do mes (31 de janeiro, 28 de fevereiro, 31 de marco). */
+  function addMonths(day, n) {
+    var y = +day.slice(0, 4), m = +day.slice(5, 7) - 1, d = +day.slice(8, 10), t = m + n, y2 = y + Math.floor(t / 12), m2 = ((t % 12) + 12) % 12;
+    var last = new Date(Date.UTC(y2, m2 + 1, 0)).getUTCDate();
+    function z(k) { return (k < 10 ? '0' : '') + k; }
+    return y2 + '-' + z(m2 + 1) + '-' + z(Math.min(d, last));
+  }
+  function seriesDay(day, every, i) { return every === 'weekly' ? addDays(day, 7 * i) : every === 'biweekly' ? addDays(day, 14 * i) : addMonths(day, i); }
 
   /* O gatilho do banco: uma consulta "marcada" nao pode sobrepor outra. */
   function guard(a, excludeSelf) {
@@ -213,6 +223,113 @@
           H.notify(userOfRecord(a.recordId), 'appointment_canceled', 'Consulta cancelada', 'A consulta de ' + whenText(a.startsAt) + ' foi cancelada.', '#/consultas');
         }
         return true;
+      });
+    },
+    /* Serie de consultas: semanal, quinzenal ou mensal, de 2 a 60. Horario ocupado e pulado e devolvido. */
+    createSeries: function (d) {
+      var u = core.cur();
+      return tick(null).then(function () {
+        if (!H.verifiedPro(u)) throw pgErr('not_allowed');
+        if (['weekly', 'biweekly', 'monthly'].indexOf(d.every) < 0 || !inRange(d.count, 2, 60)) throw pgErr('invalid_data');
+        var r = H.myRec(u, d.recordId);
+        if (!r) throw pgErr('not_found');
+        var t = ms(d.startsAt);
+        if (t == null || t < Date.now() - DAY) throw pgErr('invalid_time');
+        var base = dayOf(t), hm = hmOf(t);
+        if (at(seriesDay(base, d.every, d.count - 1), hm) > Date.now() + 800 * DAY) throw pgErr('invalid_time');
+        var g = P(u).settings, dur = d.duration || g.session_minutes || 50;
+        if (dur < 15 || dur > 240) throw pgErr('invalid_data');
+        var sid = nid('ser'), created = [], skipped = [];
+        for (var i = 0; i < d.count; i++) {
+          var when = at(seriesDay(base, d.every, i), hm);
+          if (busy(u.id, when, dur, null, 0)) { skipped.push(iso(when)); continue; }
+          var a = { id: nid('appt'), proId: u.id, recordId: r.id, startsAt: when, duration: dur, mode: d.mode || 'in_person', meetingUrl: String(d.meetingUrl || '').trim() || null, status: 'scheduled',
+            proposedStartsAt: null, patientNote: null, declineReason: null, priceCents: d.priceCents != null ? d.priceCents : g.price_cents, paymentStatus: 'none', requestedByPatient: false,
+            createdAt: Date.now(), decidedAt: Date.now(), seriesId: sid };
+          S.appts.push(a); created.push(a);
+        }
+        if (!created.length) throw pgErr('slot_taken');
+        H.notify(r.userId, 'appointment_scheduled', 'Consultas marcadas', created.length + ' consultas marcadas, a primeira em ' + whenText(created[0].startsAt) + '.', '#/consultas');
+        return { series_id: sid, created: created.length, skipped: skipped };
+      });
+    },
+    /* "Esta e as proximas": cancela esta e as seguintes marcadas da mesma serie (sem serie, so esta). Devolve quantas. */
+    cancelFollowing: function (id, reason) {
+      var u = core.cur();
+      return tick(null).then(function () {
+        if (!H.verifiedPro(u)) throw pgErr('not_allowed');
+        var a = mineAppt(u.id, id);
+        if (!a) throw pgErr('not_found');
+        if (['scheduled', 'requested', 'reschedule_proposed'].indexOf(a.status) < 0) throw pgErr('invalid_status');
+        var why = String(reason || '').trim().slice(0, 300) || null;
+        var list = S.appts.filter(function (x) { return x.proId === u.id && (x.id === a.id || (a.seriesId && x.seriesId === a.seriesId && x.startsAt > a.startsAt && x.status === 'scheduled')); });
+        list.forEach(function (x) { x.status = 'canceled_by_professional'; x.declineReason = why; x.decidedAt = Date.now(); });
+        H.notify(userOfRecord(a.recordId), 'appointment_canceled', list.length > 1 ? 'Consultas canceladas' : 'Consulta cancelada',
+          list.length > 1 ? 'As ' + list.length + ' consultas a partir de ' + whenText(a.startsAt) + ' foram canceladas.' : 'A consulta de ' + whenText(a.startsAt) + ' foi cancelada.', '#/consultas');
+        return list.length;
+      });
+    },
+    /* "Esta e as proximas": muda horario (as seguintes andam o mesmo tanto), duracao, modalidade, valor e link. */
+    updateFollowing: function (id, d) {
+      var u = core.cur();
+      return tick(null).then(function () {
+        if (!H.verifiedPro(u)) throw pgErr('not_allowed');
+        var a = mineAppt(u.id, id);
+        if (!a) throw pgErr('not_found');
+        if (a.status !== 'scheduled') throw pgErr('invalid_status');
+        if (d.duration != null && !inRange(d.duration, 15, 240)) throw pgErr('invalid_data');
+        if (d.priceCents != null && !(d.priceCents >= 0 && d.priceCents <= 1000000)) throw pgErr('invalid_data');
+        var delta = 0;
+        if (d.startsAt) {
+          var t = ms(d.startsAt);
+          if (t == null || t < Date.now() - 400 * DAY || t > Date.now() + 800 * DAY) throw pgErr('invalid_time');
+          delta = t - a.startsAt;
+        }
+        var list = S.appts.filter(function (x) { return x.proId === u.id && x.status === 'scheduled' && (x.id === a.id || (a.seriesId && x.seriesId === a.seriesId && x.startsAt > a.startsAt)); })
+          .sort(function (x, y) { return delta > 0 ? y.startsAt - x.startsAt : x.startsAt - y.startsAt; });
+        var snap = list.map(function (x) { return Object.assign({}, x); }), updated = 0, skipped = [];
+        try {
+          list.forEach(function (x) {
+            var start = x.startsAt + delta, dur = d.duration || x.duration;
+            if ((start !== x.startsAt || dur !== x.duration) && busy(u.id, start, dur, x.id, 0)) {
+              if (x.id === a.id) throw pgErr('slot_taken');
+              skipped.push(iso(x.startsAt)); return;
+            }
+            x.startsAt = start; x.duration = dur;
+            if (d.mode) x.mode = d.mode;
+            if (d.priceCents != null) x.priceCents = d.priceCents;
+            if (d.meetingUrl != null) x.meetingUrl = String(d.meetingUrl).trim() || null;
+            updated++;
+          });
+        } catch (e) { list.forEach(function (x, i) { Object.assign(x, snap[i]); }); throw e; }
+        if (delta) H.notify(userOfRecord(a.recordId), 'appointment_moved', updated > 1 ? 'Horários das consultas mudaram' : 'Horário da consulta mudou',
+          'Agora é ' + whenText(a.startsAt) + (updated > 1 ? ', e as seguintes acompanham.' : '.'), '#/consultas');
+        return { updated: updated, skipped: skipped };
+      });
+    },
+    /* Horarios vagos dentro do atendimento (nao depende do pedido online nem da antecedencia minima). */
+    freeSlots: function (from, days, duration) {
+      var u = core.cur();
+      return tick(null).then(function () {
+        if (!H.verifiedPro(u)) throw pgErr('not_allowed');
+        var n = days == null ? 21 : days;
+        if (!inRange(n, 1, 62) || (duration != null && !inRange(duration, 15, 240))) throw pgErr('invalid_data');
+        var g = P(u).settings, dur = duration || g.session_minutes || 50, step = g.step_minutes || 60, buf = g.buffer_minutes == null ? 10 : g.buffer_minutes;
+        var d0 = from || today(), now = Date.now(), out = [];
+        for (var i = 0; i < n; i++) {
+          var day = addDays(d0, i), seen = {}, slots = [];
+          P(u).hours.filter(function (h) { return h.weekday === dow(day); }).forEach(function (h) {
+            var span = mins(h.ends) - mins(h.starts);
+            for (var m = 0; m <= span - dur; m += step) {
+              var hm = hmFrom(mins(h.starts) + m), t = at(day, hm);
+              if (t <= now || seen[hm] || busy(u.id, t, dur, null, buf) || blocked(u, t, t + dur * MIN)) continue;
+              seen[hm] = 1; slots.push(hm);
+            }
+          });
+          slots.sort();
+          if (slots.length) out.push({ day: day, slots: slots });
+        }
+        return { has_hours: P(u).hours.length > 0, duration: dur, days: out };
       });
     },
     respond: function (id, action, newStartsAt, reason) {

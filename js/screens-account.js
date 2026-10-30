@@ -27,6 +27,7 @@
       pro ? h('div', { class: 'item' }, h('span', { class: 't' }, 'CRP'), h('span', { class: 'v' }, pro.crp_region + '/' + pro.crp_number + ' ',
         pro.verification === 'verified' ? h('span', { class: 'badge ok' }, 'CRP verificado') : h('span', { class: 'badge warn' }, 'Em análise'))) : null,
       actionRow('square-pen', 'Editar meus dados', 'Nome, celular' + (isPat ? ', nascimento e responsável' : ''), function () { S.editProfile(ctx); }),
+      pro && pro.verification === 'verified' && S.proSettingsSheet ? actionRow('file-text', 'Dados profissionais e recibos', 'CPF ou CNPJ, endereço, assinatura e rodapé dos recibos', function () { S.proSettingsSheet(ctx); }) : null,
       auth.hasPassword ? actionRow('mail', 'Trocar e-mail', 'Enviamos um link de confirmação para o novo endereço', function () { S.changeEmail(ctx); }) : null);
   };
 

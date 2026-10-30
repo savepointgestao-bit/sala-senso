@@ -6,6 +6,8 @@
   var api = window.API_DEMO, core = api._core;
   var err = core.err, tick = core.tick, spDay = core.spDay, round1 = core.round1;
   function pgErr(msg) { return err('P0001', msg); }
+  /* Alta, interrompeu e encaminhado: saem dos avisos de aniversario. */
+  function closedStatus(st) { return st === 'discharged' || st === 'dropped' || st === 'referred'; }
 
   /* ------------------------------------------------------------ estado (some ao recarregar) */
   var S = api._state = { records: [], appts: [], reviews: [], receipts: {}, notes: [], shares: {}, mode: {}, requests: [], transfers: [] };
@@ -198,7 +200,7 @@
   function daysBetween(a, b) { return Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000); }
   function birthdayNotices(u) {
     var t = today(), start = at(t, '00:00');
-    S.records.filter(function (r) { return r.proId === u.id && r.birth && r.status !== 'discharged' && nextBirthday(r.birth, t) === t; }).forEach(function (r) {
+    S.records.filter(function (r) { return r.proId === u.id && r.birth && !closedStatus(r.status) && nextBirthday(r.birth, t) === t; }).forEach(function (r) {
       var dup = S.notes.some(function (n) { return n.userId === u.id && n.kind === 'birthday' && n.link === '#/pacientes/' + r.id && n.createdAt >= start; });
       if (!dup) notify(u.id, 'birthday', 'Aniversário hoje', r.name + ' faz ' + (+t.slice(0, 4) - +r.birth.slice(0, 4)) + ' anos hoje.', '#/pacientes/' + r.id);
     });
@@ -757,7 +759,7 @@
       return tick(null).then(function () {
         if (!verifiedPro(pu)) throw pgErr('not_allowed');
         var t = today(), lim = Math.min(Math.max(days || 30, 1), 366);
-        return S.records.filter(function (r) { return r.proId === pu.id && r.birth && r.status !== 'discharged'; }).map(function (r) {
+        return S.records.filter(function (r) { return r.proId === pu.id && r.birth && !closedStatus(r.status); }).map(function (r) {
           var nxt = nextBirthday(r.birth, t);
           return { record_id: r.id, full_name: r.name, phone: r.phone, birth_date: r.birth, linked: !!r.userId, next: nxt, days_until: daysBetween(t, nxt), turning: +nxt.slice(0, 4) - +r.birth.slice(0, 4) };
         }).filter(function (x) { return x.days_until <= lim; }).sort(function (a, b) { return a.next === b.next ? (a.full_name < b.full_name ? -1 : 1) : (a.next < b.next ? -1 : 1); });

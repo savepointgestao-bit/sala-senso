@@ -100,7 +100,7 @@
       } }, 'Mostrar');
       wrapInput = h('div', { class: 'input-wrap has-toggle' }, input, btn);
     }
-    var el = h('div', { class: 'field' },
+    var el = h('div', { class: 'field' + (o.cls ? ' ' + o.cls : '') },
       h('label', { for: id }, o.label, o.optional ? h('span', { class: 'opt' }, ' (opcional)') : null),
       wrapInput, hintEl, errEl, extra);
     var api = {
@@ -206,7 +206,7 @@
   /* Controle segmentado (opcoes: [[valor, rotulo], ...]). */
   function segmented(o) {
     var cur = o.value;
-    var wrap = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': o.label });
+    var wrap = h('div', { class: 'seg' + (o.cls ? ' ' + o.cls : ''), role: 'radiogroup', 'aria-label': o.label });
     var btns = o.options.map(function (op) {
       var b = h('button', { type: 'button', role: 'radio', 'aria-checked': op[0] === cur ? 'true' : 'false', onclick: function () { pick(op[0]); if (o.onChange) o.onChange(op[0]); } }, op[1]);
       wrap.appendChild(b); return b;

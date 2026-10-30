@@ -152,14 +152,91 @@
   function bars(items, o) {
     o = o || {};
     var max = o.max || 5;
+    function show(v) { return o.fmt ? o.fmt(v) : (o.int ? String(v) : fmt1(v)); }
     return h('ul', { class: 'hbars plain-list', 'aria-label': o.label || null }, items.map(function (it) {
       var fill = h('i', { class: o.mood ? moodClass(it.value) : '' });
-      fill.style.width = it.value == null ? '0%' : Math.max(3, Math.round(it.value / max * 100)) + '%';
+      fill.style.width = it.value == null || !max ? '0%' : (it.value > 0 ? Math.max(3, Math.min(100, Math.round(it.value / max * 100))) : 0) + '%';
       return h('li', null, h('span', { class: 'hb-l' }, it.label),
-        h('span', { class: 'hb-bar', role: 'img', 'aria-label': it.label + ': ' + (it.value == null ? 'sem registro' : (o.int ? it.value : fmt1(it.value))) }, fill),
-        h('span', { class: 'hb-v' }, it.value == null ? 'sem dados' : (o.int ? String(it.value) : fmt1(it.value)), it.sub ? h('small', null, ' ' + it.sub) : null));
+        h('span', { class: 'hb-bar', role: 'img', 'aria-label': it.label + ': ' + (it.value == null ? 'sem registro' : show(it.value)) }, fill),
+        h('span', { class: 'hb-v' }, it.value == null ? 'sem dados' : show(it.value), it.sub ? h('small', null, ' ' + it.sub) : null));
     }));
   }
 
-  window.Charts = { calendar: calendar, line: line, bars: bars, moodClass: moodClass, moodWord: moodWord, fmt1: fmt1, MOOD: MOOD };
+  /* ---------------------------------------------------------------- pontuacao ao longo do tempo (escalas)
+     points: [{ date, value }] em ordem de data. o.max = pontuacao maxima, o.ticks = marcas do eixo, o.cutoff = ponto de atencao, o.label = descricao. */
+  function score(points, o) {
+    o = o || {};
+    var W = 640, H = 220, L = 34, R = 16, TOP = 12, B = 30, max = o.max || 27;
+    function ms(d) { return Date.parse(d + 'T12:00:00Z'); }
+    var first = points[0].date, last = points[points.length - 1].date;
+    var span = Math.max(1, Math.round((ms(last) - ms(first)) / 86400000));
+    function x(d) { return points.length === 1 ? L + (W - L - R) / 2 : L + (W - L - R) * (Math.round((ms(d) - ms(first)) / 86400000) / span); }
+    function y(v) { return TOP + (H - TOP - B) * (1 - v / max); }
+    function dm(d) { return d.slice(8) + '/' + d.slice(5, 7); }
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'chart-svg', role: 'img', 'aria-label': o.label || 'Pontuação ao longo do tempo' });
+    (o.ticks || [0, max]).forEach(function (v) {
+      svg.appendChild(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }));
+      svg.appendChild(text(String(v), { x: L - 8, y: y(v) + 4, class: 'ylab', 'text-anchor': 'end' }));
+    });
+    if (o.cutoff != null) {
+      svg.appendChild(el('line', { x1: L, x2: W - R, y1: y(o.cutoff), y2: y(o.cutoff), class: 'cutoff' }));
+      svg.appendChild(text('ponto de atenção (' + o.cutoff + ')', { x: W - R, y: y(o.cutoff) - 5, class: 'ylab', 'text-anchor': 'end' }));
+    }
+    var path = '';
+    points.forEach(function (p, i) { path += (i ? 'L' : 'M') + x(p.date).toFixed(1) + ' ' + y(p.value).toFixed(1) + ' '; });
+    if (points.length > 1) svg.appendChild(el('path', { d: path, class: 'ln l-score' }));
+    points.forEach(function (p) {
+      svg.appendChild(el('circle', { cx: x(p.date).toFixed(1), cy: y(p.value).toFixed(1), r: 4.5, class: 'pt l-score' }, [el('title', {}, [document.createTextNode(UI.fmtDate(p.date) + ': ' + p.value + ' pontos')])]));
+      svg.appendChild(text(String(p.value), { x: (x(p.date) + (points.length > 1 && x(p.date) < L + 14 ? 8 : 0)).toFixed(1), y: (y(p.value) - 9).toFixed(1), class: 'xlab', 'text-anchor': 'middle' }));
+    });
+    svg.appendChild(text(dm(first), { x: x(first), y: H - 8, class: 'xlab', 'text-anchor': points.length === 1 ? 'middle' : 'start' }));
+    if (points.length > 1) svg.appendChild(text(dm(last), { x: x(last), y: H - 8, class: 'xlab', 'text-anchor': 'end' }));
+    var sum = points.map(function (p) { return p.value + ' em ' + UI.fmtDate(p.date); }).join('; ');
+    return h('div', { class: 'chart' }, svg, h('p', { class: 'sr-only' }, (o.label || 'Pontuação') + ': ' + sum + '.'));
+  }
+
+  /* ---------------------------------------------------------------- colunas agrupadas (dinheiro, sessoes...)
+     items: [{ label, <chave>: numero }]; o.series = [{ key, label, cls }] (cls c1 a c4); o.fmt formata o valor (dica e resumo); o.axis formata o eixo; o.label descreve o grafico. */
+  function niceMax(v) {
+    if (v <= 0) return 1;
+    var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), n = v / p;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+  }
+  function compactMoney(cents) {
+    var r = cents / 100;
+    if (r >= 1000) return 'R$ ' + (Math.round(r / 100) / 10).toString().replace('.', ',') + ' mil';
+    return 'R$ ' + Math.round(r);
+  }
+  function columns(items, o) {
+    o = o || {};
+    var ser = o.series || [{ key: 'a', label: 'Valor', cls: 'c1' }];
+    var fmt = o.fmt || function (v) { return String(v); }, axis = o.axis || fmt;
+    var W = 640, H = 230, L = 52, R = 8, TOP = 12, B = 34;
+    var max = 0;
+    items.forEach(function (it) { ser.forEach(function (s) { max = Math.max(max, it[s.key] || 0); }); });
+    var top = o.int ? Math.max(2, Math.ceil(max / 2) * 2) : niceMax(max);
+    function y(v) { return TOP + (H - TOP - B) * (1 - v / top); }
+    var gw = (W - L - R) / Math.max(1, items.length), bw = Math.max(4, Math.min(30, gw * 0.76 / ser.length));
+    var step = Math.ceil(items.length / 8);
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'chart-svg', role: 'img', 'aria-label': o.label || 'Gráfico de colunas' });
+    [0, 0.5, 1].forEach(function (f) {
+      var v = top * f;
+      svg.appendChild(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }));
+      svg.appendChild(text(axis(v), { x: L - 6, y: y(v) + 4, class: 'ylab', 'text-anchor': 'end' }));
+    });
+    items.forEach(function (it, i) {
+      var cx = L + gw * i + gw / 2, x0 = cx - (bw * ser.length) / 2;
+      ser.forEach(function (s, k) {
+        var v = it[s.key] || 0, hh = Math.max(v > 0 ? 2 : 0, (H - TOP - B) * v / top);
+        svg.appendChild(el('rect', { x: (x0 + bw * k + 1).toFixed(1), y: (H - B - hh).toFixed(1), width: Math.max(2, bw - 2).toFixed(1), height: hh.toFixed(1), rx: 3, class: 'bar ' + (s.cls || 'c1') },
+          [el('title', {}, [document.createTextNode(it.label + ', ' + s.label.toLowerCase() + ': ' + fmt(v))])]));
+      });
+      if (i % step === 0) svg.appendChild(text(it.label, { x: cx.toFixed(1), y: H - 12, class: 'xlab', 'text-anchor': 'middle' }));
+    });
+    var legend = ser.length > 1 ? h('div', { class: 'chart-legend', 'aria-hidden': 'true' }, ser.map(function (s) { return h('span', { class: 'chip static ' + (s.cls || 'c1') }, h('i', { class: 'key' }), s.label); })) : null;
+    var sum = items.length ? ser.map(function (s) { return s.label + ': ' + fmt(items.reduce(function (n, it) { return n + (it[s.key] || 0); }, 0)); }).join('; ') + '.' : 'Sem dados no período.';
+    return h('div', { class: 'chart' }, legend, svg, h('p', { class: 'sr-only' }, (o.label || 'Gráfico') + '. Total no período, ' + sum));
+  }
+
+  window.Charts = { calendar: calendar, line: line, bars: bars, score: score, columns: columns, compactMoney: compactMoney, moodClass: moodClass, moodWord: moodWord, fmt1: fmt1, MOOD: MOOD };
 })();

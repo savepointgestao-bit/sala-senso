@@ -16,7 +16,7 @@
     if (adminMode) return { main: [['equipe', '#/equipe', 'shield-check', 'Equipe'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
     if (pro) {
       return { main: [['inicio', '#/inicio', 'house', 'Início'], ['pacientes', '#/pacientes', 'users', 'Pacientes'], ['agenda', '#/agenda', 'calendar-days', 'Agenda'],
-        ['atendimento', '#/atendimento', 'message-circle', 'Atendimento'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
+        ['financeiro', '#/financeiro', 'wallet', 'Financeiro'], ['atendimento', '#/atendimento', 'message-circle', 'Atendimento'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
     }
     return { main: [['inicio', '#/inicio', 'house', 'Início'], ['diario', '#/diario', 'notebook-pen', 'Diário'], ['consultas', '#/consultas', 'calendar-days', 'Consultas'],
       ['lab', '#/lab', 'flask-conical', 'Lab'], ['conta', '#/conta', 'user', 'Conta']], more: [] };

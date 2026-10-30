@@ -96,6 +96,13 @@
     return r;
   }
 
+  /* Arquivo binario (foto ou PDF) em base64. share: abre a folha de compartilhar do Android depois de salvar. */
+  function saveBinary(name, mime, b64, share) {
+    var r = call('exportFile', name, mime, b64, true, !!share);
+    if (typeof r !== 'string' || r.indexOf('ERR:') === 0) throw new Error('save');
+    return r;
+  }
+
   /* ---------------------------------------------------------------- volta do e-mail ou do Google/Microsoft
      O navegador abriu senso://auth?code=... e o Android entregou ao app. Troca o codigo pela sessao; o roteador reage ao evento. */
   window.__oauth = function () {
@@ -120,8 +127,13 @@
   /* abriu o app pelo link do e-mail (app fechado): o link ja esta guardado no Android */
   window.addEventListener('load', function () { setTimeout(window.__oauth, 250); });
 
+  /* Abre a impressao do Android (salvar em PDF ou imprimir) com o que estiver em #print-root. */
+  function print(title) { call('print', String(title || 'Senso')); return true; }
+
   window.Native = {
     saveFile: saveFile,
+    saveBinary: saveBinary,
+    print: print,
     version: function () { return String(call('version') || ''); }
   };
 })();

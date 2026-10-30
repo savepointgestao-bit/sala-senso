@@ -332,6 +332,51 @@
       setVerified: function (recordId, on) { return sb.rpc('pro_set_record_verified', { p_record: recordId, p_verified: on !== false }).then(ok).then(function () { return true; }); },
       setGuardianAuth: function (recordId, on) { return sb.rpc('pro_set_guardian_authorization', { p_record: recordId, p_authorized: !!on }).then(ok).then(function () { return true; }); },
       birthdays: function (days) { return sb.rpc('pro_birthdays', { p_days: days || 30 }).then(ok); },
+      /* ficha extra do paciente (so o psicologo): nome social, valor, modalidade... e o bloco clinico cifrado no servidor */
+      ficha: function (recordId) { return sb.rpc('pro_ficha_get', { p_record: recordId }).then(ok); },
+      /* patch = so o que mudou. Campo vazio apaga. clinical e remendado campo a campo. */
+      saveFicha: function (recordId, patch) { return sb.rpc('pro_ficha_save', { p_record: recordId, p: patch }).then(ok).then(function () { return true; }); },
+      setStatus: function (recordId, status) { return sb.rpc('pro_set_patient_status', { p_record: recordId, p_status: status }).then(ok).then(function () { return true; }); },
+      /* dados do psicologo para recibos e documentos */
+      settings: function () { return sb.rpc('pro_settings_get').then(ok); },
+      saveSettings: function (patch) { return sb.rpc('pro_settings_save', { p: patch }).then(ok).then(function () { return true; }); },
+      /* evolucao por sessao e demais documentos do psicologo (cifrados no servidor) */
+      docs: function (recordId, kind, limit) { return sb.rpc('pro_doc_list', { p_record: recordId, p_kind: kind || null, p_limit: limit || 200 }).then(ok); },
+      saveDoc: function (recordId, patch) { return sb.rpc('pro_doc_save', { p_record: recordId, p: patch }).then(ok); },
+      deleteDoc: function (id) { return sb.rpc('pro_doc_delete', { p_doc: id }).then(ok).then(function () { return true; }); },
+      attachmentSave: function (recordId, p) { return sb.rpc('pro_attachment_save', { p_record: recordId, p: p }).then(ok); },
+      attachmentGet: function (id) { return sb.rpc('pro_attachment_get', { p_doc: id }).then(ok); },
+      sessions: function (recordId, limit) { return sb.rpc('pro_patient_sessions', { p_record: recordId, p_limit: limit || 300 }).then(ok); },
+      /* lista de espera (cifrada no servidor): { id, since, name, phone, prefer, notes } */
+      waitlist: function () { return sb.rpc('pro_waitlist_list').then(ok); },
+      saveWaitlist: function (patch) { return sb.rpc('pro_waitlist_save', { p: patch }).then(ok); },
+      deleteWaitlist: function (id) { return sb.rpc('pro_waitlist_delete', { p_id: id }).then(ok).then(function () { return true; }); },
+      /* financeiro do psicologo: pagamentos, recibos numerados, despesas, A receber, extrato e relatorios. Valores em centavos; datas 'AAAA-MM-DD'. */
+      finance: {
+        /* resumo do mes (qualquer dia do mes; vazio = este mes) */
+        summary: function (ymd) { return sb.rpc('pro_finance_summary', { p_month: ymd || null }).then(ok); },
+        /* pagamentos entre duas datas (opcional: de um paciente) */
+        payments: function (from, to, recordId) { return sb.rpc('pro_payments_list', { p_from: from, p_to: to, p_record: recordId || null }).then(ok); },
+        /* o que o formulario precisa: valor padrao, quem paga, pendencias */
+        context: function (recordId) { return sb.rpc('pro_payment_context', { p_record: recordId }).then(ok); },
+        /* p = { id?, record_id, appointment_id?, paid_on, amount_cents, sessions, method, note, receipt? } -> { id, receipt: { id, number } | null } */
+        savePayment: function (p) { return sb.rpc('pro_payment_save', { p: p }).then(ok); },
+        deletePayment: function (id) { return sb.rpc('pro_payment_delete', { p_id: id }).then(ok).then(function () { return true; }); },
+        /* quem deve: [{ record_id, name, phone, count, cents, since, dates[] }] */
+        pending: function () { return sb.rpc('pro_pending_list').then(ok); },
+        /* contas e extrato de um paciente: { account, pending_dates, payments, sessions } */
+        patient: function (recordId) { return sb.rpc('pro_patient_finance', { p_record: recordId }).then(ok); },
+        receipts: function (year) { return sb.rpc('pro_receipts_list', { p_year: year || null }).then(ok); },
+        receipt: function (id) { return sb.rpc('pro_receipt_get', { p_id: id }).then(ok); },
+        createReceipt: function (p) { return sb.rpc('pro_receipt_create', { p: p }).then(ok); },
+        cancelReceipt: function (id, reason) { return sb.rpc('pro_receipt_cancel', { p_id: id, p_reason: reason || null }).then(ok).then(function () { return true; }); },
+        reactivateReceipt: function (id) { return sb.rpc('pro_receipt_reactivate', { p_id: id }).then(ok).then(function () { return true; }); },
+        expenses: function (from, to) { return sb.rpc('pro_expenses_list', { p_from: from, p_to: to }).then(ok); },
+        saveExpense: function (p) { return sb.rpc('pro_expense_save', { p: p }).then(ok); },
+        deleteExpense: function (id) { return sb.rpc('pro_expense_delete', { p_id: id }).then(ok).then(function () { return true; }); },
+        /* graficos de um periodo; bucket: 'week' | 'month' */
+        report: function (from, to, bucket) { return sb.rpc('pro_finance_report', { p_from: from, p_to: to, p_bucket: bucket || 'month' }).then(ok); }
+      },
       report: function (recordId, days) { return sb.rpc('pro_patient_report', { p_record: recordId, p_days: days || 90 }).then(ok); },
       reviews: function () { return sb.rpc('pro_reviews').then(ok); },
       contact: function () { return sb.rpc('pro_contact_get').then(ok); },
@@ -355,11 +400,27 @@
           p_price_cents: d.priceCents == null ? null : d.priceCents, p_meeting_url: d.meetingUrl == null ? null : d.meetingUrl }).then(ok).then(function () { return true; });
       },
       setStatus: function (id, status, reason) { return sb.rpc('pro_set_appointment_status', { p_id: id, p_status: status, p_reason: reason || null }).then(ok).then(function () { return true; }); },
+      /* serie: d = { recordId, startsAt, every: 'weekly' | 'biweekly' | 'monthly', count (2 a 60), duration, mode, priceCents, meetingUrl } -> { series_id, created, skipped[] } */
+      createSeries: function (d) {
+        return sb.rpc('pro_create_appointment_series', { p_record: d.recordId, p_starts_at: d.startsAt, p_every: d.every, p_count: d.count, p_duration: d.duration || null,
+          p_mode: d.mode || 'in_person', p_price_cents: d.priceCents == null ? null : d.priceCents, p_meeting_url: d.meetingUrl || null }).then(ok);
+      },
+      /* "esta e as proximas": cancela e devolve quantas foram */
+      cancelFollowing: function (id, reason) { return sb.rpc('pro_cancel_following', { p_id: id, p_reason: reason || null }).then(ok); },
+      /* "esta e as proximas": muda horario (as seguintes andam junto), duracao, modalidade, valor e link -> { updated, skipped[] } */
+      updateFollowing: function (id, d) {
+        return sb.rpc('pro_update_following', { p_id: id, p_starts_at: d.startsAt || null, p_duration: d.duration || null, p_mode: d.mode || null,
+          p_price_cents: d.priceCents == null ? null : d.priceCents, p_meeting_url: d.meetingUrl == null ? null : d.meetingUrl }).then(ok);
+      },
+      /* horarios vagos dentro do atendimento -> { has_hours, duration, days: [{ day, slots: ['HH:MM'] }] } */
+      freeSlots: function (fromYmd, days, duration) { return sb.rpc('pro_free_slots', { p_from: fromYmd || null, p_days: days || 21, p_duration: duration || null }).then(ok); },
       /* action: 'approve' | 'decline' | 'propose' (propose leva o novo horario em newStartsAt) */
       respond: function (id, action, newStartsAt, reason) {
         return sb.rpc('pro_respond_request', { p_id: id, p_action: action, p_new_starts_at: newStartsAt || null, p_reason: reason || null }).then(ok).then(function () { return true; });
       },
-      markPaid: function (id, paid, method) { return sb.rpc('pro_mark_paid', { p_id: id, p_paid: !!paid, p_method: method || null }).then(ok).then(function () { return true; }); }
+      markPaid: function (id, paid, method) { return sb.rpc('pro_mark_paid', { p_id: id, p_paid: !!paid, p_method: method || null }).then(ok).then(function () { return true; }); },
+      /* cobrar (ou nao) uma falta */
+      setCharge: function (id, charge) { return sb.rpc('pro_set_charge', { p_id: id, p_charge: !!charge }).then(ok).then(function () { return true; }); }
     },
 
     /* paciente: ver horarios, pedir consulta, responder sugestao, cancelar, avaliar */
