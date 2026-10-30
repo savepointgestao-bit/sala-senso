@@ -126,7 +126,7 @@
 
   /* CRP ainda nao verificado NAO impede o uso da conta; so trava o que depende da conferencia (pacientes no portal e, no app, recibos e documentos). */
   S.crpNotice = function (ver) {
-    if (ver === 'pending') return UI.notice('warn', h('span', null, h('b', null, 'Estamos conferindo o seu CRP. '), 'Costuma levar até 1 dia útil e avisamos por e-mail. Enquanto isso você já usa o Senso; o acompanhamento de pacientes no site, os recibos e os documentos do app liberam quando o CRP for confirmado.'));
+    if (ver === 'pending') return UI.notice('warn', h('span', null, h('b', null, 'Estamos conferindo o seu CRP. '), 'Leva até 1 dia útil e avisamos por e-mail. Pacientes, agenda e recibos liberam quando o CRP for confirmado.'));
     if (ver === 'suspended') return UI.notice('bad', h('span', null, h('b', null, 'Acesso suspenso. '), 'Fale com o ', h('a', { href: '#/suporte' }, 'suporte'), ' para entender o motivo.'));
     return UI.notice('bad', h('span', null, h('b', null, 'Não confirmamos o seu CRP. '), 'O número não confere com o cadastro do conselho. Fale com o ', h('a', { href: '#/suporte' }, 'suporte'), ' para corrigir.'));
   };
@@ -159,10 +159,10 @@
 
     function actionTiles() {
       return h('div', { class: 'tiles' },
-        h('button', { type: 'button', class: 'tile act', onclick: function () { S.patientSheet(null, function (id) { go('#/pacientes/' + id); }); } }, h('span', { class: 'ico-box' }, UI.svg('user-plus', 22)), h('span', { class: 't' }, 'Novo paciente'), h('span', { class: 'pill' }, 'Cadastro rápido')),
-        h('button', { type: 'button', class: 'tile act', onclick: function () { S.newAppointmentSheet({ onDone: function () { refresh(); } }); } }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar consulta'), h('span', { class: 'pill' }, 'Direto na agenda')),
-        h('a', { class: 'tile act', href: '#/agenda?aba=semana' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('span', { class: 't' }, 'Agenda da semana'), h('span', { class: 'pill' }, 'Ver horários')),
-        h('a', { class: 'tile act', href: '#/atendimento' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'WhatsApp e avisos'), h('span', { class: 'pill' }, 'Atendimento')));
+        h('button', { type: 'button', class: 'tile act', onclick: function () { S.patientSheet(null, function (id) { go('#/pacientes/' + id); }); } }, h('span', { class: 'ico-box' }, UI.svg('user-plus', 22)), h('span', { class: 't' }, 'Novo paciente')),
+        h('button', { type: 'button', class: 'tile act', onclick: function () { S.newAppointmentSheet({ onDone: function () { refresh(); } }); } }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar consulta')),
+        h('a', { class: 'tile act', href: '#/agenda?aba=semana' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('span', { class: 't' }, 'Agenda da semana')),
+        h('a', { class: 'tile act', href: '#/atendimento' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'WhatsApp e avisos')));
     }
 
     function draw(D) {
@@ -197,7 +197,7 @@
       holder.appendChild(h('div', { class: 'group-title' }, 'Link de cadastro'));
       holder.appendChild(S.inviteCard());
       var ck = proChecklist(ctx, { hasPatients: D.patients.length > 0, bookingOn: D.booking });
-      if (ck) { holder.appendChild(h('div', { class: 'group-title' }, 'Primeiros passos')); holder.appendChild(ck); }
+      if (ck) holder.appendChild(ck);
     }
 
     if (verified) {
@@ -262,10 +262,10 @@
       var tiles = [];
       D.psy.forEach(function (x) {
         var link = x.whatsapp ? UI.waLink(x.whatsapp, 'Olá, ' + UI.firstName(x.full_name) + '. Aqui é ' + UI.firstName(p.full_name) + '.') : null;
-        if (link) tiles.push(h('a', { class: 'tile act', href: link, target: '_blank', rel: 'noopener' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com ' + UI.firstName(x.full_name)), h('span', { class: 'pill' }, 'Abre o WhatsApp')));
+        if (link) tiles.push(h('a', { class: 'tile act', href: link, target: '_blank', rel: 'noopener' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com ' + UI.firstName(x.full_name))));
       });
-      if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) tiles.push(h('a', { class: 'tile act', href: '#/consultas' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar uma consulta'), h('span', { class: 'pill' }, 'Escolha o horário')));
-      tiles.push(h('a', { class: 'tile act help', href: '#/ajuda' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 22)), h('span', { class: 't' }, 'Preciso de ajuda'), h('span', { class: 'pill' }, 'Acalmar e pedir apoio')));
+      if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) tiles.push(h('a', { class: 'tile act', href: '#/consultas' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar uma consulta')));
+      tiles.push(h('a', { class: 'tile act help', href: '#/ajuda' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 22)), h('span', { class: 't' }, 'Preciso de ajuda')));
       return h('div', { class: 'tiles' }, tiles);
     }
 
@@ -276,7 +276,7 @@
       apptStrips().forEach(function (n) { holder.appendChild(n); });
       if (!D.pros.length && !D.psy.length && !(D.reqs || []).length) {
         holder.appendChild(h('div', { class: 'cta-card' }, h('span', { class: 'ico-box' }, UI.svg('heart-handshake', 22)),
-          h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu psicólogo(a) vincula você'), h('div', { class: 's' }, 'Ele(a) procura você pelo celular da sua conta, ou você usa o link de cadastro que ele(a) mandou.')),
+          h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu psicólogo(a) vincula você'), h('div', { class: 's' }, 'Pelo celular da sua conta ou pelo link que ele(a) mandou.')),
           h('a', { class: 'btn auto sm', href: '#/psicologo' }, 'Ver como')));
       }
       holder.appendChild(S.levelCard(D.prog));
@@ -284,7 +284,7 @@
         holder.appendChild(S.moodCard({ entries: D.entries, pros: D.pros, shares: D.shares, onSaved: reload }));
       } else {
         holder.appendChild(h('div', { class: 'cta-card' }, h('span', { class: 'ico-box' }, UI.svg('notebook-pen', 22)),
-          h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu diário'), h('div', { class: 's' }, 'Registre como você está e ganhe XP.')),
+          h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu diário'), h('div', { class: 's' }, 'Registre como você está.')),
           h('a', { class: 'btn auto sm', href: '#/diario' }, 'Começar')));
       }
       holder.appendChild(h('div', { class: 'group-title' }, 'Atalhos'));
@@ -432,7 +432,7 @@
     var atalhos = [];
     if (!isPro) {
       var pendBadge = h('span', { class: 'badge warn tag hide' });
-      var psyRow = linkRow('heart-handshake', 'Meu psicólogo(a)', '#/psicologo', 'Quem acompanha você, o que ele(a) vê e o diário');
+      var psyRow = linkRow('heart-handshake', 'Meu psicólogo(a)', '#/psicologo');
       psyRow.insertBefore(pendBadge, psyRow.querySelector('.chev'));
       API.linkRequests.mine().then(function (list) {
         var n = (list || []).filter(function (x) { return x.origin === 'professional'; }).length;
@@ -440,9 +440,9 @@
       }).catch(function () { /* sem aviso, sem problema */ });
       atalhos.push(psyRow);
     } else if (!adminMode) {
-      atalhos.push(linkRow('star', 'Avaliações', '#/avaliacoes', 'O que seus pacientes acham, sem mostrar quem avaliou'));
+      atalhos.push(linkRow('star', 'Avaliações', '#/avaliacoes'));
     }
-    atalhos.push(linkRow('life-buoy', 'Suporte', '#/suporte', 'Dúvidas, ajuda e fale com a gente'));
+    atalhos.push(linkRow('life-buoy', 'Suporte', '#/suporte'));
     var atalhosGroup = h('div', { class: 'group' }, atalhos);
 
     /* seguranca */
@@ -452,7 +452,7 @@
       API.signOutOthers().then(function () { UI.toast('Outros aparelhos desconectados.', 'circle-check'); Diag.log('conta:saiu-outros'); })
         .catch(function (e) { Diag.error('sign-out-others', e); UI.toast('Não deu para desconectar agora.'); })
         .then(function () { othersBtn.disabled = false; });
-    } }, h('span', { class: 'ico-box' }, UI.svg('monitor-smartphone', 20)), h('span', null, othersT, h('span', { class: 's' }, 'Encerra o login em celulares e computadores')));
+    } }, h('span', { class: 'ico-box' }, UI.svg('monitor-smartphone', 20)), othersT);
     var auth = ctx.auth || { hasPassword: true, providers: [] };
     var via = auth.providers.map(function (x) { return x === 'azure' ? 'Microsoft' : 'Google'; }).join(' e ');
     var canMfa = isPro || ctx.admin;
@@ -460,12 +460,12 @@
     var mustMfa = !!(ctx.policy && ctx.policy.mfa_required);
     var mfaRow;
     if (!canMfa) {
-      mfaRow = h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('shield-check', 20)), h('span', { class: 't' }, 'Verificação em duas etapas'), h('span', { class: 'badge tag' }, 'Em breve'));
+      mfaRow = null; /* paciente nao usa 2FA: nao mostra linha "em breve" */
     } else if (enrolled) {
       mfaRow = h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('shield-check', 20)),
-        h('span', null, h('span', { class: 't' }, 'Verificação em duas etapas'), h('span', { class: 's' }, mustMfa ? 'Obrigatória para a sua conta' : 'Pedimos o código do app ao entrar')), h('span', { class: 'badge ok tag' }, 'Ativa'));
+        h('span', { class: 't' }, 'Verificação em duas etapas'), h('span', { class: 'badge ok tag' }, 'Ativa'));
     } else {
-      mfaRow = linkRow('shield-check', 'Verificação em duas etapas', '#/ativar-2fa', 'Recomendada. Protege seus pacientes se alguém descobrir sua senha');
+      mfaRow = linkRow('shield-check', 'Verificação em duas etapas', '#/ativar-2fa', 'Recomendada');
     }
     var mfaOff = null;
     if (canMfa && enrolled && !mustMfa) {
@@ -513,7 +513,7 @@
 
     var privacidade = h('div', { class: 'group' },
       h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 20)),
-        h('span', null, h('span', { class: 't' }, 'Informações técnicas ao suporte'), h('span', { class: 's' }, 'Você vê tudo antes de enviar')), diag.el),
+        h('span', { class: 't' }, 'Informações técnicas ao suporte'), diag.el),
       exportBtn,
       linkRow('file-text', 'Política de Privacidade', '#/legal/privacidade'),
       linkRow('file-text', 'Termos de Uso', '#/legal/' + (isPro ? 'termos-profissional' : 'termos-paciente')));

@@ -20,7 +20,7 @@
   function isVerifiedPro(ctx) { return !!(ctx.me.professional && ctx.me.professional.verification === 'verified'); }
   function pageLock(ctx, active, title, sub) {
     var pro = ctx.me.professional || {};
-    return S.shell(ctx, active, [UI.pageHead(title, sub), S.crpNotice(pro.verification), UI.empty('lock', 'Libera quando o seu CRP for confirmado', 'Enquanto isso, você pode explorar o resto do Senso.')]);
+    return S.shell(ctx, active, [UI.pageHead(title), S.crpNotice(pro.verification), UI.empty('lock', 'Libera quando o seu CRP for confirmado')]);
   }
   S.proLock = function (ctx, active, title, sub) { return isVerifiedPro(ctx) ? null : pageLock(ctx, active, title, sub); };
 
@@ -389,7 +389,7 @@
     var tab = TABS.indexOf(q && q.aba) >= 0 ? q.aba : 'recebido';
     var SM = null, holder = h('div', null, UI.loading());
     var rep = h('a', { class: 'btn ghost auto sm', href: '#/relatorios' }, UI.svg('chart-column', 18), 'Relatórios');
-    var node = S.shell(ctx, 'financeiro', [UI.pageHead('Financeiro', 'Pagamentos, recibos e despesas', rep), holder]);
+    var node = S.shell(ctx, 'financeiro', [UI.pageHead('Financeiro', null, rep), holder]);
 
     function load() {
       fin().summary(month + '-01').then(function (s) { SM = s; draw(); }).catch(function (e) { failBox(holder, e, 'financeiro'); });
@@ -524,8 +524,8 @@
         }).catch(function (e) { UI.busy(b, false); Diag.error('relatorio-mes', e); UI.toast(UI.errorText(e)); });
       } })));
       holder.appendChild(h('p', { class: 'small muted' }, SM.prev_received_cents || SM.prev_expenses_cents
-        ? 'Mês anterior: recebido ' + money(SM.prev_received_cents) + (pr == null ? '' : ' (' + (pr > 0 ? '+' : '') + pr + '%)') + ', despesas ' + money(SM.prev_expenses_cents) + '. Sessões realizadas no mês: ' + SM.sessions_done + '.'
-        : 'Sessões realizadas no mês: ' + SM.sessions_done + '.'));
+        ? 'Mês anterior: recebido ' + money(SM.prev_received_cents) + (pr == null ? '' : ' (' + (pr > 0 ? '+' : '') + pr + '%)') + ', despesas ' + money(SM.prev_expenses_cents) + '. Sessões no mês: ' + SM.sessions_done + '.'
+        : 'Sessões no mês: ' + SM.sessions_done + '.'));
       var t = UI.tabs({ label: 'Seções do financeiro', value: tab, cls: 'dense', onChange: function (k) { tab = k; },
         tabs: [['recebido', 'Recebido'], ['receber', 'A receber' + (SM.pending_count ? ' (' + SM.pending_count + ')' : '')], ['recibos', 'Recibos'], ['despesas', 'Despesas']],
         render: function (k) { return k === 'receber' ? pendingPanel() : k === 'recibos' ? receiptsPanel() : k === 'despesas' ? expensesPanel() : receivedPanel(); } });

@@ -203,7 +203,7 @@
         h('span', { class: 'ico-box' }, UI.svg(p[1], 22)), h('span', { class: 'grow' }, h('span', { class: 't' }, p[2]), h('span', { class: 's' }, p[3])), h('span', { class: 'chev' }, UI.svg('chevron-right', 18)));
       buttons.push(b); return b;
     }));
-    var node = S.shell(ctx, 'ajuda', [UI.pageHead('Preciso de ajuda', 'Acalmar e pedir apoio'), emergencyStrip(), h('h2', { class: 'help-q' }, 'O que está acontecendo?'), choose, panel,
+    var node = S.shell(ctx, 'ajuda', [UI.pageHead('Preciso de ajuda'), emergencyStrip(), h('h2', { class: 'help-q' }, 'O que está acontecendo?'), choose, panel,
       h('p', { class: 'small muted help-foot' }, 'Este conteúdo se baseia em práticas reconhecidas de cuidado em saúde mental e não substitui avaliação profissional nem atendimento de emergência. Em caso de risco, ligue 188 ou 192.')]);
     API.booking.psychologists().catch(function () { return []; }).then(function (psy) {
       D.psy = psy;

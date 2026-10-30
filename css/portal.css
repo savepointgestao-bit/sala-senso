@@ -351,7 +351,7 @@ a.item:hover, button.item:hover { background: var(--surface2); }
 
 /* editor do diario */
 .editor-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.2rem; }
-.editor-head input[type="date"], .editor-head input[type="time"], .when-row input { width: auto; min-height: 40px; padding: .4rem .7rem; font-size: .9rem; border: 1.5px solid var(--line2); border-radius: var(--r-m); background: var(--surface); }
+.editor-head input[type="date"], .editor-head input[type="time"] { width: auto; min-height: 40px; padding: .4rem .7rem; font-size: .9rem; border: 1.5px solid var(--line2); border-radius: var(--r-m); background: var(--surface); }
 .bar-block { margin-bottom: 1.4rem; }
 .bar-block .q { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .6rem; }
 .bar-block .q b { font-size: .95rem; font-weight: 700; }
@@ -496,8 +496,6 @@ details.faq .body p { font-size: .9rem; }
 .f-constelacao::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle at 88% 14%, #e8c96a 0 2px, transparent 2.6px), radial-gradient(circle at 8% 70%, #46b6be 0 2px, transparent 2.6px), radial-gradient(circle at 46% -1%, #8c90e8 0 1.6px, transparent 2.2px), radial-gradient(circle at 60% 101%, #e8c96a 0 1.6px, transparent 2.2px); }
 .hello .avatar-frame { margin-right: .1rem; }
-.frame-line { margin-top: .7rem; font-size: .8rem; color: rgba(255, 255, 255, .8); }
-.frame-line b { color: #fff; font-weight: 700; }
 
 /* vitrine de molduras (conta do paciente) */
 .shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin-bottom: 1rem; }
@@ -568,8 +566,6 @@ h1.mb16 + .seg { margin-bottom: 1.1rem; }
 .mood-face { width: 66px; height: 66px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--surface2); border: 2px solid var(--line); color: var(--mute); transition: border-color .15s, color .15s, background .15s; }
 .mood-slider[data-m] .mood-face { color: var(--mc); border-color: var(--mc); background: var(--surface); }
 @media (prefers-reduced-motion: reduce) { .mood-face { transition: none; } }
-.when-row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-.when-row input { min-height: 40px; padding: .4rem .7rem; font-size: .9rem; border: 1.5px solid var(--line2); border-radius: var(--r-m); background: var(--surface); }
 .stack-btns { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; }
 .center { text-align: center; }
 .center-link { display: inline-block; margin-top: .9rem; padding: .4rem .6rem; }

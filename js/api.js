@@ -164,7 +164,9 @@
         ]).then(function (r) {
           if (r[0].error) throw wrap(r[0].error);
           if (!r[0].data) return null;
-          return { profile: r[0].data, professional: r[1].data || null };
+          /* Dados de psicólogo (CRP, recibos, consultório) só existem para quem está no papel de psicólogo. Na equipe, no modo de teste
+             "Paciente", a conta continua com o cadastro de psicólogo no banco, mas a tela tem que ser a do paciente de verdade. */
+          return { profile: r[0].data, professional: r[0].data.role === 'professional' ? (r[1].data || null) : null };
         });
       });
     },

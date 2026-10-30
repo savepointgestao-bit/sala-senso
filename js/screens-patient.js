@@ -22,7 +22,7 @@
 
   S.myPsychologist = function (ctx) {
     var holder = h('div', null, UI.loading());
-    var node = S.shell(ctx, 'psicologo', [UI.pageHead('Meu psicólogo(a)', 'Quem acompanha você e o que ele(a) vê'), holder]);
+    var node = S.shell(ctx, 'psicologo', [UI.pageHead('Meu psicólogo(a)'), holder]);
 
     function proCard(x, contact) {
       var modeNote = h('p', { class: 'group-hint', 'aria-live': 'polite' }, SHARE_TEXT[x.mode || 'ask']);
@@ -49,8 +49,7 @@
         h('div', { class: 'item flat share-mode' }, h('span', { class: 'ico-box' }, UI.svg('share-2', 20)),
           h('span', { class: 'grow' }, h('span', { class: 't' }, 'Compartilhar os textos novos'), h('span', { class: 's' }, x.shared_entries ? x.shared_entries + (x.shared_entries === 1 ? ' registro compartilhado' : ' registros compartilhados') : 'Nenhum registro compartilhado ainda'))),
         seg.el, modeNote,
-        h('p', { class: 'group-hint' }, 'Humor, energia e ansiedade ele(a) sempre vê. Para compartilhar só um texto, abra o registro no Diário e ligue a opção.'),
-        h('div', { class: 'row-actions' }, h('button', { type: 'button', class: 'linkbtn small danger-link', onclick: function () {
+                h('div', { class: 'row-actions' }, h('button', { type: 'button', class: 'linkbtn small danger-link', onclick: function () {
           UI.confirmBox({ title: 'Desvincular de ' + x.name + '?', text: 'Ele(a) deixa de ver seu humor e os textos compartilhados. O histórico de consultas e o cadastro dele(a) ficam com o próprio psicólogo(a).', ok: 'Desvincular', danger: true }).then(function (yes) {
             if (!yes) return;
             return API.sharing.unlink(x.professional_id).then(function () { UI.toast('Vínculo desfeito.', 'circle-check'); refresh(); });
@@ -78,7 +77,7 @@
           h('li', null, UI.svg('user', 18), 'Ele(a) passa a ver seu nome, celular, e-mail e data de nascimento.'),
           h('li', null, UI.svg('smile', 18), 'Ele(a) acompanha o humor, a energia e a ansiedade que você registrar.'),
           h('li', null, UI.svg('lock', 18), 'O texto do diário só vai para ele(a) se você escolher compartilhar.')),
-        h('p', { class: 'small muted' }, 'Aceite só se você é paciente dele(a). Você pode desvincular quando quiser.'),
+        h('p', { class: 'small muted' }, 'Aceite só se você é paciente dele(a). Dá para desvincular quando quiser.'),
         general, h('div', { class: 'stack-btns' }, yes, no));
     }
 
@@ -106,20 +105,19 @@
       sent.forEach(function (q) { holder.appendChild(sentCard(q)); });
       if (!list.length && !reqs.length) {
         var ph = ctx.me.profile.phone;
-        holder.appendChild(UI.empty('heart-handshake', 'Você ainda não está vinculado(a)', 'Quem vincula é o seu psicólogo(a). Ele(a) procura você pelo celular do seu cadastro e você aceita aqui. Se ele(a) mandou um link de cadastro, é só abrir o link.'));
+        holder.appendChild(UI.empty('heart-handshake', 'Você ainda não está vinculado(a)', 'Seu psicólogo(a) procura você pelo celular da sua conta e você aceita aqui, ou manda um link de cadastro.'));
         holder.appendChild(h('div', { class: 'card' }, h('h2', null, 'Seu celular no Senso'),
-          ph ? h('p', null, 'Seu psicólogo(a) precisa ter este número no cadastro dele(a): ', h('b', null, UI.formatPhone ? UI.formatPhone(ph) : ph), '.')
-            : h('p', null, 'Você não colocou um celular na conta. Sem ele, o psicólogo(a) não encontra você. Coloque em ', h('a', { href: '#/conta' }, 'Conta'), '.'),
-          h('p', { class: 'small muted mb0' }, 'Se o número do cadastro dele(a) for outro, peça para ele(a) corrigir ou mude o seu em Conta.')));
+          ph ? h('p', { class: 'mb0' }, 'Seu psicólogo(a) precisa ter este número no cadastro: ', h('b', null, UI.formatPhone ? UI.formatPhone(ph) : ph), '. Se for outro, mude em ', h('a', { href: '#/conta' }, 'Conta'), '.')
+            : h('p', { class: 'mb0' }, 'Sem um celular na conta, o psicólogo(a) não encontra você. Coloque em ', h('a', { href: '#/conta' }, 'Conta'), '.')));
       } else {
         list.forEach(function (x) { holder.appendChild(proCard(x, contacts[x.professional_id])); });
       }
       holder.appendChild(h('div', { class: 'group-title' }, 'O que o(a) psicólogo(a) vê'));
       holder.appendChild(h('div', { class: 'card' }, h('ul', { class: 'plain-list what-list mb0' },
-        h('li', null, UI.svg('check', 18), 'Seu nome, celular, e-mail e data de nascimento.'),
-        h('li', null, UI.svg('check', 18), 'Seu humor, energia e ansiedade, com a média de cada dia.'),
-        h('li', null, UI.svg('check', 18), 'Suas consultas e os pedidos que você faz.'),
-        h('li', null, UI.svg('lock', 18), 'O texto do diário só aparece se você compartilhar.'),
+        h('li', null, UI.svg('check', 18), 'Seus dados de cadastro.'),
+        h('li', null, UI.svg('check', 18), 'Humor, energia e ansiedade.'),
+        h('li', null, UI.svg('check', 18), 'Suas consultas e pedidos.'),
+        h('li', null, UI.svg('lock', 18), 'O texto do diário, só se você compartilhar.'),
         h('li', null, UI.svg('lock', 18), 'A avaliação da consulta é anônima.'))));
     }).catch(function (e) { Diag.error('meu-psicologo', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar agora. Atualize a página.')); });
     return node;
@@ -273,7 +271,7 @@
   S.appointments = function (ctx, q) {
     var holder = h('div', null, UI.loading());
     var openBtn = h('button', { type: 'button', class: 'btn auto sm hide' }, UI.svg('calendar-plus', 18), 'Marcar consulta');
-    var node = S.shell(ctx, 'consultas', [h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Consultas'), h('p', null, 'Seus pedidos e horários')), openBtn), holder]);
+    var node = S.shell(ctx, 'consultas', [h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Consultas')), openBtn), holder]);
     var psy = [], auto = q && q.novo;
 
     function reload() { load(); }
@@ -310,10 +308,9 @@
 
   /* ---------------------------------------------------------------- Lab (só pacientes; por enquanto só a porta) */
   S.lab = function (ctx) {
-    return S.shell(ctx, 'lab', [UI.pageHead('Lab', 'Ferramentas novas, só para pacientes'),
+    return S.shell(ctx, 'lab', [UI.pageHead('Lab'),
       h('div', { class: 'card lab-card' }, h('div', { class: 'ico-box lg' }, UI.svg('flask-conical', 30)), h('span', { class: 'badge soft' }, 'Em breve'),
         h('h2', null, 'Estamos preparando o Lab'),
-        h('p', { class: 'muted' }, 'Aqui vão ficar exercícios e experimentos para você cuidar da cabeça entre as sessões. É uma área só sua: seu psicólogo(a) não tem acesso.'),
-        h('p', { class: 'muted small mb0' }, 'Tem uma ideia do que gostaria de ver aqui? Conte pelo ', h('a', { href: '#/suporte' }, 'Suporte'), '.'))]);
+        h('p', { class: 'muted mb0' }, 'Exercícios para cuidar da cabeça entre as sessões. Uma área só sua: seu psicólogo(a) não tem acesso. Quer sugerir algo? Fale pelo ', h('a', { href: '#/suporte' }, 'Suporte'), '.'))]);
   };
 })();

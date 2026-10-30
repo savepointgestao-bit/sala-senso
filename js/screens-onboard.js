@@ -239,14 +239,13 @@
         }).catch(function (e) { UI.toast(UI.errorText(e)); });
       } });
       holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('link', 22)),
-        h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Seu link de cadastro'), h('p', { class: 'muted small mb0' }, 'Quem criar a conta por ele faz um pedido, e você decide se aceita.'))));
+        h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Seu link de cadastro'), h('p', { class: 'muted small mb0' }, 'Quem entrar por ele faz um pedido e você aceita.'))));
       holder.appendChild(h('div', { class: 'linkbox mt16', tabindex: '0', role: 'textbox', 'aria-readonly': 'true', 'aria-label': 'Seu link de cadastro' }, url));
       if (!st.enabled) holder.appendChild(UI.notice('warn', 'O link está desativado. Quem abrir não consegue fazer o pedido.'));
       holder.appendChild(h('div', { class: 'btn-row mt16' }, copy, wa));
       if (st.pending) holder.appendChild(S.pendingStrip('user-plus', st.pending === 1 ? '1 pedido de vínculo esperando você' : st.pending + ' pedidos de vínculo esperando você', '#/pacientes', 'Responder'));
-      holder.appendChild(h('p', { class: 'small muted mt16 mb0' }, st.linked ? st.linked + (st.linked === 1 ? ' paciente com conta está' : ' pacientes com conta estão') + ' vinculados a você.' : 'Ninguém com conta vinculada ainda.'));
       holder.appendChild(h('details', { class: 'invite-more mt16' }, h('summary', null, 'Mais opções'),
-        h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Link ativo'), h('span', { class: 's' }, 'Desligue para parar de receber pacientes novos por ele.')), on.el), regen));
+        h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Link ativo'), h('span', { class: 's' }, 'Desligue para não receber novos pedidos.')), on.el), regen));
     }
     API.invite.mine().then(draw).catch(function (e) {
       Diag.error('link-convite', e); UI.clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar o seu link agora.'));

@@ -16,12 +16,6 @@
   var MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
   /* ---------------------------------------------------------------- nivel e XP */
-  function frameLine(level) {
-    var f = UI.frameFor(level);
-    return h('div', { class: 'frame-line' }, 'Moldura ', h('b', null, f.name),
-      f.next ? '. Próxima: ' + f.next.name + ', no nível ' + f.next.min + '.' : '. Você chegou ao último marco.');
-  }
-
   /* Vitrine: as 6 molduras, a atual destacada e as que faltam esmaecidas. Paciente e psicólogo(a) veem a mesma moldura. */
   S.frameShelf = function (level, name) {
     var cur = UI.frameFor(level);
@@ -45,16 +39,14 @@
     var left = Math.round((p.xp_per_level - p.xp_into_level) * 10) / 10;
     var pct = Math.max(0, Math.min(100, Math.round(p.xp_into_level / p.xp_per_level * 100)));
     var fill = h('i');
-    var meta = o.total
-      ? [h('span', null, 'Total ', h('b', null, UI.fmtXp(p.xp) + ' XP')), h('span', null, h('b', null, String(p.entries)), p.entries === 1 ? ' registro' : ' registros')]
-      : [h('span', null, 'Hoje ', h('b', null, UI.fmtXp(p.xp_today) + '/' + UI.fmtXp(p.daily_cap) + ' XP')), h('span', null, h('b', null, String(p.days_this_week)), p.days_this_week === 1 ? ' dia na semana' : ' dias na semana')];
+    /* so a Conta mostra o total; o inicio fica enxuto (nivel e barra) */
+    var meta = o.total ? h('div', { class: 'meta' }, h('span', null, 'Total ', h('b', null, UI.fmtXp(p.xp) + ' XP')), h('span', null, h('b', null, String(p.entries)), p.entries === 1 ? ' registro' : ' registros')) : null;
     var el = h('section', { class: 'level', 'aria-label': 'Seu nível' },
       h('div', { class: 'top' }, h('div', { class: 'lvl-badge', 'aria-hidden': 'true' }, String(p.level)),
         h('div', null, h('div', { class: 'name' }, 'Nível ' + p.level), h('div', { class: 'sub' }, 'Faltam ' + UI.fmtXp(left) + ' XP para o nível ' + (p.level + 1))),
         h('div', { class: 'xpnum' }, UI.fmtXp(p.xp_into_level) + '/' + UI.fmtXp(p.xp_per_level) + ' XP')),
       h('div', { class: 'xpbar', role: 'progressbar', 'aria-label': 'XP do nível', 'aria-valuemin': '0', 'aria-valuemax': String(p.xp_per_level), 'aria-valuenow': String(p.xp_into_level) }, fill),
-      h('div', { class: 'meta' }, meta),
-      frameLine(p.level));
+      meta);
     fill.style.width = '0%';
     requestAnimationFrame(function () { requestAnimationFrame(function () { fill.style.width = pct + '%'; }); });
     return el;
@@ -131,12 +123,8 @@
     return { el: el, input: input, get: function () { return value; }, set: function (v) { value = v == null ? null : v; input.value = String(value || 3); paint(); } };
   };
 
-  /* Data e hora do registro (a hora de agora, se a pessoa não mexer). */
-  function whenFields(date, time) {
-    var d = h('input', { type: 'date', value: date, max: UI.today(), required: true, 'aria-label': 'Data do registro' });
-    var t = h('input', { type: 'time', value: time, required: true, 'aria-label': 'Hora do registro' });
-    return { el: h('div', { class: 'when-row' }, d, t), date: d, time: t };
-  }
+  /* Quem registra não escolhe data nem hora: vale o momento em que salva. */
+  function nowStamp() { return { entry_date: UI.today(), entry_time: nowHm() }; }
 
   /* Pergunta que aparece depois de registrar: compartilhar com o psicólogo(a)?
      o = { entryId, pros: [{ professional_id, name }], hasText }. Resolve quando a janela fecha.
@@ -185,7 +173,6 @@
 
   /* Janela de registro rápido: o humor vem da barra do Início. o = { mood, entries, onSaved } */
   S.moodSheet = function (o) {
-    var when = whenFields(UI.today(), nowHm());
     var slider = S.moodSlider({ value: o.mood, label: 'Como você está?' });
     var body = UI.field({ label: 'Quer contar como está se sentindo?', type: 'textarea', optional: true, maxlength: 20000, rows: 4, placeholder: 'Escreva como foi o seu dia, o que está sentindo, o que quiser.' });
     var general = h('div', { 'aria-live': 'polite' });
@@ -194,13 +181,13 @@
     var form = h('form', { novalidate: true, onsubmit: function (ev) {
       ev.preventDefault(); general.textContent = '';
       if (!slider.get()) { general.appendChild(UI.notice('warn', 'Deslize a barra para escolher o humor.')); return; }
-      if (!when.date.value || !when.time.value) { general.appendChild(UI.notice('warn', 'Confira a data e a hora do registro.')); return; }
       var text = body.value().trim();
       UI.busy(save, true);
       var before, saved;
       API.progress().then(function (p) {
         before = p;
-        return API.diary.save({ id: null, entry_date: when.date.value, entry_time: when.time.value, mood: slider.get(), energy: null, anxiety: null, tags: [], body: text });
+        var now = nowStamp();
+        return API.diary.save({ id: null, entry_date: now.entry_date, entry_time: now.entry_time, mood: slider.get(), energy: null, anxiety: null, tags: [], body: text });
       }).then(function (row) {
         saved = row;
         return S.afterSave(before);
@@ -211,7 +198,6 @@
         .catch(function (err) { UI.busy(save, false); Diag.error('humor-popup', err); general.appendChild(UI.notice('bad', saveError(err))); });
     } },
       slider.el,
-      h('div', { class: 'field mt16' }, h('div', { class: 'lbl' }, 'Quando foi?'), when.el),
       body.el, general, save);
     sh = UI.sheet({ title: 'Como você está?', content: form, focus: body.input });
     return sh;
@@ -373,8 +359,8 @@
 
     function build(prog, entry, pros, shares) {
       var st = { tags: entry ? entry.tags.slice() : [] };
-      var when = whenFields(entry ? entry.entry_date : UI.today(), entry ? (timeOf(entry) || nowHm()) : nowHm());
-      head.appendChild(when.el);
+      /* Sem escolher data e hora: registro novo vale o momento em que salva; registro que já existe mantém a data e a hora dele. */
+      if (entry) head.appendChild(h('span', { class: 'muted small' }, 'Registrado ' + dayLabel(entry.entry_date).toLowerCase() + (timeOf(entry) ? ' às ' + timeOf(entry) : '')));
       /* Registro novo: o app pergunta se compartilha depois de salvar (ou segue o que a pessoa escolheu antes). Registro que já existe: liga e desliga aqui. */
       var shareOn = entry ? sharedWithAny(shares, entry.id) : false, shareTouched = false;
       var shareSw = pros.length && entry ? UI.toggle({ value: shareOn, label: 'Compartilhar o texto com meu psicólogo(a)', onChange: function (v) { shareOn = v; shareTouched = true; } }) : null;
@@ -445,9 +431,9 @@
         if (mood.get() == null && energy.get() == null && anxiety.get() == null && !st.tags.length && !text.trim()) {
           general.appendChild(UI.notice('warn', 'Escolha seu humor ou escreva algo para salvar.')); return;
         }
-        if (!when.date.value || !when.time.value) { general.appendChild(UI.notice('warn', 'Confira a data e a hora do registro.')); return; }
         UI.busy(saveBtn, true);
-        var row = { id: entry ? entry.id : null, entry_date: when.date.value, entry_time: when.time.value, mood: mood.get(), energy: energy.get(), anxiety: anxiety.get(), tags: st.tags.slice(), body: text,
+        var stamp = entry ? { entry_date: entry.entry_date, entry_time: timeOf(entry) || null } : nowStamp();
+        var row = { id: entry ? entry.id : null, entry_date: stamp.entry_date, entry_time: stamp.entry_time, mood: mood.get(), energy: energy.get(), anxiety: anxiety.get(), tags: st.tags.slice(), body: text,
           share: shareTouched ? shareOn : (entry && !text.trim() && sharedWithAny(shares, entry.id) ? false : null) };
         var saved;
         API.progress().then(function (before) {

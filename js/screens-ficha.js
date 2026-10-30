@@ -67,11 +67,11 @@
     var edit = h('button', { type: 'button', class: 'btn ghost auto', onclick: onEdit }, UI.svg('pencil', 18), any ? 'Editar ficha' : 'Preencher ficha');
     var box = h('section', { class: 'card' }, h('h2', null, 'Ficha completa'));
     if (!any) {
-      box.appendChild(h('p', { class: 'muted' }, 'Aqui ficam identificação, contato, responsável, dados do atendimento, queixa e histórico. Só você vê, e fica guardado cifrado.'));
+      box.appendChild(h('p', { class: 'muted' }, 'Identificação, atendimento, queixa e histórico. Só você vê, cifrado.'));
       box.appendChild(edit);
       return [box];
     }
-    box.appendChild(h('p', { class: 'small muted' }, 'Só você vê estes dados. Eles ficam guardados cifrados e não vão para o paciente nem para colegas.'));
+    box.appendChild(h('p', { class: 'small muted' }, 'Só você vê estes dados. Ficam cifrados.'));
     [['Identificação', ident], ['Responsável e emergência', resp], ['Atendimento', care], ['Clínico', clin]].forEach(function (s) {
       if (!s[1]) return;
       box.appendChild(h('div', { class: 'group-title' }, s[0]));

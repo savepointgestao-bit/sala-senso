@@ -455,13 +455,13 @@
       var c = F.clinical || {};
       statusBox.appendChild(c.tcle_accepted
         ? UI.notice('ok', 'Contrato e TCLE assinados' + (c.tcle_date ? ' em ' + UI.fmtDate(c.tcle_date) : '') + '.')
-        : UI.notice('info', 'Contrato e TCLE ainda não assinados. Gere o contrato e peça a assinatura na tela, ou marque como assinado no papel.'));
+        : UI.notice('info', 'Contrato e TCLE ainda não assinados.'));
     }
 
     function drawEmit() {
       clear(emitBox);
       if (!verified) emitBox.appendChild(UI.notice('warn', 'Os documentos levam o seu CRP, então liberam depois que ele for confirmado.'));
-      var subs = { declaration: 'Data e horário de uma sessão', tcle: 'Valores, faltas, sigilo e LGPD, com assinatura na tela', report: 'Estrutura da Resolução CFP 06/2019', referral: 'Para outro profissional ou serviço' };
+      var subs = { declaration: 'Data e horário de uma sessão', tcle: 'Com assinatura na tela', report: 'Resolução CFP 06/2019', referral: 'Para outro profissional' };
       emitBox.appendChild(h('div', { class: 'group' }, ['declaration', 'tcle', 'report', 'referral'].map(function (t) {
         return h('button', { type: 'button', class: 'item', disabled: verified ? null : true, onclick: function () { openForm(t, null, null); } },
           h('span', { class: 'ico-box' }, UI.svg(ICON[t], 20)), h('span', { class: 'grow' }, h('span', { class: 't' }, C.DOC_TYPES[t]), h('span', { class: 's' }, subs[t])),
@@ -478,7 +478,7 @@
     }
     function drawSaved() {
       clear(savedBox);
-      if (!saved.length) { savedBox.appendChild(UI.empty('files', 'Nenhuma cópia guardada', 'Ao gerar um documento, use "Guardar cópia na ficha" para reabrir e imprimir de novo quando precisar.')); return; }
+      if (!saved.length) { savedBox.appendChild(UI.empty('files', 'Nenhuma cópia guardada', 'Use "Guardar cópia na ficha" ao gerar um documento.')); return; }
       savedBox.appendChild(h('div', { class: 'group' }, saved.map(function (d) {
         var t = d.data.type;
         return h('button', { type: 'button', class: 'item', onclick: function () {
@@ -497,8 +497,8 @@
 
     function drawAtts() {
       clear(attBox);
-      attBox.appendChild(h('p', { class: 'small muted' }, 'Fotos de documentos, laudos, exames e PDFs. Até ' + C.fmtSize(C.ATT_MAX) + ' cada, cifrados no servidor, só você vê.'));
-      if (!atts.length) { attBox.appendChild(UI.empty('paperclip', 'Nenhum anexo', 'Guarde aqui o que o paciente trouxer: laudos, encaminhamentos, exames.')); return; }
+      attBox.appendChild(h('p', { class: 'small muted' }, 'Laudos, exames e PDFs. Até ' + C.fmtSize(C.ATT_MAX) + ' cada, cifrados.'));
+      if (!atts.length) { attBox.appendChild(UI.empty('paperclip', 'Nenhum anexo')); return; }
       attBox.appendChild(h('div', { class: 'group' }, atts.map(function (a) {
         var d = a.data || {};
         return h('button', { type: 'button', class: 'item', onclick: function () { attachmentSheet(R, a, loadAtts); } },

@@ -30,7 +30,7 @@
     var cur = PERIODS.some(function (p) { return p[0] === (q && q.p); }) ? q.p : '6';
     var area = h('div', { 'aria-live': 'polite' });
     var seg = UI.segmented({ label: 'Período', value: cur, cls: 'dense', options: PERIODS, onChange: function (k) { cur = k; load(); } });
-    var node = S.shell(ctx, 'financeiro', [UI.backLink('#/financeiro', 'Financeiro'), UI.pageHead('Relatórios', 'Como o consultório está indo'), seg.el, area]);
+    var node = S.shell(ctx, 'financeiro', [UI.backLink('#/financeiro', 'Financeiro'), UI.pageHead('Relatórios'), seg.el, area]);
     var req = 0;
 
     function load() {
@@ -73,8 +73,7 @@
       if (d.by_method.length) area.appendChild(card('Forma de pagamento', Charts.bars(d.by_method.map(function (m) { return { label: C.methodLabel(m.method), value: m.cents }; }), { max: d.by_method[0].cents, fmt: money, label: 'Recebido por forma de pagamento' })));
       if (d.by_category.length) area.appendChild(card('Despesas por categoria', Charts.bars(d.by_category.map(function (m) { return { label: C.categoryLabel(m.category), value: m.cents }; }), { max: d.by_category[0].cents, fmt: money, label: 'Despesas por categoria' })));
       if (d.top_patients.length) {
-        area.appendChild(card('Quem mais pagou no período', Charts.bars(d.top_patients.map(function (p) { return { label: UI.firstName(p.name), value: p.cents }; }), { max: d.top_patients[0].cents, fmt: money, label: 'Pacientes que mais pagaram' }),
-          'Soma dos pagamentos registrados no período, sem sobrenome para ficar mais discreto.'));
+        area.appendChild(card('Quem mais pagou no período', Charts.bars(d.top_patients.map(function (p) { return { label: UI.firstName(p.name), value: p.cents }; }), { max: d.top_patients[0].cents, fmt: money, label: 'Pacientes que mais pagaram' })));
       }
       var wd = d.weekday || [], order = [1, 2, 3, 4, 5, 6, 0], maxWd = Math.max.apply(null, wd.concat([1]));
       if (wd.some(function (n) { return n > 0; })) {
@@ -82,7 +81,7 @@
       }
       if (d.hours.length) {
         var maxH = Math.max.apply(null, d.hours.map(function (x) { return x.n; }).concat([1]));
-        area.appendChild(card('Horários mais usados', Charts.bars(d.hours.map(function (x) { return { label: pad(x.hour) + 'h', value: x.n }; }), { max: maxH, int: true, label: 'Sessões realizadas por horário' }), 'Pela hora em que a sessão começa.'));
+        area.appendChild(card('Horários mais usados', Charts.bars(d.hours.map(function (x) { return { label: pad(x.hour) + 'h', value: x.n }; }), { max: maxH, int: true, label: 'Sessões realizadas por horário' })));
       }
 
       area.appendChild(h('div', { class: 'btn-row mt16' }, UI.button('Baixar planilha do período', { variant: 'ghost', icon: 'download', onclick: function () {

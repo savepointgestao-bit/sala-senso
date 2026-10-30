@@ -24,7 +24,7 @@
   function moneyText(cents) { return cents == null ? '' : (cents / 100).toFixed(2).replace('.', ','); }
   function pageLock(ctx, active, title, sub) {
     var pro = ctx.me.professional || {};
-    return S.shell(ctx, active, [UI.pageHead(title, sub), S.crpNotice(pro.verification), UI.empty('lock', 'Libera quando o seu CRP for confirmado', 'Enquanto isso, você pode explorar o resto do Senso.')]);
+    return S.shell(ctx, active, [UI.pageHead(title), S.crpNotice(pro.verification), UI.empty('lock', 'Libera quando o seu CRP for confirmado')]);
   }
   function isVerifiedPro(ctx) { return !!(ctx.me.professional && ctx.me.professional.verification === 'verified'); }
 
@@ -522,7 +522,7 @@
     var newBtn = h('button', { type: 'button', class: 'btn auto sm', onclick: function () { S.newAppointmentSheet({ day: q && /^\d{4}-\d{2}-\d{2}$/.test(q.d || '') ? q.d : null, onDone: function () { state.reload(); } }); } }, UI.svg('calendar-plus', 18), 'Marcar consulta');
     var freeBtn = h('button', { type: 'button', class: 'btn ghost auto sm', onclick: function () { S.freeSlotsSheet({ onDone: function () { state.reload(); } }); } }, UI.svg('clock', 18), 'Horários livres');
     var holder = h('div');
-    var node = S.shell(ctx, 'agenda', [UI.pageHead('Agenda', 'Pedidos, consultas e horários', h('div', { class: 'row-gap' }, freeBtn, newBtn)), holder]);
+    var node = S.shell(ctx, 'agenda', [UI.pageHead('Agenda', null, h('div', { class: 'row-gap' }, freeBtn, newBtn)), holder]);
     var tabNames = ['pedidos', 'semana', 'fechar', 'ajustes'];
     var firstTab = tabNames.indexOf(q && q.aba) >= 0 ? q.aba : (q && q.d ? 'semana' : null);
     var count = 0, tabsApi = null;
@@ -554,7 +554,7 @@
   S.proReviews = function (ctx) {
     if (!isVerifiedPro(ctx)) return pageLock(ctx, 'avaliacoes', 'Avaliações', 'O que os pacientes acharam das consultas');
     var holder = h('div', null, UI.loading());
-    var node = S.shell(ctx, 'avaliacoes', [UI.pageHead('Avaliações', 'O que os pacientes acharam das consultas'), holder]);
+    var node = S.shell(ctx, 'avaliacoes', [UI.pageHead('Avaliações'), holder]);
     API.pro.reviews().then(function (r) {
       clear(holder);
       holder.appendChild(UI.notice('info', 'As avaliações são anônimas. Você não vê quem avaliou nem qual consulta foi.'));
@@ -586,14 +586,14 @@
   };
 
   /* ---------------------------------------------------------------- Atendimento: WhatsApp, avisos e link de cadastro */
-  var PREF_LABEL = { requests: ['calendar-plus', 'Pedidos de consulta', 'Quando um paciente pede um horário.'], replies: ['calendar-check', 'Respostas dos pacientes', 'Quando o paciente aceita ou recusa um horário que você sugeriu.'],
-    cancellations: ['calendar-x', 'Cancelamentos', 'Quando um paciente cancela uma consulta.'], birthdays: ['cake', 'Aniversários', 'No dia do aniversário dos seus pacientes.'], new_patients: ['user-plus', 'Pedidos de vínculo e encaminhamentos', 'Quando alguém pede para ser seu paciente pelo seu link, ou um colega encaminha um paciente.'] };
+  var PREF_LABEL = { requests: ['calendar-plus', 'Pedidos de consulta', ''], replies: ['calendar-check', 'Respostas dos pacientes', ''],
+    cancellations: ['calendar-x', 'Cancelamentos', ''], birthdays: ['cake', 'Aniversários', ''], new_patients: ['user-plus', 'Pedidos de vínculo e encaminhamentos', ''] };
 
   function whatsappCard() {
     var holder = h('section', { class: 'card' }, UI.loading());
     API.pro.contact().then(function (c) {
       clear(holder);
-      var phone = UI.phoneField({ label: 'WhatsApp que seus pacientes vão usar', value: c.whatsapp_phone || c.suggested_phone || '', hint: 'Com DDD. Só pacientes vinculados a você veem o botão.' });
+      var phone = UI.phoneField({ label: 'WhatsApp que seus pacientes vão usar', value: c.whatsapp_phone || c.suggested_phone || '', hint: 'Com DDD.' });
       var on = UI.toggle({ value: c.whatsapp_enabled, label: 'Mostrar o botão “Falar com meu psicólogo(a)” para meus pacientes' });
       var general = h('div', { 'aria-live': 'polite' });
       var btn = UI.button('Salvar', { type: 'submit' });
@@ -609,9 +609,9 @@
         UI.busy(btn, true);
         API.pro.saveContact(on.get(), phone.value().trim()).then(function () { UI.busy(btn, false); UI.toast('WhatsApp salvo.', 'circle-check'); })
           .catch(function (e) { UI.busy(btn, false); Diag.error('whatsapp', e); general.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível salvar agora.'))); });
-      } }, h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Botão de WhatsApp para pacientes'), h('span', { class: 's' }, 'O paciente toca e abre uma conversa com você.')), on.el),
+      } }, h('div', { class: 'item flat' }, h('span', { class: 't' }, 'Botão de WhatsApp para pacientes'), on.el),
         phone.el, general, h('div', { class: 'btn-row' }, btn, test));
-      holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'WhatsApp'), h('p', { class: 'muted small mb0' }, 'Seu paciente fala direto com você, sem passar por aqui.'))));
+      holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'WhatsApp'))));
       holder.appendChild(form);
     }).catch(function (e) { Diag.error('contato', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar o WhatsApp agora.')); });
     return holder;
@@ -622,7 +622,7 @@
     API.notify.prefs().then(function (p) {
       clear(holder);
       var off = (p.off || []).slice();
-      holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('bell', 22)), h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Avisos que você quer receber'), h('p', { class: 'muted small mb0' }, 'Aparecem no sininho. Desligue o que não quiser ver.'))));
+      holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('bell', 22)), h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Avisos no sininho'))));
       var rows = (p.groups || []).map(function (g) {
         var meta = PREF_LABEL[g.key] || ['bell', g.key, ''];
         var tg = UI.toggle({ value: g.on, label: meta[1], onChange: function (v) {
@@ -638,8 +638,8 @@
   }
 
   S.service = function (ctx) {
-    return S.shell(ctx, 'atendimento', [UI.pageHead('Atendimento', 'Como seus pacientes falam com você e o que você recebe'),
+    return S.shell(ctx, 'atendimento', [UI.pageHead('Atendimento'),
       whatsappCard(), S.inviteCard(), prefsCard(),
-      h('a', { class: 'cta-card strip', href: '#/agenda?aba=ajustes' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, 'Horários de atendimento e valor da consulta'), h('div', { class: 's' }, 'Ajuste na Agenda.')), h('span', { class: 'btn auto sm' }, 'Abrir'))]);
+      h('a', { class: 'cta-card strip', href: '#/agenda?aba=ajustes' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, 'Horários e valor da consulta')), h('span', { class: 'btn auto sm' }, 'Abrir'))]);
   };
 })();

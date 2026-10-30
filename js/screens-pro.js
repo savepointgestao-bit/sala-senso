@@ -130,7 +130,7 @@
     var okPro = pro.verification === 'verified';
     var newBtn = h('button', { type: 'button', class: 'btn auto sm', onclick: function () { S.patientSheet(null, function (id) { go('#/pacientes/' + id); }); } }, UI.svg('user-plus', 18), 'Novo paciente');
     var holder = h('div', null, okPro ? UI.loading() : null);
-    var node = S.shell(ctx, 'pacientes', [UI.pageHead('Pacientes', 'Cadastros, humor e consultas', okPro ? newBtn : null), holder]);
+    var node = S.shell(ctx, 'pacientes', [UI.pageHead('Pacientes', null, okPro ? newBtn : null), holder]);
     if (!okPro) {
       holder.appendChild(S.crpNotice(pro.verification));
       holder.appendChild(UI.empty('lock', 'Libera quando o seu CRP for confirmado', 'Enquanto isso, você pode explorar o resto do Senso.'));
@@ -277,7 +277,7 @@
       var box = h('section', { class: 'card' }, h('h2', null, R.linked ? 'Vínculo com a conta' : 'Este paciente ainda não tem conta ligada a você'));
       if (R.transferred_at) { box.appendChild(h('p', { class: 'muted mb0' }, 'Este paciente foi transferido. Para acompanhar de novo, o colega ou o próprio paciente precisa pedir o vínculo.')); return box; }
       if (R.linked) {
-        box.appendChild(h('p', { class: 'muted' }, 'Se desvincular, você deixa de ver o humor e os textos compartilhados. O cadastro e o histórico de consultas continuam com você. Para vincular de novo, você pede pelo celular ou o paciente pede pelo seu link.'));
+        box.appendChild(h('p', { class: 'muted' }, 'Ao desvincular, você deixa de ver o humor e os textos compartilhados. O cadastro fica com você.'));
         box.appendChild(h('button', { type: 'button', class: 'btn ghost auto danger-link', onclick: function () {
           UI.confirmBox({ title: 'Desvincular a conta de ' + R.full_name + '?', text: 'Você deixa de acompanhar o humor dele(a). O cadastro fica com você.', ok: 'Desvincular', danger: true }).then(function (yes) {
             if (!yes) return;
@@ -338,7 +338,7 @@
         box.appendChild(UI.notice('warn', h('span', null, h('b', null, 'Encaminhamento enviado. '), 'Esperando ' + X.transfer.to_name + ' (CRP ' + X.transfer.to_crp_region + '/' + X.transfer.to_crp_number + ') aceitar. ', cancel)));
         return box;
       }
-      box.appendChild(h('p', { class: 'muted' }, 'Encaminhe este paciente para um colega que usa o Senso, pelo CRP. Passa só o cadastro; prontuário, financeiro e o diário do paciente não passam.'));
+      box.appendChild(h('p', { class: 'muted' }, 'Encaminhe o cadastro para um colega pelo CRP. Prontuário, financeiro e diário não passam.'));
       box.appendChild(h('button', { type: 'button', class: 'btn ghost auto', onclick: function () { S.transferSheet(R, load); } }, UI.svg('arrow-right', 18), 'Transferir para outro psicólogo(a)'));
       return box;
     }
@@ -467,11 +467,11 @@
         gkv.appendChild(h('dt', null, 'Celular')); gkv.appendChild(h('dd', null, R.guardian_phone ? UI.formatPhone(R.guardian_phone) : 'Não informado'));
         box.appendChild(h('section', { class: 'card' }, h('h2', null, 'Responsável'), UI.notice('info', 'Menores de 18 anos podem usar o Senso, mas o atendimento envolve o responsável. Confirme com ele(a) antes de atender e registre aqui.'),
           gkv, gwa ? h('div', { class: 'btn-row mt16' }, h('a', { class: 'btn ghost auto', href: gwa, target: '_blank', rel: 'noopener' }, UI.svg('message-circle', 18), 'Falar com o responsável')) : null,
-          h('div', { class: 'item flat mt16' }, h('span', null, h('span', { class: 't' }, 'Autorização do responsável'), h('span', { class: 's' }, 'Marque quando ele(a) tiver autorizado o atendimento.')), auth.el)));
+          h('div', { class: 'item flat mt16' }, h('span', null, h('span', { class: 't' }, 'Autorização do responsável'), h('span', { class: 's' }, 'Marque quando ele(a) autorizar.')), auth.el)));
       }
       if (!R.transferred_at) {
         box.appendChild(h('section', { class: 'card' }, h('h2', null, 'Situação do paciente'),
-          h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, S.statusBadge(R.status || 'active')), h('span', { class: 's' }, 'Ativo, em pausa, alta, interrompeu ou encaminhado.')),
+          h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, S.statusBadge(R.status || 'active'))),
             h('button', { type: 'button', class: 'btn ghost auto sm', onclick: function () { S.statusSheet(R, load); } }, 'Mudar'))));
       }
       if (F) S.fichaCards(R, F, function () { S.fichaSheet(R, F, load); }).forEach(function (n) { box.appendChild(n); });
