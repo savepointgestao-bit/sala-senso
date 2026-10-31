@@ -1,4 +1,4 @@
-/* Paciente: "Meu psicólogo(a)", consultas (pedir, acompanhar, avaliar) e o Lab. */
+/* Paciente: "Meu psicólogo(a)" e consultas (pedir, acompanhar, avaliar). O Lab fica em screens-lab.js. */
 (function () {
   'use strict';
   var h = UI.h;
@@ -167,6 +167,13 @@
       extra.push(h('p', { class: 'small mb0' }, 'Seu pedido era para ', h('b', null, UI.dt.whenLabel(a.starts_at)), '. ', a.decline_reason ? 'Recado: ' + a.decline_reason : ''));
     }
     var actions = [];
+    if (a.status === 'scheduled' && future) {
+      if (a.patient_confirmed_at) extra.push(h('p', { class: 'small mb0 confirmed' }, UI.svg('circle-check', 16), ' Presença confirmada. ', UI.firstName(a.professional_name), ' foi avisado(a).'));
+      else actions.push(UI.button('Vou comparecer', { auto: true, icon: 'circle-check', onclick: function (ev) {
+        UI.busy(ev.currentTarget, true);
+        API.booking.confirmAttendance(a.id).then(function () { UI.toast('Presença confirmada.', 'circle-check'); reload(); }).catch(function (e) { UI.busy(ev.currentTarget, false); Diag.error('confirmar-presenca', e); UI.toast(UI.errorText(e)); });
+      } }));
+    }
     if (a.status === 'reschedule_proposed') {
       actions.push(UI.button('Aceitar', { auto: true, onclick: function (ev) {
         UI.busy(ev.currentTarget, true);
@@ -304,13 +311,5 @@
     }
     load();
     return node;
-  };
-
-  /* ---------------------------------------------------------------- Lab (só pacientes; por enquanto só a porta) */
-  S.lab = function (ctx) {
-    return S.shell(ctx, 'lab', [UI.pageHead('Lab'),
-      h('div', { class: 'card lab-card' }, h('div', { class: 'ico-box lg' }, UI.svg('flask-conical', 30)), h('span', { class: 'badge soft' }, 'Em breve'),
-        h('h2', null, 'Estamos preparando o Lab'),
-        h('p', { class: 'muted mb0' }, 'Exercícios para cuidar da cabeça entre as sessões. Uma área só sua: seu psicólogo(a) não tem acesso. Quer sugerir algo? Fale pelo ', h('a', { href: '#/suporte' }, 'Suporte'), '.'))]);
   };
 })();

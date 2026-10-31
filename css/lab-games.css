@@ -1,0 +1,67 @@
+/* Senso portal: jogos do Lab (Sudoku, Cobrinha, Voo e Memoria). Usa so as cores e medidas do portal.css (claro e escuro). Sem estilo inline (CSP). */
+.lg { display: grid; gap: .8rem; justify-items: center; margin-bottom: 1rem; }
+.lg > * { width: 100%; max-width: 26rem; min-width: 0; }
+.lg-bar { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
+.lg-bar .seg { flex: 1 1 11rem; }
+.lg-hint { color: var(--mute); font-size: .92rem; }
+.lg-stats { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
+.lg-stat { display: inline-flex; align-items: baseline; gap: .4rem; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: .3rem .8rem; font-size: .92rem; }
+.lg-stat-l { color: var(--mute); }
+.lg-stat b { font-variant-numeric: tabular-nums; }
+.lg-msg { min-height: 1.5em; margin: 0; text-align: center; color: var(--mute); font-size: .95rem; }
+.lg-foot { margin: 0; text-align: center; }
+button.sd-cell:focus-visible, .sd-key:focus-visible, .sd-tool:focus-visible, .sn-d:focus-visible, .mm-card:focus-visible { outline: 3px solid var(--pri); outline-offset: 2px; }
+
+/* tabuleiro de jogos em canvas (Cobrinha e Voo) */
+.lg .lg-stage { position: relative; border: 2px solid var(--line2); border-radius: var(--r-m); overflow: hidden; background: var(--surface2); touch-action: none; -webkit-user-select: none; user-select: none; }
+.lg .sn-stage { aspect-ratio: 1; width: clamp(14rem, calc(100vh - 25rem), 22.5rem); max-width: 100%; }
+.lg .vo-stage { aspect-ratio: 2 / 3; width: clamp(12rem, calc((100vh - 24rem) * .6667), 20rem); max-width: 100%; cursor: pointer; }
+.lg .lg-stage.wrap { border-style: dashed; }
+.lg-stage:focus-visible { outline: 3px solid var(--pri); outline-offset: 2px; }
+.lg-canvas { display: block; width: 100%; height: 100%; }
+.lg-over { position: absolute; inset: 0; display: grid; place-items: center; padding: 1rem; text-align: center; }
+.lg-over::before { content: ''; position: absolute; inset: 0; background: var(--surface); opacity: .9; }
+.lg-over-in { position: relative; display: grid; gap: .5rem; justify-items: center; }
+.lg-over-t { font-size: 1.35rem; }
+.lg-over-s { margin: 0; color: var(--mute); }
+.lg-over-b { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
+
+/* setas na tela (Cobrinha) */
+.lg .sn-dpad { display: grid; grid-template-columns: repeat(3, 3.6rem); grid-template-areas: ". up ." "left down right"; gap: .4rem; justify-content: center; width: auto; }
+.sn-d { width: 3.6rem; height: 3.6rem; display: grid; place-items: center; background: var(--surface); border: 1.5px solid var(--line2); border-radius: var(--r-m); color: var(--ink); padding: 0; cursor: pointer; }
+.sn-d:active { background: var(--pri-soft); }
+.sn-d.up { grid-area: up; }
+.sn-d.left { grid-area: left; }
+.sn-d.down { grid-area: down; }
+.sn-d.right { grid-area: right; }
+
+/* Sudoku */
+.sd-board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 1px; background: var(--line2); border: 2px solid var(--ink); border-radius: var(--r-s); overflow: hidden; }
+.sd-cell { aspect-ratio: 1; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: var(--surface); color: var(--pri-text); font: inherit; font-size: clamp(1.05rem, 5.4vw, 1.5rem); line-height: 1; display: grid; place-items: center; position: relative; cursor: pointer; }
+.sd-cell.br { border-right: 2px solid var(--ink); }
+.sd-cell.bb { border-bottom: 2px solid var(--ink); }
+.sd-cell.given { color: var(--ink); font-weight: 750; background: var(--surface2); }
+.sd-cell.hint { background: var(--warn-soft); }
+.sd-cell.peer { background: var(--pri-soft); }
+.sd-cell.same { background: var(--pri-soft); box-shadow: inset 0 0 0 2px var(--pri); }
+.sd-cell.sel { background: var(--pri-soft); outline: 3px solid var(--pri); outline-offset: -3px; z-index: 1; }
+.sd-cell.bad { color: var(--bad); background: var(--bad-soft); }
+.sd-notes { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; height: 100%; font-size: clamp(.5rem, 2.3vw, .7rem); color: var(--mute); line-height: 1; }
+.sd-notes i { font-style: normal; display: grid; place-items: center; }
+.sd-pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: .3rem; }
+.sd-key { min-height: 3rem; min-width: 0; padding: .2rem 0; border: 1.5px solid var(--line2); border-radius: var(--r-s); background: var(--surface); color: var(--ink); display: grid; place-items: center; align-content: center; font: inherit; cursor: pointer; }
+.sd-key-n { font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
+.sd-key small { font-size: .65rem; color: var(--mute); line-height: 1; }
+.sd-key.full { opacity: .45; }
+.sd-tools { display: grid; grid-template-columns: repeat(5, 1fr); gap: .3rem; }
+.sd-tool { display: grid; justify-items: center; gap: .15rem; min-width: 0; padding: .5rem .1rem; border: 1.5px solid var(--line2); border-radius: var(--r-s); background: var(--surface); color: var(--ink); font: inherit; font-size: .72rem; cursor: pointer; }
+.sd-tool.on { background: var(--pri); color: var(--pri-ink); border-color: var(--pri); }
+
+/* Memoria */
+.lg .mm-grid { display: grid; gap: .6rem; max-width: 20rem; }
+.mm-grid.c3 { grid-template-columns: repeat(3, 1fr); }
+.mm-grid.c4 { grid-template-columns: repeat(4, 1fr); }
+.mm-card { aspect-ratio: 3 / 4; min-width: 0; display: grid; place-items: center; padding: 0; border: 2px solid var(--line2); border-radius: var(--r-m); background: var(--pri-soft); color: var(--pri-text); cursor: pointer; }
+.mm-card.up { background: var(--surface); color: var(--ink); border-color: var(--pri); }
+.mm-card.done { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+.mm-card:disabled { cursor: default; opacity: 1; }

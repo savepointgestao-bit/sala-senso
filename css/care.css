@@ -127,6 +127,7 @@ i.m1, .dot.m1 { background: var(--m1); } i.m2, .dot.m2 { background: var(--m2); 
 /* ---------------------------------------------------------------- utilitarios novos */
 .cta-card.strip { text-decoration: none; color: inherit; background: var(--pri-soft); border-color: transparent; }
 .cta-card.strip:hover { filter: brightness(.98); }
+div.cta-card.strip:hover { filter: none; }
 .tab-panel + .tab-panel { margin-top: 0; }
 .tab-panels { margin-top: 1rem; }
 .btn-row { display: flex; flex-wrap: wrap; gap: .6rem; }
@@ -207,6 +208,7 @@ i.m1, .dot.m1 { background: var(--m1); } i.m2, .dot.m2 { background: var(--m2); 
 .appt { display: grid; gap: .7rem; border-left: 4px solid var(--line2); }
 .appt.requested, .appt.reschedule_proposed { border-left-color: var(--warn); }
 .appt.scheduled { border-left-color: var(--ok); }
+.appt .confirmed { display: flex; align-items: center; flex-wrap: wrap; gap: .3rem; color: var(--ok); font-weight: 600; }
 .appt.done { border-left-color: var(--pri); }
 .appt.declined, .appt.canceled_by_patient, .appt.canceled_by_professional, .appt.no_show { border-left-color: var(--line2); opacity: .85; }
 .appt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .8rem; }
@@ -267,6 +269,7 @@ button.appt-row:hover { background: var(--surface2); }
 .appt-row .when { font-weight: 750; font-variant-numeric: tabular-nums; min-width: 3rem; display: inline-flex; align-items: center; }
 .appt-row .t { display: block; font-weight: 650; }
 .appt-row .s { display: block; font-size: .82rem; color: var(--mute); }
+.appt-row .s.sure { display: flex; align-items: center; gap: .3rem; color: var(--ok); font-weight: 650; margin-top: .1rem; }
 .appt-row.block { color: var(--mute); background: var(--surface2); }
 .appt-row.no_show, .appt-row.done { opacity: .85; }
 .hours-edit { display: grid; gap: .1rem; }

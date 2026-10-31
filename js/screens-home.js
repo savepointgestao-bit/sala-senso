@@ -242,8 +242,18 @@
       list.filter(function (a) { return a.can_review; }).slice(0, 1).forEach(function () {
         out.push(S.pendingStrip('star', 'Como foi a sua última consulta? Sua opinião é anônima.', '#/consultas', 'Avaliar'));
       });
-      var next = list.filter(function (a) { return a.status === 'scheduled' && Date.parse(a.starts_at) > now; }).sort(function (a, b) { return Date.parse(a.starts_at) - Date.parse(b.starts_at); })[0];
-      if (next) out.push(S.pendingStrip('calendar-check', 'Próxima consulta: ' + UI.dt.whenLabel(next.starts_at) + ' com ' + next.professional_name, '#/consultas', 'Ver'));
+      var coming = list.filter(function (a) { return a.status === 'scheduled' && Date.parse(a.starts_at) > now; }).sort(function (a, b) { return Date.parse(a.starts_at) - Date.parse(b.starts_at); });
+      var next = coming[0];
+      /* Faltam menos de 3 dias e o paciente ainda nao confirmou: um botao so, sem texto para escrever. */
+      var ask = coming.filter(function (a) { return !a.patient_confirmed_at && Date.parse(a.starts_at) < now + 72 * 3600 * 1000; })[0];
+      if (ask) {
+        out.push(S.pendingStrip('calendar-check', 'Confirme sua presença: ' + UI.dt.whenLabel(ask.starts_at) + ', com ' + ask.professional_name, '#/consultas', 'Confirmar', function (btn) {
+          UI.busy(btn, true);
+          API.booking.confirmAttendance(ask.id).then(function () { UI.toast('Presença confirmada. ' + UI.firstName(ask.professional_name) + ' foi avisado(a).', 'circle-check'); return reload(); })
+            .catch(function (e) { UI.busy(btn, false); Diag.error('confirmar-presenca', e); UI.toast(UI.errorText(e)); });
+        }));
+      }
+      if (next && !(ask && ask.id === next.id)) out.push(S.pendingStrip('calendar-check', 'Próxima consulta: ' + UI.dt.whenLabel(next.starts_at) + ' com ' + next.professional_name + (next.patient_confirmed_at ? ' (presença confirmada)' : ''), '#/consultas', 'Ver'));
       (D.reqs || []).filter(function (q) { return q.origin === 'professional'; }).forEach(function (q) {
         out.unshift(S.pendingStrip('heart-handshake', q.name + ' pediu para acompanhar você', '#/psicologo', 'Ver pedido'));
       });
@@ -265,6 +275,7 @@
         if (link) tiles.push(h('a', { class: 'tile act', href: link, target: '_blank', rel: 'noopener' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com ' + UI.firstName(x.full_name))));
       });
       if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) tiles.push(h('a', { class: 'tile act', href: '#/consultas' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar uma consulta')));
+      tiles.push(h('a', { class: 'tile act', href: '#/assistente' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com o assistente')));
       tiles.push(h('a', { class: 'tile act help', href: '#/ajuda' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 22)), h('span', { class: 't' }, 'Preciso de ajuda')));
       return h('div', { class: 'tiles' }, tiles);
     }

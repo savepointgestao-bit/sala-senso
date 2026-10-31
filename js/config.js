@@ -8,10 +8,9 @@ window.PSI_CONFIG = {
   /* Endereco publico do portal (usado no link de convite dentro do app e quando o portal roda fora de http). Troque quando houver dominio proprio. */
   portalUrl: 'https://savepointgestao-bit.github.io/sala-senso/',
   docVersion: '0.1',
-  /* Saida automatica por inatividade, em minutos. Psicólogo sempre; paciente só se não marcou "Manter conectado". 0 desliga. */
+  /* Saida automatica por inatividade, em minutos, so no navegador. Psicólogo sempre; paciente só se não marcou "Manter conectado". 0 desliga.
+     No app do celular nao existe: quem protege e o PIN do app. */
   idleMinutes: { professional: 20, patient: 60 },
-  /* No app do celular, com o PIN ligado, a tela ja trava sozinha (ao sair e ao ficar parado). A saida automatica da conta passa a ser esta, bem mais longa. */
-  idleMinutesWithLock: 720,
   /* Entrar com Google e com Microsoft. true = funciona (so depois de ligar o provedor no Supabase, supabase/README.md, secao 3b);
      'soon' = o botao aparece apagado, nao clicavel, com "Em breve"; false = esconde o botao. Hoje: em breve. */
   oauth: { google: 'soon', microsoft: 'soon' },

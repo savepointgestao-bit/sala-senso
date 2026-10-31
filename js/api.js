@@ -7,7 +7,8 @@
 
   /* "Manter conectado": escolha guardada no aparelho. Sem manter, a sessao fica so na aba (some ao fechar). */
   var KEEP = 'psi_keep';
-  function keep() { try { return localStorage.getItem(KEEP) !== '0'; } catch (e) { return true; } }
+  /* No app do celular a sessao sempre fica guardada (nao ha "Manter conectado"): senao fechar o app pediria senha e 2FA de novo. */
+  function keep() { if (window.Android) return true; try { return localStorage.getItem(KEEP) !== '0'; } catch (e) { return true; } }
   var storage = {
     getItem: function (k) { try { return (keep() ? localStorage : sessionStorage).getItem(k); } catch (e) { return null; } },
     setItem: function (k, v) { try { (keep() ? localStorage : sessionStorage).setItem(k, v); } catch (e) { /* ignore */ } },
@@ -436,6 +437,8 @@
       respond: function (id, accept) { return sb.rpc('respond_proposal', { p_id: id, p_accept: !!accept }).then(ok).then(function () { return true; }); },
       cancel: function (id) { return sb.rpc('cancel_my_appointment', { p_appointment: id }).then(ok).then(function () { return true; }); },
       mine: function () { return sb.rpc('my_appointments').then(ok); },
+      /* "Vou comparecer": um toque, sem texto. Devolve a hora da confirmacao. */
+      confirmAttendance: function (id) { return sb.rpc('confirm_my_attendance', { p_appointment: id }).then(ok); },
       review: function (id, stars, liked, suggestion) {
         return sb.rpc('submit_review', { p_appointment: id, p_stars: stars, p_liked: liked || null, p_suggestion: suggestion || null }).then(ok).then(function () { return true; });
       }

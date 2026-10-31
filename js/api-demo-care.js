@@ -182,7 +182,7 @@
   }
 
   /* ------------------------------------------------------------ avisos */
-  var CATEGORY = { appointment_requested: 'requests', appointment_accepted: 'replies', appointment_refused: 'replies', appointment_canceled: 'cancellations', birthday: 'birthdays', patient_linked: 'new_patients', link_request: 'new_patients', transfer_received: 'new_patients' };
+  var CATEGORY = { appointment_requested: 'requests', appointment_accepted: 'replies', appointment_confirmed: 'replies', appointment_refused: 'replies', appointment_canceled: 'cancellations', birthday: 'birthdays', patient_linked: 'new_patients', link_request: 'new_patients', transfer_received: 'new_patients' };
   function notify(userId, kind, title, body, link) {
     if (!userId) return;
     var u = byId(userId);

@@ -59,7 +59,10 @@
       build: function (ctx, q, m) { return S.diaryEditor(ctx, m[1] === 'novo' ? null : m[1]); } },
     { re: /^consultas$/, who: 'patient', title: 'Consultas', build: function (ctx, q) { return S.appointments(ctx, q); } },
     { re: /^psicologo$/, who: 'patient', title: 'Meu psicólogo(a)', build: function (ctx) { return S.myPsychologist(ctx); } },
+    { re: /^assistente$/, who: 'patient', title: 'Assistente', build: function (ctx) { return S.assistant(ctx); } },
     { re: /^lab$/, who: 'patient', title: 'Lab', build: function (ctx) { return S.lab(ctx); } },
+    { re: /^lab\/([a-z-]+)$/, who: 'patient', title: 'Lab', build: function (ctx, q, m) { return S.labCategory(ctx, m[1]); } },
+    { re: /^lab\/([a-z-]+)\/([a-z-]+)$/, who: 'patient', title: 'Lab', build: function (ctx, q, m) { return S.labItem(ctx, m[1], m[2]); } },
     { re: /^ajuda$/, who: 'patient', title: 'Preciso de ajuda', build: screen('help') },
     { re: /^pacientes$/, who: 'professional', title: 'Pacientes', build: function (ctx, q) { return screen('patients')(ctx, q); } },
     { re: /^pacientes\/([A-Za-z0-9-]+)$/, who: 'professional', title: 'Ficha do paciente', build: function (ctx, q, m) { return screen('patientFile')(ctx, m[1], q); } },
@@ -79,7 +82,7 @@
 
   /* ---------------------------------------------------------------- saida por inatividade
      Psicologo: sempre. Paciente: so se nao marcou "Manter conectado". A ultima atividade fica no aparelho (vale entre abas),
-     entao fechar o navegador e voltar depois do limite tambem sai. */
+     entao fechar o navegador e voltar depois do limite tambem sai. No app Android nunca sai sozinho. */
   var pendingReason = null;   /* motivo da saida automatica: aparece uma vez na tela de entrada */
   var Idle = window.Idle = (function () {
     var LAST = 'psi_last', STEP = 15000, timer = null, limit = 0, mem = 0, memStamp = 0, on = false;
@@ -110,8 +113,9 @@
       start: function (role) {
         var mins = Number(((window.PSI_CONFIG || {}).idleMinutes || {})[role === 'professional' ? 'professional' : 'patient']) || 0;
         if (role !== 'professional' && API.keepsSession()) mins = 0;
-        /* Com o PIN do app ligado, quem protege a tela e o PIN (trava ao sair e ao ficar parado): a saida automatica fica bem mais longa. */
-        if (mins && window.AppLock && AppLock.enabled()) mins = Math.max(mins, Number((window.PSI_CONFIG || {}).idleMinutesWithLock) || mins);
+        /* No app do celular nao ha saida automatica: o aparelho ja tem a propria trava e o app tem o PIN (trava ao sair e ao ficar parado).
+           Pedir senha e codigo do 2FA toda hora so atrapalha. So sai quando a pessoa toca em Sair. */
+        if (window.Android) mins = 0;
         if (!mins) { stop(); return; }
         if (on && limit === mins * 60000) return;
         stop();

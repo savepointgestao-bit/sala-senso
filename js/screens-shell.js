@@ -32,7 +32,7 @@
     var d = UI.dt.dayOf(iso);
     return UI.dt.dayLabel(d, false);
   }
-  var KIND_ICON = { appointment_requested: 'calendar-plus', appointment_approved: 'calendar-check', appointment_accepted: 'calendar-check', appointment_declined: 'calendar-x', appointment_refused: 'calendar-x',
+  var KIND_ICON = { appointment_requested: 'calendar-plus', appointment_approved: 'calendar-check', appointment_accepted: 'calendar-check', appointment_confirmed: 'circle-check', appointment_declined: 'calendar-x', appointment_refused: 'calendar-x',
     appointment_proposed: 'calendar-days', appointment_scheduled: 'calendar-check', appointment_moved: 'calendar-days', appointment_canceled: 'calendar-x', birthday: 'cake', patient_linked: 'user-plus', record_verified: 'circle-check',
     link_request: 'user-plus', link_invite: 'heart-handshake', link_accepted: 'circle-check', link_declined: 'user-x', transfer_received: 'arrow-right', transfer_accepted: 'circle-check', transfer_declined: 'user-x' };
 
@@ -135,7 +135,12 @@
   };
 
   /* Cartao de aviso fixo no topo do inicio quando ha novidade importante (ex.: pedidos de consulta aguardando). */
-  S.pendingStrip = function (icon, text, href, actionLabel) {
+  S.pendingStrip = function (icon, text, href, actionLabel, onAction) {
+    if (onAction) {
+      /* Com onAction o botao faz a acao ali mesmo (um toque), sem abrir outra tela. */
+      var btn = h('button', { type: 'button', class: 'btn auto sm', 'data-label': actionLabel || 'Ver', onclick: function () { onAction(btn); } }, actionLabel || 'Ver');
+      return h('div', { class: 'cta-card strip' }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, text)), btn);
+    }
     return h('a', { class: 'cta-card strip', href: href }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, text)),
       h('span', { class: 'btn auto sm' }, actionLabel || 'Ver'));
   };

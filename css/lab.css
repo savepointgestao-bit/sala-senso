@@ -1,0 +1,19 @@
+/* Senso portal: Lab em categorias (so pacientes). Usa so as cores e medidas do portal.css. */
+.lab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+.lab-cat { display: flex; align-items: center; gap: .9rem; min-width: 0; padding: 1rem; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--r-l); color: var(--ink); text-decoration: none; }
+.lab-cat:hover { border-color: var(--pri); background: var(--surface2); }
+.lab-cat:focus-visible, .lab-item:focus-visible { outline: 3px solid var(--pri); outline-offset: 2px; }
+.lab-cat .grow { display: grid; gap: .15rem; min-width: 0; }
+.lab-cat-t { font-size: 1.08rem; }
+.lab-cat-s { color: var(--mute); font-size: .92rem; line-height: 1.35; }
+.lab-cat-n { color: var(--pri-text); font-size: .82rem; font-weight: 650; margin-top: .15rem; }
+.lab-cat .chev { color: var(--mute); flex: none; display: inline-grid; }
+.lab-idea { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
+.lab-idea .grow { min-width: 12rem; }
+.lab-list { display: grid; gap: .6rem; }
+.lab-item { display: flex; align-items: center; gap: .9rem; min-width: 0; padding: .9rem 1rem; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--r-m); color: var(--ink); text-decoration: none; }
+a.lab-item:hover { border-color: var(--pri); background: var(--surface2); }
+.lab-item.soon { opacity: .78; border-style: dashed; }
+.lab-item .grow { display: grid; gap: .15rem; min-width: 0; }
+.lab-it-s { color: var(--mute); font-size: .9rem; line-height: 1.35; }
+.lab-item .badge { flex: none; }

@@ -54,7 +54,7 @@
     return { id: a.id, record_id: a.recordId, full_name: r ? r.name : '', phone: r ? r.phone : null, linked: !!(r && r.userId), starts_at: iso(a.startsAt), duration_minutes: a.duration,
       mode: a.mode, meeting_url: a.meetingUrl || null, status: a.status, proposed_starts_at: iso(a.proposedStartsAt), patient_note: a.patientNote || null,
       decline_reason: a.declineReason || null, price_cents: a.priceCents == null ? null : a.priceCents, payment_status: a.paymentStatus, requested_by_patient: !!a.requestedByPatient,
-      created_at: iso(a.createdAt), series_id: a.seriesId || null, charge: a.charge !== false,
+      created_at: iso(a.createdAt), series_id: a.seriesId || null, charge: a.charge !== false, patient_confirmed_at: confirmedOf(a),
       series_after: a.seriesId ? S.appts.filter(function (x) { return x.seriesId === a.seriesId && x.proId === a.proId && x.id !== a.id && x.startsAt > a.startsAt && x.status === 'scheduled'; }).length : 0 };
   }
   function userOfRecord(recordId) { var r = H.recById(recordId); return r ? r.userId : null; }
@@ -387,6 +387,12 @@
     return S.appts.filter(function (a) { return recs.indexOf(a.recordId) >= 0; });
   }
   function endOf(a) { return (a.proposedStartsAt || a.startsAt) + a.duration * MIN; }
+  /* Confirmacao de presenca: vale so para o horario, o tipo e a situacao de quando foi dada (igual ao gatilho do banco: mudou, zerou). */
+  function sigOf(a) { return a.startsAt + '|' + a.mode + '|' + a.status; }
+  function confirmedOf(a) {
+    if (a.confirmedAt && a.confirmSig !== sigOf(a)) { a.confirmedAt = null; a.confirmSig = null; }
+    return a.confirmedAt ? iso(a.confirmedAt) : null;
+  }
   function reviewable(a) { return (a.status === 'done' || (a.status === 'scheduled' && a.startsAt + a.duration * MIN < Date.now())) && !S.receipts[a.id]; }
 
   var booking = api.booking;
@@ -465,6 +471,21 @@
       return true;
     });
   };
+  booking.confirmAttendance = function (id) {
+    var u = patient();
+    return tick(null).then(function () {
+      var okRecs = S.records.filter(function (r) { return r.userId === u.id && r.verifiedAt; }).map(function (r) { return r.id; });
+      var a = mineOfPatient(u).filter(function (x) { return x.id === id && okRecs.indexOf(x.recordId) >= 0; })[0];
+      if (!a) throw pgErr('appointment_not_found');
+      if (a.status !== 'scheduled') throw pgErr('invalid_status');
+      if (a.startsAt + a.duration * MIN <= Date.now()) throw pgErr('too_late');
+      var done = confirmedOf(a);
+      if (done) return done;
+      a.confirmedAt = Date.now(); a.confirmSig = sigOf(a);
+      H.notify(a.proId, 'appointment_confirmed', 'Presença confirmada', H.nameOf(u) + ' confirmou presença em ' + whenText(a.startsAt) + '.', '#/agenda');
+      return iso(a.confirmedAt);
+    });
+  };
   booking.mine = function () {
     var u = patient();
     return tick(null).then(function () {
@@ -474,7 +495,7 @@
         return { id: a.id, professional_id: a.proId, professional_name: H.nameOf(p), starts_at: iso(a.startsAt), duration_minutes: a.duration, mode: a.mode,
           meeting_url: sched ? a.meetingUrl : null, office_note: sched ? g.office_note : null, status: a.status, proposed_starts_at: iso(a.proposedStartsAt),
           decline_reason: a.declineReason || null, price_cents: a.priceCents == null ? null : a.priceCents, payment_status: a.paymentStatus, patient_note: a.patientNote || null,
-          past: endOf(a) < Date.now(), can_review: reviewable(a) };
+          patient_confirmed_at: confirmedOf(a), past: endOf(a) < Date.now(), can_review: reviewable(a) };
       });
     });
   };

@@ -124,6 +124,7 @@
     var pw = UI.field({ label: 'Senha', type: 'password', autocomplete: 'current-password', toggle: true, required: true });
     var keep = UI.checkbox({ label: 'Manter conectado' });
     keep.input.checked = true;
+    var inApp = !!window.Android;      /* no app a sessao sempre fica guardada: sem a caixinha */
     var general = h('div', { 'aria-live': 'polite' });
     var resend = h('div', { class: 'hide' });
     var btn = UI.button('Entrar', { type: 'submit' });
@@ -159,7 +160,7 @@
       q.motivo === 'inatividade' ? UI.notice('info', 'Saímos da sua conta porque ficou um tempo parado. Entre de novo.') : null,
       q.motivo === 'oauth' ? UI.notice('bad', 'Não deu para entrar com essa conta. Tente de novo ou use e-mail e senha.') : null,
       email.el, pw.el,
-      h('div', { class: 'row between' }, keep.el, h('div', { class: 'field' }, h('a', { href: '#/esqueci-senha' }, 'Esqueci a senha'))),
+      h('div', { class: 'row between' }, inApp ? null : keep.el, h('div', { class: 'field' }, h('a', { href: '#/esqueci-senha' }, 'Esqueci a senha'))),
       general, resend, btn);
 
     var social = oauthBlock({ keep: function () { return keep.checked(); } });

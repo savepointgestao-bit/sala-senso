@@ -213,4 +213,6 @@
     });
     return node;
   };
+  /* Respiracao e aterramento tambem aparecem no Lab (Relaxar). */
+  S.tools = { breathing: breathing, grounding: grounding };
 })();

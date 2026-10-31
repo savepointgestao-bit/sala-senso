@@ -192,7 +192,7 @@
     not_verified: 'Seu cadastro ainda precisa ser confirmado pelo(a) psicólogo(a). Avisamos você assim que ele(a) confirmar.',
     full_name_invalid: 'Digite o nome completo.', birth_date_invalid: 'Confira a data de nascimento.', birth_date_required: 'Informe a data de nascimento.',
     guardian_required: 'Para menores de 18 anos, informe o nome e o celular do responsável.', guardian_invalid: 'Confira o nome do responsável.',
-    not_allowed: 'Essa ação não está liberada para a sua conta.', too_early: 'Ainda não dá para fazer isso, a consulta não aconteceu.', already_reviewed: 'Essa consulta já foi avaliada.',
+    not_allowed: 'Essa ação não está liberada para a sua conta.', too_early: 'Ainda não dá para fazer isso, a consulta não aconteceu.', too_late: 'Essa consulta já passou.', already_reviewed: 'Essa consulta já foi avaliada.',
     invalid_stars: 'Escolha de 1 a 5 estrelas.', appointment_not_found: 'Essa consulta não foi encontrada.', invalid_status: 'Essa consulta mudou de situação. Atualize a tela.',
     not_found: 'Não encontramos esse item. Atualize a tela.', too_many_blocks: 'Você já tem muitos fechamentos. Apague os antigos.', request_not_found: 'Esse pedido não existe mais. Atualize a tela.', request_expired: 'Esse pedido venceu. Peça de novo.',
     record_not_available: 'Esse cadastro já está ligado a uma conta.', attest_required: 'Marque a confirmação para enviar o encaminhamento.',

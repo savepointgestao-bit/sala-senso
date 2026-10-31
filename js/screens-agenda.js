@@ -266,7 +266,7 @@
     var metas = h('div', { class: 'metas mb16' }, h('span', { class: 'meta' }, UI.svg(a.mode === 'online' ? 'video' : 'map-pin', 14), MODE[a.mode] || a.mode), h('span', { class: 'meta' }, UI.svg('clock', 14), a.duration_minutes + ' min'),
       a.price_cents != null ? h('span', { class: 'meta' }, UI.svg('banknote', 14), UI.money(a.price_cents) + (a.payment_status === 'paid' ? ' (pago)' : '')) : null,
       a.series_id ? h('span', { class: 'meta' }, UI.svg('refresh-cw', 14), a.series_after > 0 ? 'Repete, mais ' + a.series_after : 'Última da série') : null);
-    sh = UI.sheet({ title: a.full_name, content: [h('p', { class: 'lead mb0' }, T.whenLabel(a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at), ' ', h('span', { class: 'badge ' + st[0] }, st[1])), metas,
+    sh = UI.sheet({ title: a.full_name, content: [h('p', { class: 'lead mb0' }, T.whenLabel(a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at), ' ', h('span', { class: 'badge ' + st[0] }, st[1]), a.status === 'scheduled' && a.patient_confirmed_at ? h('span', { class: 'badge ok' }, UI.svg('circle-check', 14), 'Confirmou presença') : null), metas,
       a.patient_note ? UI.notice('info', 'Recado do paciente: ' + a.patient_note) : null, h('div', { class: 'group' }, rows)], focus: null });
     return sh;
   }
@@ -278,9 +278,11 @@
     var parts = [MODE[a.mode] || a.mode, a.duration_minutes + ' min'];
     if (a.price_cents != null) parts.push(UI.money(a.price_cents) + (a.payment_status === 'paid' ? ' (pago)' : ''));
     if (a.series_id) parts.push('Repete');
-    return h('button', { type: 'button', class: 'appt-row ' + a.status, onclick: function () { apptSheet(a, reload); }, 'aria-label': a.full_name + ', ' + T.hmOf(start) + ', ' + st[1] },
+    var sure = a.status === 'scheduled' && a.patient_confirmed_at;
+    return h('button', { type: 'button', class: 'appt-row ' + a.status, onclick: function () { apptSheet(a, reload); }, 'aria-label': a.full_name + ', ' + T.hmOf(start) + ', ' + st[1] + (a.status === 'scheduled' && a.patient_confirmed_at ? ', confirmou presença' : '') },
       h('span', { class: 'when' }, T.hmOf(start)),
-      h('span', { class: 'grow' }, h('span', { class: 't' }, a.full_name), h('span', { class: 's' }, parts.join(' · '))),
+      h('span', { class: 'grow' }, h('span', { class: 't' }, a.full_name), h('span', { class: 's' }, parts.join(' · ')),
+        sure ? h('span', { class: 's sure' }, UI.svg('circle-check', 14), 'Confirmou presença') : null),
       h('span', { class: 'badge ' + st[0] }, st[1]));
   }
   S.apptRow = apptRow;
