@@ -1,10 +1,11 @@
-/* Assistente do paciente: conversa de FLUXO FIXO. Botoes e respostas prontas, sem inteligencia artificial e sem texto livre
-   interpretado por modelo. O que a pessoa escreve so e comparado com algumas palavras (marcar, cancelar, ajuda...).
-   Usa as mesmas chamadas da tela de Consultas (API.booking.*); nao grava a conversa em lugar nenhum. */
+/* Assistente do paciente: conversa de FLUXO FIXO num popup que fica em todas as telas do paciente (botao redondo no canto).
+   Botoes e respostas prontas, sem inteligencia artificial e sem texto livre interpretado por modelo. O que a pessoa escreve
+   so e comparado com algumas palavras (marcar, cancelar, ajuda...). Usa as mesmas chamadas da tela de Consultas (API.booking.*).
+   A conversa fica so na memoria: continua ao trocar de tela e some ao sair da conta. Nao grava nada em lugar nenhum.
+   Uma tela so: cabecalho, uma area de rolagem com as falas e as respostas rapidas, e o campo de texto fixo embaixo. */
 (function () {
   'use strict';
   var h = UI.h;
-  var S = window.Screens = window.Screens || {};
   var TYPE_MS = 420;
   var PLACEHOLDER = 'Escreva, por ex.: marcar, ajuda';
 
@@ -43,7 +44,8 @@
       h('span', { class: 'sos-num' }, UI.svg('phone-call', 20), num), h('span', { class: 'sos-name' }, name), h('span', { class: 'sos-sub' }, sub));
   }
 
-  S.assistant = function (ctx) {
+  /* ---------------------------------------------------------------- a conversa (um painel so) */
+  function createChat(ctx, host) {
     var meName = ctx.me.profile.full_name;
     var first = UI.firstName(meName);
     var D = { psy: [], appts: [] };
@@ -52,6 +54,7 @@
 
     var log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversa com o assistente' });
     var opts = h('div', { class: 'chat-opts', role: 'group', 'aria-label': 'Respostas rápidas' });
+    var scrollBox = h('div', { class: 'chat-scroll' }, log, opts);
     var input = h('input', { type: 'text', class: 'chat-input', maxlength: 300, autocomplete: 'off', 'aria-label': 'Escreva uma palavra', placeholder: PLACEHOLDER });
     var form = h('form', { class: 'chat-form', novalidate: true, onsubmit: function (ev) {
       ev.preventDefault();
@@ -65,15 +68,18 @@
       later(function () { if (m) m.onSubmit(v); else route(v); });
     } }, input, h('button', { type: 'submit', class: 'chat-send', 'aria-label': 'Enviar' }, UI.svg('send', 20)));
 
-    var head = h('div', { class: 'chat-head' }, BotAvatar.svg(48, 'ok', BotAvatar.name),
-      h('div', { class: 'grow' }, h('h1', null, 'Assistente'), h('p', { class: 'muted small mb0' }, 'Respostas prontas, sem inteligência artificial.')),
-      h('a', { class: 'btn ghost sm auto', href: '#/ajuda' }, UI.svg('life-buoy', 18), 'Ajuda agora'));
-    var node = S.shell(ctx, 'inicio', [head, h('section', { class: 'chat', 'aria-label': 'Conversa' }, log, opts, form)]);
+    var title = h('h2', { class: 'chat-title', id: 'chat-title' }, 'Assistente');
+    var head = h('header', { class: 'chat-head' }, h('span', { class: 'chat-av' }, BotAvatar.svg(38, 'ok')),
+      h('div', { class: 'grow' }, title, h('p', { class: 'chat-sub' }, 'Conversa só neste aparelho')),
+      h('button', { type: 'button', class: 'chat-ibtn urgent', 'aria-label': 'Preciso de ajuda agora', onclick: function () { pick({ label: 'Preciso de ajuda agora', run: function () { sos(false); } }); } }, UI.svg('life-buoy', 22)),
+      h('button', { type: 'button', class: 'chat-ibtn', 'aria-label': 'Fechar o assistente', onclick: function () { host.close(); } }, UI.svg('x', 22)));
+    var panel = h('section', { class: 'chat', role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'chat-title', tabindex: '-1' }, head, scrollBox, form);
+    panel.hidden = true;
 
     /* ------------------------------------------------ mecanica da conversa */
     function later(fn) { chain = chain.then(fn).catch(function (e) { Diag.error('assistente', e); }); return chain; }
-    function scroll() { log.scrollTop = log.scrollHeight; }
-    function resetInput() { inputMode = null; input.placeholder = PLACEHOLDER; input.removeAttribute('data-mode'); }
+    function scroll() { scrollBox.scrollTop = scrollBox.scrollHeight; }
+    function resetInput() { inputMode = null; input.placeholder = PLACEHOLDER; input.removeAttribute('data-mode'); input.maxLength = 300; }
 
     function bubble(kind, content, mood) {
       var b = h('div', { class: 'bubble ' + kind }, content);
@@ -100,7 +106,8 @@
         items.forEach(function (it) {
           var kids = [it.icon ? UI.svg(it.icon, 18) : null, it.label];
           if (it.href) {
-            opts.appendChild(h('a', { class: 'chip ' + (it.kind || ''), href: it.href, target: it.external ? '_blank' : null, rel: it.external ? 'noopener' : null }, kids));
+            /* link para outra tela do Senso fecha o popup; link para fora (WhatsApp, consulta online) abre em outra aba e o popup fica */
+            opts.appendChild(h('a', { class: 'chip ' + (it.kind || ''), href: it.href, target: it.external ? '_blank' : null, rel: it.external ? 'noopener' : null, onclick: function () { if (!it.external) host.close(true); } }, kids));
           } else {
             opts.appendChild(h('button', { type: 'button', class: 'chip ' + (it.kind || ''), onclick: function () { pick(it); } }, kids));
           }
@@ -394,10 +401,9 @@
     }
 
     /* ------------------------------------------------ começo */
-    setTimeout(function () {
+    function greet() {
       refresh().then(function () {
-        say('Oi, ' + first + '! Eu sou o assistente do Senso. Sou um programa com respostas prontas: não sou uma pessoa e não uso inteligência artificial.');
-        say('Esta conversa fica só aqui no seu aparelho e some quando você sair desta tela.');
+        say('Oi, ' + first + '! Sou o assistente do Senso. Tenho respostas prontas: não sou uma pessoa e não uso inteligência artificial.');
         var notes = [];
         var prop = D.appts.filter(function (a) { return a.status === 'reschedule_proposed'; });
         if (prop.length) notes.push(prop.length === 1 ? prop[0].professional_name + ' sugeriu outro horário para uma consulta sua.' : prop.length + ' consultas têm um novo horário sugerido.');
@@ -409,8 +415,78 @@
         if (notes.length) say(h('div', null, notes.map(function (t) { return h('p', null, t); })));
         menu(false);
       });
-    }, 30);
+    }
+    setTimeout(greet, 30);
 
-    return node;
+    return { el: panel, scroll: scroll };
+  }
+
+  /* ---------------------------------------------------------------- o popup: botao redondo + painel, montados no <body> */
+  var W = { ctx: null, uid: null, fab: null, chat: null, opened: false };
+
+  function ensureFab() {
+    if (W.fab) return;
+    W.fab = h('button', { type: 'button', class: 'chat-fab', 'aria-label': 'Abrir o assistente', 'aria-haspopup': 'dialog', onclick: function () { A.open(); } }, BotAvatar.svg(42, 'ok'));
+    W.fab.hidden = true;
+    document.body.appendChild(W.fab);
+  }
+  function onKey(ev) {
+    if (ev.key !== 'Escape' || !W.opened) return;
+    if (document.querySelector('.sheet-ov, .applock')) return;
+    ev.preventDefault();
+    A.close();
+  }
+  /* Aparece em toda tela do paciente, menos nos jogos do Lab: la o toque no tabuleiro e rapido e repetido, e um toque no canto abriria a conversa no meio da partida. */
+  function showFab() { if (W.fab) W.fab.hidden = W.opened || !document.querySelector('#app .app[data-assist]') || !!document.querySelector('#app .app[data-game]'); }
+
+  var A = window.Assistant = {
+    /* Chamado pela moldura do paciente a cada tela. Guarda quem e a pessoa; se mudou de conta, apaga a conversa antiga. */
+    attach: function (ctx) {
+      var uid = ctx && ctx.me && ctx.me.profile ? ctx.me.profile.id || ctx.me.profile.full_name : null;
+      if (W.uid && uid !== W.uid) A.reset();
+      W.ctx = ctx; W.uid = uid;
+      ensureFab();
+    },
+    /* Chamado depois que a tela foi montada: o botao so aparece onde ha a moldura do paciente. */
+    sync: function () {
+      if (!document.querySelector('#app .app[data-assist]')) { A.close(true); }
+      showFab();
+    },
+    isOpen: function () { return W.opened; },
+    open: function () {
+      if (!W.ctx || !document.querySelector('#app .app[data-assist]')) return;
+      if (!W.chat) {
+        W.chat = createChat(W.ctx, A);
+        document.body.appendChild(W.chat.el);
+      }
+      if (W.opened) return;
+      W.opened = true;
+      W.chat.el.hidden = false;
+      document.documentElement.classList.add('chat-open');
+      document.addEventListener('keydown', onKey);
+      showFab();
+      W.chat.scroll();
+      try { W.chat.el.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+    },
+    /* quiet = fechou porque a pessoa foi para outra tela: nao devolve o foco ao botao */
+    close: function (quiet) {
+      if (!W.opened) return;
+      W.opened = false;
+      if (W.chat) W.chat.el.hidden = true;
+      document.documentElement.classList.remove('chat-open');
+      document.removeEventListener('keydown', onKey);
+      showFab();
+      if (!quiet && W.fab) { try { W.fab.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    },
+    /* Saiu da conta (ou trocou de conta): apaga a conversa e esconde o botao. */
+    reset: function () {
+      A.close(true);
+      if (W.chat && W.chat.el.parentNode) W.chat.el.parentNode.removeChild(W.chat.el);
+      W.chat = null; W.ctx = null; W.uid = null;
+      if (W.fab && W.fab.parentNode) W.fab.parentNode.removeChild(W.fab);   /* nada do paciente fica na tela de quem entrar depois */
+      W.fab = null;
+    }
   };
+  /* Qualquer mudanca de tela fecha o popup (inclusive o botao voltar do navegador). */
+  window.addEventListener('hashchange', function () { A.close(true); });
 })();

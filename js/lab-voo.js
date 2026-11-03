@@ -62,13 +62,12 @@
     canvas.width = W * dpr; canvas.height = H * dpr;
     var ctx = canvas.getContext('2d');
     if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var stage = h('div', { class: 'lg-stage vo-stage', role: 'button', tabindex: '0', 'aria-label': 'Área do jogo. Toque ou use a barra de espaço para o passarinho subir.' }, canvas);
+    var stage = h('div', { class: 'lg-stage vo-stage', role: 'group', 'aria-label': 'Área do jogo. Toque ou use a barra de espaço para o passarinho subir.' }, canvas);
     var live = h('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
     var stats = G.stats([['score', 'Pontos'], ['best', 'Recorde']]);
     var pauseBtn = UI.button('Pausar', { variant: 'ghost', auto: true, icon: 'pause', onclick: function () { if (phase === 'run') pause(); else if (phase === 'pause') resume(); } });
     pauseBtn.disabled = true;
-    var root = h('div', { class: 'lg vo' }, h('div', { class: 'lg-bar' }, h('span', { class: 'lg-hint' }, 'Toque para voar'), pauseBtn), stats.el, stage, live,
-      h('p', { class: 'small muted lg-foot' }, 'Toque na área do jogo ou use a barra de espaço. O recorde fica só neste aparelho.'));
+    var root = h('div', { class: 'lg vo' }, h('div', { class: 'lg-bar' }, stats.el, pauseBtn), stage, live);
 
     function setOverlay(node) {
       var old = stage.querySelector('.lg-over');
@@ -85,7 +84,7 @@
 
     function toReady() {
       phase = 'ready'; s = create(); pauseBtn.disabled = true; setPauseLabel(); refresh();
-      setOverlay(G.veil('Voo', 'Toque na tela para começar. Cada toque faz o passarinho subir.', [UI.button('Começar', { auto: true, icon: 'play', onclick: begin })]));
+      setOverlay(G.veil('', '', [UI.button('Começar', { auto: true, icon: 'play', onclick: begin })]));
     }
     function begin() {
       if (phase !== 'ready') return;
@@ -99,13 +98,13 @@
       var again = UI.button('Jogar de novo', { auto: true, icon: 'rotate-ccw', onclick: function () { toReady(); begin(); } });
       again.disabled = true;
       setTimeout(function () { again.disabled = false; }, 700);
-      setOverlay(G.veil('Fim de jogo', 'Pontos: ' + s.score + (rec && s.score > 0 ? '. Novo recorde!' : '. Recorde: ' + best), [again]));
+      setOverlay(G.veil(rec && s.score > 0 ? 'Novo recorde!' : 'Fim de jogo', '', [again]));
       live.textContent = 'Fim de jogo. Pontos: ' + s.score + '.';
     }
     function pause() {
       if (phase !== 'run') return;
       phase = 'pause'; setPauseLabel();
-      setOverlay(G.veil('Pausado', 'O jogo espera por você.', [UI.button('Continuar', { auto: true, icon: 'play', onclick: resume })]));
+      setOverlay(G.veil('Pausado', '', [UI.button('Continuar', { auto: true, icon: 'play', onclick: resume })]));
     }
     function resume() {
       if (phase !== 'pause') return;

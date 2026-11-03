@@ -29,6 +29,8 @@
   window.__back = function () {
     /* 0. tela de bloqueio (PIN): dentro de "esqueci o PIN" volta ao teclado; no teclado, deixa o app sair */
     if (window.AppLock && AppLock.isLocked()) return AppLock.back();
+    /* 0.5. popup do assistente aberto: fecha */
+    if (window.Assistant && Assistant.isOpen()) { Assistant.close(); return true; }
     /* 1. janela aberta (sheet ou pergunta de confirmacao): fecha */
     if (document.querySelector('.sheet-ov')) {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

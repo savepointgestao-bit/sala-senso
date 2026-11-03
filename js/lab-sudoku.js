@@ -8,7 +8,6 @@
   S.labGames = S.labGames || {};
 
   var LEVELS = [['easy', 'Fácil'], ['medium', 'Médio'], ['hard', 'Difícil']];
-  var NAMES = { easy: 'Fácil', medium: 'Médio', hard: 'Difícil' };
   var CLUES = { easy: 40, medium: 33, hard: 28 };
 
   /* ---------------------------------------------------------------- regras (sem tela) */
@@ -79,7 +78,7 @@
     var best = G.load('sudoku.best', {}) || {};
     var cells = [], keys = [], keyLeft = [];
 
-    var stats = G.stats([['time', 'Tempo'], ['hints', 'Dicas'], ['best', 'Melhor']]);
+    var stats = G.stats([['time', 'Tempo'], ['best', 'Melhor']]);
     var msg = h('p', { class: 'lg-msg', role: 'status', 'aria-live': 'polite' });
     var winBox = h('div', { 'aria-live': 'polite' });
     var seg = UI.segmented({ label: 'Nível', value: 'easy', options: LEVELS, onChange: function (v) { ask(v); } });
@@ -107,8 +106,7 @@
     var tools = h('div', { class: 'sd-tools' }, notesBtn, tool('eraser', 'Apagar', erase), tool('undo-2', 'Desfazer', undo), tool('lightbulb', 'Dica', hint), tool('check', 'Conferir', check));
     var newBtn = UI.button('Novo jogo', { variant: 'ghost', auto: true, icon: 'rotate-ccw', onclick: function () { ask(st ? st.level : seg.get()); } });
     var root = h('div', { class: 'lg sd' },
-      h('div', { class: 'lg-bar' }, seg.el, newBtn), stats.el, winBox, board, msg, pad, tools,
-      h('p', { class: 'small muted lg-foot' }, 'Cada tabuleiro tem uma única solução. O recorde de tempo só vale sem dicas.'));
+      h('div', { class: 'lg-bar' }, seg.el, newBtn), stats.el, winBox, board, msg, pad, tools);
 
     /* ---- partida */
     function begin(level, rnd) {
@@ -135,10 +133,10 @@
 
     function put(v) {
       if (!st || st.done) return;
-      if (sel < 0) { msg.textContent = 'Toque em um quadrado primeiro.'; return; }
-      if (st.puzzle[sel]) { msg.textContent = 'Esse número já veio no jogo.'; return; }
+      if (sel < 0) { msg.textContent = 'Escolha um quadrado.'; return; }
+      if (st.puzzle[sel]) return;
       if (noteMode) {
-        if (st.vals[sel]) { msg.textContent = 'Apague o número para anotar neste quadrado.'; return; }
+        if (st.vals[sel]) { msg.textContent = 'Apague o número para anotar.'; return; }
         snapshot(); st.notes[sel] ^= (1 << v);
       } else {
         snapshot();
@@ -154,7 +152,7 @@
     function undo() {
       if (!st || st.done) return;
       var s = st.undo.pop();
-      if (!s) { msg.textContent = 'Nada para desfazer.'; return; }
+      if (!s) return;
       st.vals = s.v; st.notes = s.n; moved();
     }
     function hint() {
@@ -165,18 +163,17 @@
         for (n = 0; n < 81 && t < 0; n++) if (!st.puzzle[n] && !st.vals[n]) t = n;
         for (n = 0; n < 81 && t < 0; n++) if (!st.puzzle[n] && st.vals[n] !== st.solution[n]) t = n;
       }
-      if (t < 0) { msg.textContent = 'Não há o que ajudar agora.'; return; }
+      if (t < 0) return;
       snapshot();
       st.vals[t] = st.solution[t]; st.notes[t] = 0; clean(t, st.solution[t]); st.hinted[t] = true; st.hints++; sel = t;
-      msg.textContent = 'Preenchi um quadrado para você.';
-      moved(true);
+      moved();
     }
     function check() {
       if (!st || st.done) return;
       var bad = {}, n, count = 0;
       for (n = 0; n < 81; n++) if (st.vals[n] && st.vals[n] !== st.solution[n]) { bad[n] = true; count++; }
       st.wrong = count ? bad : null;
-      msg.textContent = count ? (count === 1 ? '1 número está errado, marcado em vermelho.' : count + ' números estão errados, marcados em vermelho.') : 'Tudo certo até aqui.';
+      msg.textContent = count ? (count === 1 ? '1 número errado.' : count + ' números errados.') : 'Tudo certo.';
       paint();
     }
     function moved(keepMsg) {
@@ -184,15 +181,15 @@
       if (!keepMsg) msg.textContent = '';
       var full = st.vals.every(function (v) { return v; });
       if (st.vals.every(function (v, n) { return v === st.solution[n]; })) { finish(); return; }
-      if (full) msg.textContent = 'Todos os quadrados estão preenchidos, mas há número errado. Toque em Conferir.';
+      if (full) msg.textContent = 'Há número errado. Toque em Conferir.';
       store(); paint();
     }
     function finish() {
       st.done = true; sel = -1; st.wrong = null;
-      var text = 'Você completou o Sudoku ' + NAMES[st.level] + ' em ' + G.fmt(st.secs) + '.', rec = false;
+      var text = 'Sudoku completo em ' + G.fmt(st.secs) + '.', rec = false;
       if (!st.hints && (!best[st.level] || st.secs < best[st.level])) { best[st.level] = st.secs; G.save('sudoku.best', best); rec = true; }
       winBox.textContent = '';
-      winBox.appendChild(UI.notice('ok', 'Parabéns! ' + text + (rec ? ' Novo recorde!' : '') + (st.hints ? ' Com ' + st.hints + (st.hints === 1 ? ' dica.' : ' dicas.') : '')));
+      winBox.appendChild(UI.notice('ok', 'Parabéns! ' + text + (rec ? ' Novo recorde!' : '')));
       msg.textContent = '';
       store(); paint();
     }
@@ -234,7 +231,7 @@
       });
       notesBtn.setAttribute('aria-pressed', noteMode ? 'true' : 'false');
       notesBtn.classList.toggle('on', noteMode);
-      stats.set({ time: G.fmt(st.secs), hints: st.hints, best: best[st.level] ? G.fmt(best[st.level]) : 'ainda não' });
+      stats.set({ time: G.fmt(st.secs), best: best[st.level] ? G.fmt(best[st.level]) : '-' });
     }
 
     board.addEventListener('keydown', function (ev) {
@@ -263,7 +260,6 @@
     if (validSave(sv0)) {
       st = { level: sv0.level, puzzle: sv0.puzzle, solution: sv0.solution, vals: sv0.vals, notes: sv0.notes, secs: sv0.secs || 0, hints: sv0.hints || 0, undo: [], wrong: null, hinted: sv0.hinted || {}, done: false };
       seg.set(st.level); paint();
-      msg.textContent = 'Continuando o seu último jogo.';
     } else begin('easy');
     return root;
   }

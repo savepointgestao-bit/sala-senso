@@ -103,10 +103,10 @@
       return { alive: function () { return !dead && node.isConnected; }, kill: kill };
     },
 
-    /* Tela de abertura/fim de jogo por cima do tabuleiro. */
+    /* Tela de abertura/fim de jogo por cima do tabuleiro. So o essencial: titulo curto (opcional) e o botao. */
     veil: function (title, text, buttons) {
-      return h('div', { class: 'lg-over', role: 'group', 'aria-label': title },
-        h('div', { class: 'lg-over-in' }, h('b', { class: 'lg-over-t' }, title), text ? h('p', { class: 'lg-over-s' }, text) : null, h('div', { class: 'lg-over-b' }, buttons || [])));
+      return h('div', { class: 'lg-over', role: 'group', 'aria-label': title || 'Jogo' },
+        h('div', { class: 'lg-over-in' }, title ? h('b', { class: 'lg-over-t' }, title) : null, text ? h('p', { class: 'lg-over-s' }, text) : null, h('div', { class: 'lg-over-b' }, buttons || [])));
     },
 
     /* Linha de numeros do jogo (tempo, pontos, recorde). Devolve { el, set(map) }. */

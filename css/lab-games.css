@@ -1,23 +1,22 @@
 /* Senso portal: jogos do Lab (Sudoku, Cobrinha, Voo e Memoria). Usa so as cores e medidas do portal.css (claro e escuro). Sem estilo inline (CSP). */
 .lg { display: grid; gap: .8rem; justify-items: center; margin-bottom: 1rem; }
 .lg > * { width: 100%; max-width: 26rem; min-width: 0; }
+/* Sem o clarão cinza que o Android põe em tudo que se toca: nos jogos o toque é rápido e repetido. */
+.lg, .lg * { -webkit-tap-highlight-color: transparent; }
 .lg-bar { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
 .lg-bar .seg { flex: 1 1 11rem; }
-.lg-hint { color: var(--mute); font-size: .92rem; }
+.lg-bar .lg-stats { flex: 1 1 auto; width: auto; justify-content: flex-start; }
 .lg-stats { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
 .lg-stat { display: inline-flex; align-items: baseline; gap: .4rem; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: .3rem .8rem; font-size: .92rem; }
 .lg-stat-l { color: var(--mute); }
 .lg-stat b { font-variant-numeric: tabular-nums; }
 .lg-msg { min-height: 1.5em; margin: 0; text-align: center; color: var(--mute); font-size: .95rem; }
-.lg-foot { margin: 0; text-align: center; }
 button.sd-cell:focus-visible, .sd-key:focus-visible, .sd-tool:focus-visible, .sn-d:focus-visible, .mm-card:focus-visible { outline: 3px solid var(--pri); outline-offset: 2px; }
 
 /* tabuleiro de jogos em canvas (Cobrinha e Voo) */
-.lg .lg-stage { position: relative; border: 2px solid var(--line2); border-radius: var(--r-m); overflow: hidden; background: var(--surface2); touch-action: none; -webkit-user-select: none; user-select: none; }
+.lg .lg-stage { position: relative; border: 2px solid var(--line2); border-radius: var(--r-m); overflow: hidden; background: var(--surface2); touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; outline: none; }
 .lg .sn-stage { aspect-ratio: 1; width: clamp(14rem, calc(100vh - 25rem), 22.5rem); max-width: 100%; }
 .lg .vo-stage { aspect-ratio: 2 / 3; width: clamp(12rem, calc((100vh - 24rem) * .6667), 20rem); max-width: 100%; cursor: pointer; }
-.lg .lg-stage.wrap { border-style: dashed; }
-.lg-stage:focus-visible { outline: 3px solid var(--pri); outline-offset: 2px; }
 .lg-canvas { display: block; width: 100%; height: 100%; }
 .lg-over { position: absolute; inset: 0; display: grid; place-items: center; padding: 1rem; text-align: center; }
 .lg-over::before { content: ''; position: absolute; inset: 0; background: var(--surface); opacity: .9; }

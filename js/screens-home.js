@@ -275,7 +275,6 @@
         if (link) tiles.push(h('a', { class: 'tile act', href: link, target: '_blank', rel: 'noopener' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com ' + UI.firstName(x.full_name))));
       });
       if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) tiles.push(h('a', { class: 'tile act', href: '#/consultas' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar uma consulta')));
-      tiles.push(h('a', { class: 'tile act', href: '#/assistente' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com o assistente')));
       tiles.push(h('a', { class: 'tile act help', href: '#/ajuda' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 22)), h('span', { class: 't' }, 'Preciso de ajuda')));
       return h('div', { class: 'tiles' }, tiles);
     }

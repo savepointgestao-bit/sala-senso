@@ -1,5 +1,5 @@
 /* Lab, jogos: Cobrinha. Coma, cresca e nao bata em si mesma. Joga deslizando o dedo no tabuleiro, pelas setas na tela ou pelo teclado.
-   Dois modos: "Com paredes" (bater na parede acaba o jogo) e "Sem paredes" (atravessa e volta pelo outro lado), cada um com o seu recorde.
+   Nao ha parede que acabe o jogo: ao sair por um lado a cobrinha volta pelo outro. So bater no proprio corpo acaba a partida.
    A parte de regras (S.labGames.cobrinha.engine) nao mexe na tela. */
 (function () {
   'use strict';
@@ -23,7 +23,7 @@
   function create(o, rnd) {
     o = o || {};
     var w = o.w || N, hh = o.h || N, my = Math.floor(hh / 2);
-    var s = { w: w, h: hh, wrap: !!o.wrap, snake: [{ x: 4, y: my }, { x: 3, y: my }, { x: 2, y: my }], dir: 'right', queue: [], food: null, score: 0, over: false, won: false, rnd: rnd || G.rng() };
+    var s = { w: w, h: hh, wrap: o.wrap !== false, snake: [{ x: 4, y: my }, { x: 3, y: my }, { x: 2, y: my }], dir: 'right', queue: [], food: null, score: 0, over: false, won: false, rnd: rnd || G.rng() };
     placeFood(s);
     return s;
   }
@@ -61,8 +61,9 @@
   }
 
   function cobrinha() {
-    var wrap = !!G.load('cobrinha.wrap', false), bestAll = G.load('cobrinha.best', { walls: 0, wrap: 0 }) || { walls: 0, wrap: 0 };
-    var s = null, phase = 'ready', timer = null, speak = null;
+    /* O recorde era guardado por modo ({ walls, wrap }); agora e um numero so. Quem tinha recorde sem paredes mantem esse. */
+    var rawBest = G.load('cobrinha.best', 0), best = typeof rawBest === 'number' ? rawBest : Math.max(0, Number(rawBest && rawBest.wrap) || 0);
+    var s = null, phase = 'ready', timer = null;
 
     var canvas = h('canvas', { class: 'lg-canvas', 'aria-hidden': 'true' });
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -72,8 +73,6 @@
     var stage = h('div', { class: 'lg-stage sn-stage' }, canvas);
     var live = h('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
     var stats = G.stats([['score', 'Pontos'], ['best', 'Recorde']]);
-    var seg = UI.segmented({ label: 'Modo', value: wrap ? 'wrap' : 'walls', options: [['walls', 'Com paredes'], ['wrap', 'Sem paredes']], onChange: function (v) {
-      wrap = v === 'wrap'; G.save('cobrinha.wrap', wrap); stop(); toReady(); } });
     var pauseBtn = UI.button('Pausar', { variant: 'ghost', auto: true, icon: 'pause', onclick: function () { if (phase === 'run') pause(); else if (phase === 'pause') resume(); } });
     pauseBtn.disabled = true;
     function dbtn(dir, icon, label) {
@@ -81,23 +80,21 @@
     }
     var dpad = h('div', { class: 'sn-dpad', role: 'group', 'aria-label': 'Direção' },
       dbtn('up', 'arrow-up', 'Para cima'), dbtn('left', 'arrow-left', 'Para a esquerda'), dbtn('down', 'arrow-down', 'Para baixo'), dbtn('right', 'arrow-right', 'Para a direita'));
-    var root = h('div', { class: 'lg sn' }, h('div', { class: 'lg-bar' }, seg.el, pauseBtn), stats.el, stage, live, dpad,
-      h('p', { class: 'small muted lg-foot' }, 'Deslize o dedo no tabuleiro, use as setas ou o teclado. Espaço pausa. O recorde fica só neste aparelho.'));
+    var root = h('div', { class: 'lg sn' }, h('div', { class: 'lg-bar' }, stats.el, pauseBtn), stage, live, dpad);
+    root.gameState = function () { return s; };   /* so para os testes: deixam a partida num ponto exato */
 
-    function bestKey() { return wrap ? 'wrap' : 'walls'; }
     function setOverlay(node) {
       var old = stage.querySelector('.lg-over');
       if (old) stage.removeChild(old);
       if (node) stage.appendChild(node);
     }
     function say(t) { live.textContent = t; }
-    function refresh() { stats.set({ score: s ? s.score : 0, best: bestAll[bestKey()] || 0 }); }
+    function refresh() { stats.set({ score: s ? s.score : 0, best: best }); }
 
     function toReady() {
-      phase = 'ready'; s = create({ wrap: wrap }); pauseBtn.disabled = true; stage.classList.toggle('wrap', wrap);
+      phase = 'ready'; s = create(); pauseBtn.disabled = true;
       setPauseLabel(); refresh(); draw();
-      setOverlay(G.veil('Cobrinha', wrap ? 'Sem paredes: ao sair de um lado, você volta pelo outro.' : 'Não bata nas paredes nem em você mesma.',
-        [UI.button('Começar', { auto: true, icon: 'play', onclick: start })]));
+      setOverlay(G.veil('', '', [UI.button('Começar', { auto: true, icon: 'play', onclick: start })]));
     }
     function setPauseLabel() {
       var run = phase === 'pause';
@@ -106,7 +103,7 @@
       pauseBtn.appendChild(UI.svg(run ? 'play' : 'pause')); pauseBtn.appendChild(document.createTextNode(run ? 'Continuar' : 'Pausar'));
     }
     function start() {
-      if (phase !== 'ready' || !s) s = create({ wrap: wrap });
+      if (phase !== 'ready' || !s) s = create();
       phase = 'run'; pauseBtn.disabled = false; setPauseLabel(); setOverlay(null); say('Jogo começou.'); refresh(); draw(); schedule();
     }
     function schedule() { clearTimeout(timer); timer = setTimeout(tick, speed(s.score)); }
@@ -122,18 +119,17 @@
     }
     function end() {
       stop(); phase = 'over'; pauseBtn.disabled = true; setPauseLabel();
-      var rec = s.score > (bestAll[bestKey()] || 0);
-      if (rec) { bestAll[bestKey()] = s.score; G.save('cobrinha.best', bestAll); }
+      var rec = s.score > best;
+      if (rec) { best = s.score; G.save('cobrinha.best', best); }
       refresh();
-      var title = s.won ? 'Você encheu o tabuleiro!' : 'Fim de jogo';
-      setOverlay(G.veil(title, 'Pontos: ' + s.score + (rec && s.score > 0 ? '. Novo recorde!' : '. Recorde: ' + (bestAll[bestKey()] || 0)),
-        [UI.button('Jogar de novo', { auto: true, icon: 'rotate-ccw', onclick: function () { toReady(); start(); } })]));
+      var title = s.won ? 'Tabuleiro cheio!' : rec && s.score > 0 ? 'Novo recorde!' : 'Fim de jogo';
+      setOverlay(G.veil(title, '', [UI.button('Jogar de novo', { auto: true, icon: 'rotate-ccw', onclick: function () { toReady(); start(); } })]));
       say(title + ' Pontos: ' + s.score + '.');
     }
     function pause() {
       if (phase !== 'run') return;
       stop(); phase = 'pause'; setPauseLabel();
-      setOverlay(G.veil('Pausado', 'O jogo espera por você.', [UI.button('Continuar', { auto: true, icon: 'play', onclick: resume })]));
+      setOverlay(G.veil('Pausado', '', [UI.button('Continuar', { auto: true, icon: 'play', onclick: resume })]));
     }
     function resume() { if (phase !== 'pause') return; phase = 'run'; setPauseLabel(); setOverlay(null); schedule(); }
     function input(dir) {

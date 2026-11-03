@@ -59,7 +59,12 @@
       build: function (ctx, q, m) { return S.diaryEditor(ctx, m[1] === 'novo' ? null : m[1]); } },
     { re: /^consultas$/, who: 'patient', title: 'Consultas', build: function (ctx, q) { return S.appointments(ctx, q); } },
     { re: /^psicologo$/, who: 'patient', title: 'Meu psicólogo(a)', build: function (ctx) { return S.myPsychologist(ctx); } },
-    { re: /^assistente$/, who: 'patient', title: 'Assistente', build: function (ctx) { return S.assistant(ctx); } },
+    /* O assistente agora e um popup que fica em todas as telas do paciente. O endereco antigo abre o popup sobre o inicio. */
+    { re: /^assistente$/, who: 'patient', title: 'Início', build: function (ctx) {
+      try { history.replaceState(null, '', location.pathname + location.search + '#/inicio'); } catch (e) { /* ignore */ }
+      setTimeout(function () { if (window.Assistant) Assistant.open(); }, 0);
+      return S.homePatient(ctx);
+    } },
     { re: /^lab$/, who: 'patient', title: 'Lab', build: function (ctx) { return S.lab(ctx); } },
     { re: /^lab\/([a-z-]+)$/, who: 'patient', title: 'Lab', build: function (ctx, q, m) { return S.labCategory(ctx, m[1]); } },
     { re: /^lab\/([a-z-]+)\/([a-z-]+)$/, who: 'patient', title: 'Lab', build: function (ctx, q, m) { return S.labItem(ctx, m[1], m[2]); } },
@@ -132,7 +137,7 @@
 
   var wasAuthed = null, token = 0, queued = false;
 
-  function mount(node, title) { UI.mount(node, title); }
+  function mount(node, title) { UI.mount(node, title); if (window.Assistant) Assistant.sync(); }
 
   function errorPage(msg, retry) { return S.errorPage(msg, retry ? render : null); }
 
@@ -261,7 +266,7 @@
   window.addEventListener('hashchange', render);
 
   API.onAuth(function (ev) {
-    if (ev === 'SIGNED_OUT') { wasAuthed = false; Idle.stop(); render(); }
+    if (ev === 'SIGNED_OUT') { wasAuthed = false; Idle.stop(); if (window.Assistant) Assistant.reset(); render(); }
     else if (ev === 'PASSWORD_RECOVERY') { if (location.hash === '#/redefinir-senha') render(); else location.hash = '#/redefinir-senha'; }
     else if (ev === 'SIGNED_IN') { if (!wasAuthed) render(); }   /* o Supabase repete SIGNED_IN ao voltar para a aba: nao redesenhar, senao apaga o que a pessoa digitou */
   });

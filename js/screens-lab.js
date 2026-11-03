@@ -1,7 +1,7 @@
 /* Lab (so pacientes): uma area so do paciente, em categorias. O psicologo(a) nao tem acesso.
    Cada categoria tem itens; o item "soon" aparece com "Em breve" e ainda nao abre. Para publicar um item novo basta trocar
    soon por um renderizador em ITEMS (veja "respirar" e "aterramento"). Os jogos (Sudoku, Cobrinha, Voo e Memoria) ficam em lab-*.js e
-   se registram em Screens.labGames. Recordes e partidas ficam so no aparelho. */
+   se registram em Screens.labGames. Recordes e partidas ficam so no aparelho. Telas dos jogos sem texto de apoio: so o jogo. */
 (function () {
   'use strict';
   var h = UI.h;
@@ -19,11 +19,11 @@
   Object.keys(EXTRA).forEach(function (k) { if (!window.ICON_NODES[k]) window.ICON_NODES[k] = EXTRA[k]; });
 
   var CATS = [
-    { id: 'games', icon: 'gamepad-2', title: 'Games', text: 'Jogos curtos para desligar a cabeça por alguns minutos.', items: [
-      { id: 'sudoku', icon: 'grid-3x3', title: 'Sudoku', text: 'Complete a grade sem repetir números. Três níveis, do fácil ao difícil.', foot: 'games' },
-      { id: 'cobrinha', icon: 'gamepad-2', title: 'Cobrinha', text: 'Coma, cresça e não bata. Joga pelo toque ou pelo teclado.', foot: 'games' },
-      { id: 'voo', icon: 'bird', title: 'Voo', text: 'Toque para o passarinho passar pelas frestas. Quanto mais longe, melhor.', foot: 'games' },
-      { id: 'memoria', icon: 'copy', title: 'Memória', text: 'Vire as cartas e ache os pares. Sem tempo e sem pressa, só para relaxar.', foot: 'games' }] },
+    { id: 'games', icon: 'gamepad-2', title: 'Games', text: 'Jogos curtos para desligar a cabeça.', items: [
+      { id: 'sudoku', icon: 'grid-3x3', title: 'Sudoku', game: true },
+      { id: 'cobrinha', icon: 'gamepad-2', title: 'Cobrinha', game: true },
+      { id: 'voo', icon: 'bird', title: 'Voo', game: true },
+      { id: 'memoria', icon: 'copy', title: 'Memória', game: true }] },
     { id: 'estudo', icon: 'graduation-cap', title: 'Estudo', text: 'Aprender sobre a mente e o cuidado com ela, no seu ritmo.', items: [
       { id: 'cursos', icon: 'graduation-cap', title: 'Cursos básicos', text: 'Aulas curtas sobre saúde mental, com certificado visual. O certificado não tem validade oficial.', soon: true },
       { id: 'cartoes', icon: 'book-open', title: 'Cartões de estudo', text: 'Perguntas e respostas rápidas para fixar o que você aprendeu.', soon: true }] },
@@ -42,10 +42,8 @@
   S.labCats = CATS;
 
   function cat(id) { for (var i = 0; i < CATS.length; i++) if (CATS[i].id === id) return CATS[i]; return null; }
-  function counts(c) {
-    var on = c.items.filter(function (x) { return !x.soon; }).length, soon = c.items.length - on;
-    return on ? on + (on === 1 ? ' disponível' : ' disponíveis') + (soon ? ' e ' + soon + ' em breve' : '') : soon + ' em breve';
-  }
+  /* So avisa quando a categoria inteira ainda nao abre; categoria com algo pronto nao leva selo nenhum. */
+  function counts(c) { return c.items.some(function (x) { return !x.soon; }) ? '' : 'Em breve'; }
   function missing(ctx, title) {
     return S.shell(ctx, 'lab', [UI.pageHead('Lab'), UI.empty('flask-conical', title, 'Esse item não existe ou saiu do Lab.', h('a', { class: 'btn auto', href: '#/lab' }, 'Voltar ao Lab'))]);
   }
@@ -55,7 +53,7 @@
     var cards = CATS.map(function (c) {
       return h('a', { class: 'lab-cat', href: '#/lab/' + c.id },
         h('span', { class: 'ico-box lg' }, UI.svg(c.icon, 28)),
-        h('span', { class: 'grow' }, h('b', { class: 'lab-cat-t' }, c.title), h('span', { class: 'lab-cat-s' }, c.text), h('span', { class: 'lab-cat-n' }, counts(c))),
+        h('span', { class: 'grow' }, h('b', { class: 'lab-cat-t' }, c.title), h('span', { class: 'lab-cat-s' }, c.text), counts(c) ? h('span', { class: 'lab-cat-n' }, counts(c)) : null),
         h('span', { class: 'chev', 'aria-hidden': 'true' }, UI.svg('chevron-right', 20)));
     });
     return S.shell(ctx, 'lab', [UI.pageHead('Lab', 'Uma área só sua para cuidar da cabeça entre as sessões. Seu psicólogo(a) não tem acesso.'),
@@ -71,12 +69,12 @@
     if (!c) return missing(ctx, 'Categoria não encontrada');
     var rows = c.items.map(function (it) {
       var kids = [h('span', { class: 'ico-box' }, UI.svg(it.icon, 22)),
-        h('span', { class: 'grow' }, h('b', { class: 'lab-it-t' }, it.title), h('span', { class: 'lab-it-s' }, it.text)),
-        it.soon ? h('span', { class: 'badge soft' }, 'Em breve') : h('span', { class: 'badge ok' }, 'Disponível')];
+        h('span', { class: 'grow' }, h('b', { class: 'lab-it-t' }, it.title), it.text ? h('span', { class: 'lab-it-s' }, it.text) : null),
+        it.soon ? h('span', { class: 'badge soft' }, 'Em breve') : null];
       return it.soon ? h('div', { class: 'lab-item soon', 'aria-label': it.title + ', em breve' }, kids)
         : h('a', { class: 'lab-item', href: '#/lab/' + c.id + '/' + it.id }, kids);
     });
-    return S.shell(ctx, 'lab', [UI.backLink('#/lab', 'Lab'), UI.pageHead(c.title, c.text), h('div', { class: 'lab-list' }, rows)]);
+    return S.shell(ctx, 'lab', [UI.backLink('#/lab', 'Lab'), UI.pageHead(c.title), h('div', { class: 'lab-list' }, rows)]);
   };
 
   /* ---------------------------------------------------------------- um item pronto */
@@ -92,7 +90,6 @@
     'games/voo': function () { return S.labGames.voo(); },
     'games/memoria': function () { return S.labGames.memoria(); }
   };
-  var FOOT = { games: 'Seus recordes e jogos salvos ficam só neste aparelho. Nada é enviado para ninguém, e o jogo para quando você sai da tela.' };
   S.labItem = function (ctx, catId, itemId) {
     var c = cat(catId), it = c && c.items.filter(function (x) { return x.id === itemId; })[0];
     if (!it) return missing(ctx, 'Item não encontrado');
@@ -101,8 +98,9 @@
       return S.shell(ctx, 'lab', [UI.backLink('#/lab/' + c.id, c.title), UI.pageHead(it.title, it.text),
         UI.empty('flask-conical', 'Em breve', 'Ainda estamos preparando este item.', h('a', { class: 'btn auto', href: '#/lab/' + c.id }, 'Voltar a ' + c.title))]);
     }
-    var foot = it.foot && FOOT[it.foot] ? h('p', { class: 'small muted' }, FOOT[it.foot])
-      : h('p', { class: 'small muted' }, 'Se estiver muito difícil agora, use o botão ', h('a', { href: '#/ajuda' }, 'Preciso de ajuda'), '.');
-    return S.shell(ctx, 'lab', [UI.backLink('#/lab/' + c.id, c.title), UI.pageHead(it.title), render(ctx), foot]);
+    var foot = it.game ? null : h('p', { class: 'small muted' }, 'Se estiver muito difícil agora, use o botão ', h('a', { href: '#/ajuda' }, 'Preciso de ajuda'), '.');
+    var node = S.shell(ctx, 'lab', [UI.backLink('#/lab/' + c.id, c.title), UI.pageHead(it.title), render(ctx), foot]);
+    if (it.game) node.setAttribute('data-game', '1');   /* o botao do assistente se esconde durante o jogo */
+    return node;
   };
 })();

@@ -101,6 +101,7 @@
       return h('a', { class: 'help-btn ' + cls, href: '#/ajuda', 'aria-current': active === 'ajuda' ? 'page' : null, 'aria-label': 'Preciso de ajuda' }, UI.svg('life-buoy', 20), h('span', { class: 'lbl' }, 'Preciso de ajuda'));
     }
     var withHelp = !pro && !adminMode;
+    if (withHelp && window.Assistant) Assistant.attach(ctx);   /* botao redondo do assistente em todas as telas do paciente */
 
     var moreBtn = menu.more.length ? h('button', { type: 'button', class: 'more-btn', 'aria-current': activeMore ? 'page' : null, 'aria-haspopup': 'dialog', onclick: function () {
       var rows = menu.more.map(function (it) {
@@ -109,7 +110,7 @@
       var sh = UI.sheet({ title: 'Mais', content: h('div', { class: 'group' }, rows) });
     } }, UI.svg('ellipsis', 22), h('span', null, 'Mais')) : null;
 
-    var node = h('div', { class: 'app' },
+    var node = h('div', { class: 'app', 'data-assist': withHelp ? '1' : null },
       h('aside', { class: 'side' },
         h('div', { class: 'side-top' }, UI.brand('#/inicio'), withBell ? bellButton(ctx) : null),
         h('nav', { 'aria-label': 'Menu principal' }, all.map(link)),

@@ -43,14 +43,14 @@
   function memoria() {
     var best = G.load('memoria.best', {}) || {};
     var s = null, level = 'easy';
-    var stats = G.stats([['moves', 'Jogadas'], ['pairs', 'Pares'], ['best', 'Melhor']]);
-    var msg = h('p', { class: 'lg-msg', role: 'status', 'aria-live': 'polite' });
+    var stats = G.stats([['moves', 'Jogadas'], ['best', 'Melhor']]);
+    /* Aviso so para leitor de tela: na tela as cartas ja mostram o que aconteceu. */
+    var msg = h('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
     var winBox = h('div', { 'aria-live': 'polite' });
     var grid = h('div', { class: 'mm-grid c3', role: 'group', 'aria-label': 'Cartas' });
     var seg = UI.segmented({ label: 'Nível', value: level, options: [['easy', 'Fácil'], ['medium', 'Médio'], ['hard', 'Difícil']], onChange: function (v) { begin(v); } });
     var again = UI.button('Novo jogo', { variant: 'ghost', auto: true, icon: 'rotate-ccw', onclick: function () { begin(level); } });
-    var root = h('div', { class: 'lg mm' }, h('div', { class: 'lg-bar' }, seg.el, again), stats.el, winBox, grid, msg,
-      h('p', { class: 'small muted lg-foot' }, 'Vire duas cartas por vez. Sem tempo, sem pressa. O recorde (menos jogadas) fica só neste aparelho.'));
+    var root = h('div', { class: 'lg mm' }, h('div', { class: 'lg-bar' }, seg.el, again), stats.el, winBox, grid, msg);
 
     function begin(lv) {
       level = lv; s = create(lv); seg.set(lv); winBox.textContent = ''; msg.textContent = '';
@@ -72,7 +72,7 @@
         b.setAttribute('aria-label', 'Carta ' + (i + 1) + ', ' + (c.done ? SYMS[c.sym][1] + ', par encontrado' : c.up ? SYMS[c.sym][1] + ', virada' : 'virada para baixo'));
         b.disabled = c.done;
       });
-      stats.set({ moves: s.moves, pairs: s.found + ' de ' + s.pairs, best: best[level] ? best[level] : 'ainda não' });
+      stats.set({ moves: s.moves, best: best[level] ? best[level] : '-' });
     }
     function tap(i) {
       var r = flip(s, i);
@@ -91,7 +91,7 @@
       var rec = !best[level] || s.moves < best[level];
       if (rec) { best[level] = s.moves; G.save('memoria.best', best); }
       winBox.textContent = '';
-      winBox.appendChild(UI.notice('ok', 'Parabéns! Você achou todos os pares em ' + s.moves + (s.moves === 1 ? ' jogada.' : ' jogadas.') + (rec ? ' Novo recorde!' : '')));
+      winBox.appendChild(UI.notice('ok', 'Parabéns! ' + s.moves + (s.moves === 1 ? ' jogada.' : ' jogadas.') + (rec ? ' Novo recorde!' : '')));
       msg.textContent = '';
       paint();
     }
