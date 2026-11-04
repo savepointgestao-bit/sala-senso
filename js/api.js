@@ -456,29 +456,40 @@
 
     /* transcricao da gravacao (AssemblyAI, pela funcao de borda transcribe-start). O audio sobe para um balde privado, vira texto com as vozes
        separadas e e apagado; o texto fica cifrado no banco e so a psicologa dona le. */
-    transcripts: {
-      ticket: function (recordingId) { return sb.rpc('audio_ticket', { p_recording: recordingId }).then(ok); },
-      /* Para onde o app nativo sobe o arquivo: endereco do balde + o login do proprio psicologo (o banco so deixa subir o arquivo da gravacao dele). */
-      target: function (ticket) {
-        return sb.auth.getSession().then(function (r) {
-          var s = r.data && r.data.session;
-          if (!s) throw new Error('not_authenticated');
-          return { url: cfg.supabaseUrl + '/storage/v1/object/' + ticket.bucket + '/' + ticket.path, token: s.access_token, apikey: cfg.supabaseAnonKey };
-        });
-      },
-      request: function (recordingId, bytes) {
-        return sb.functions.invoke('transcribe-start', { body: { recording_id: recordingId, bytes: bytes || null } }).then(function (r) {
-          if (!r.error) return true;
+    transcripts: (function () {
+      /* Chama uma funcao de borda; no erro, o codigo que o servidor mandou no corpo (ex.: 'rate_limited') vira a mensagem do Error. */
+      function edge(name, body) {
+        return sb.functions.invoke(name, { body: body }).then(function (r) {
+          if (!r.error) return r.data;
           var ctx = r.error.context;
           var read = ctx && typeof ctx.json === 'function' ? ctx.json().then(function (b) { return (b && b.error) || 'internal'; }, function () { return 'internal'; }) : Promise.resolve('network');
           return read.then(function (code) { throw new Error(code); });
         });
-      },
-      list: function (recordId) { return sb.rpc('transcripts_list', { p_record: recordId || null, p_limit: 40 }).then(ok); },
-      get: function (id) { return sb.rpc('transcript_get', { p_recording: id }).then(ok); },
-      swapRoles: function (id) { return sb.rpc('transcript_swap_roles', { p_recording: id }).then(ok); },
-      remove: function (id) { return sb.rpc('transcript_delete', { p_recording: id }).then(ok).then(function () { return true; }); }
-    },
+      }
+      return {
+        ticket: function (recordingId) { return sb.rpc('audio_ticket', { p_recording: recordingId }).then(ok); },
+        /* Para onde o app nativo sobe o arquivo: endereco do balde + o login do proprio psicologo (o banco so deixa subir o arquivo da gravacao dele). */
+        target: function (ticket) {
+          return sb.auth.getSession().then(function (r) {
+            var s = r.data && r.data.session;
+            if (!s) throw new Error('not_authenticated');
+            return { url: cfg.supabaseUrl + '/storage/v1/object/' + ticket.bucket + '/' + ticket.path, token: s.access_token, apikey: cfg.supabaseAnonKey };
+          });
+        },
+        request: function (recordingId, bytes) {
+          return edge('transcribe-start', { recording_id: recordingId, bytes: bytes || null }).then(function () { return true; });
+        },
+        /* Rascunho da evolucao escrito pelo Claude (funcao de borda draft-generate) a partir do texto desta gravacao. Devolve { doc_id, record_id };
+           o rascunho ja esta na ficha, marcado "Gerado por IA" e "Rascunho". Erro = codigo do servidor (rate_limited, draft_exists, provider_busy...). */
+        draft: function (recordingId) {
+          return edge('draft-generate', { recording_id: recordingId });
+        },
+        list: function (recordId) { return sb.rpc('transcripts_list', { p_record: recordId || null, p_limit: 40 }).then(ok); },
+        get: function (id) { return sb.rpc('transcript_get', { p_recording: id }).then(ok); },
+        swapRoles: function (id) { return sb.rpc('transcript_swap_roles', { p_recording: id }).then(ok); },
+        remove: function (id) { return sb.rpc('transcript_delete', { p_recording: id }).then(ok).then(function () { return true; }); }
+      };
+    })(),
 
     /* central de avisos (sininho). O psicologo escolhe o que quer receber; o paciente recebe tudo. */
     notify: {

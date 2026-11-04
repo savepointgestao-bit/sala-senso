@@ -164,7 +164,7 @@
         h('a', { class: 'tile act', href: '#/agenda?aba=semana' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('span', { class: 't' }, 'Agenda da semana')),
         h('a', { class: 'tile act', href: '#/atendimento' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'WhatsApp e avisos')));
       return h('div', null, tiles, h('div', { class: 'panel tr-link' }, h('a', { class: 'item', href: '#/transcricao' }, h('span', { class: 'ico-box' }, UI.svg('file-text', 20)),
-        h('span', { class: 'grow' }, h('span', { class: 't' }, 'Transcrições'), h('span', { class: 's' }, 'Texto das consultas e anotações gravadas no app')), UI.svg('chevron-right', 18))));
+        h('span', { class: 'grow' }, h('span', { class: 't' }, 'Transcrições'), h('span', { class: 's' }, 'Consultas e anotações de voz em texto')), UI.svg('chevron-right', 18))));
     }
 
     function draw(D) {

@@ -203,7 +203,11 @@
   };
 
   api.pro.deleteDoc = function (id) {
-    return origDelete.call(api.pro, id).then(function (r) { delete C.files[id]; return r; });
+    return origDelete.call(api.pro, id).then(function (r) {
+      delete C.files[id];
+      (S.recordings || []).forEach(function (x) { if (x.draftDocId === id) x.draftDocId = null; });   /* como o ON DELETE SET NULL do banco: apagar o rascunho solta a gravacao */
+      return r;
+    });
   };
 
   /* ------------------------------------------------------------ anexos (foto ou PDF, cifrados no banco de verdade) */

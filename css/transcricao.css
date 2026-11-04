@@ -14,4 +14,8 @@
 .tr-time { font-size: .78rem; color: var(--mute); font-variant-numeric: tabular-nums; }
 .tr-x { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }
 .tr-warn { margin: .9rem 0; }
+.tr-ai { display: flex; flex-direction: column; gap: .6rem; margin-bottom: 1rem; }
+.tr-ai-head { display: flex; align-items: center; gap: .6rem; font-weight: 700; }
+.tr-ai p { margin: 0; max-width: 46rem; }
+.tr-ai .btn { align-self: flex-start; }
 .tr-card .mb0 { margin: 0; }

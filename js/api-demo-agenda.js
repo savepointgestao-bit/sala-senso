@@ -633,6 +633,14 @@
     ['A', 'E o que você costuma fazer com essa culpa quando ela aparece?'],
     ['B', 'Fico remoendo. Não consigo parar de pensar no que eu disse.']
   ];
+  S.draftMode = S.draftMode || 'ok';
+  api.demoDraft = function (mode) { S.draftMode = mode || 'ok'; return Promise.resolve(true); };
+  var DEMO_DRAFT = {
+    session: { title: 'Culpa após briga com o irmão', demand: 'Insônia e culpa depois de uma discussão por dinheiro com o irmão.',
+      interventions: 'Exploração do que sentiu na hora da briga e de como lida com a culpa quando ela aparece.',
+      body: 'A paciente relata uma semana difícil, com pouco sono e uma discussão com o irmão por causa de dinheiro. Refere raiva no momento e culpa depois, e diz remoer o que falou sem conseguir parar de pensar.', plan: '' },
+    note: { title: 'Combinado com a escola', demand: '', interventions: '', body: 'Lembrar de ligar para a escola da paciente e remarcar a próxima semana.', plan: '' }
+  };
   function myRec(u, id) {
     var row = S.recordings.filter(function (x) { return x.id === id && x.proId === u.id; })[0];
     if (!row) throw pgErr('recording_not_found');
@@ -670,17 +678,40 @@
       setTimeout(function () { finishTranscribe(row); }, 700);
       return true;
     },
+    /* Rascunho da evolucao pelo Claude (como a funcao de borda draft-generate + draft_begin): um por gravacao, trava contra toque duplo, grava pela mesma
+       pro_doc_save da ficha (origem IA, rascunho). Modos de teste (api.demoDraft): 'ok' 0,7 s; 'slow' 3 s; 'busy' (provider_busy); 'fail' (provider_error). */
+    draft: function (id) {
+      var u = pro(), row = myRec(u, id);
+      if (!row.transcript) throw pgErr('transcript_not_ready');
+      if (!row.recordId) throw pgErr('record_required');
+      if (row.draftDocId) throw pgErr('draft_exists');
+      if (row.draftBusy) throw pgErr('draft_busy');
+      S.draftCalls = (S.draftCalls || 0) + 1;
+      row.draftBusy = true;
+      var mode = S.draftMode || 'ok', d = DEMO_DRAFT[row.kind === 'note' ? 'note' : 'session'];
+      return new Promise(function (resolve, reject) {
+        setTimeout(function () {
+          row.draftBusy = false;
+          if (mode === 'busy') return reject(pgErr('provider_busy'));
+          if (mode === 'fail') return reject(pgErr('provider_error'));
+          var patch = { kind: 'note', origin: 'ia', draft: true, personal: false, doc_date: today(), title: d.title, demand: d.demand, interventions: d.interventions, body: d.body, plan: d.plan };
+          if (!d.demand) delete patch.demand; if (!d.interventions) delete patch.interventions; if (!d.plan) delete patch.plan;
+          if (row.apptId) patch.appointment_id = row.apptId;
+          api.pro.saveDoc(row.recordId, patch).then(function (docId) { row.draftDocId = docId; resolve({ ok: true, doc_id: docId, record_id: row.recordId }); }, reject);
+        }, mode === 'slow' ? 3000 : 700);
+      });
+    },
     list: function (recordId) {
       var u = pro();
       return S.recordings.filter(function (x) { return x.proId === u.id && ['stored', 'uploaded', 'transcribing', 'transcribed', 'failed'].indexOf(x.status) >= 0 && (!recordId || x.recordId === recordId); })
         .sort(function (a, b) { return b.startedAt - a.startedAt; })
-        .map(function (x) { return { id: x.id, kind: x.kind, status: x.status, started_at: iso(x.startedAt), seconds: x.seconds, record_id: x.recordId, patient_name: recName(x), has_text: !!x.transcript, roles_source: x.transcript ? x.transcript.rolesSource : null, error: x.error || null }; });
+        .map(function (x) { return { id: x.id, kind: x.kind, status: x.status, started_at: iso(x.startedAt), seconds: x.seconds, record_id: x.recordId, patient_name: recName(x), has_text: !!x.transcript, roles_source: x.transcript ? x.transcript.rolesSource : null, error: x.error || null, draft_doc_id: x.draftDocId || null }; });
     },
     get: function (id) {
       var u = pro(), row = myRec(u, id);
       if (!row.transcript) throw pgErr('transcript_not_ready');
       var sp = {}; row.transcript.utterances.forEach(function (x) { sp[x.sp] = 1; });
-      return { id: row.id, kind: row.kind, started_at: iso(row.startedAt), seconds: row.seconds, record_id: row.recordId, patient_name: recName(row),
+      return { id: row.id, kind: row.kind, started_at: iso(row.startedAt), seconds: row.seconds, record_id: row.recordId, patient_name: recName(row), draft_doc_id: row.draftDocId || null,
         roles: JSON.parse(JSON.stringify(row.transcript.roles)), roles_source: row.transcript.rolesSource, speakers: Object.keys(sp).length, language: 'pt',
         utterances: JSON.parse(JSON.stringify(row.transcript.utterances)) };
     },

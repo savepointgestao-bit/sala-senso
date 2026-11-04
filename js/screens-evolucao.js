@@ -56,7 +56,7 @@
         general.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível salvar agora. Tente de novo.')));
       });
     } },
-      note && note.origin === 'ia' ? UI.notice('info', 'Este texto foi gerado por IA' + (isDraft ? ' e ainda é um rascunho. Leia, ajuste o que precisar e marque como revisado.' : ' e já foi revisado por você.')) : null,
+      note && note.origin === 'ia' ? UI.notice('info', 'Este texto foi gerado por IA' + (isDraft ? ' e ainda é um rascunho. Leia, ajuste e marque como revisado.' : ' e já foi revisado por você.')) : null,
       h('div', { class: 'grid2' }, date.el, appt.el), title.el, mood.el, demand.el, interv.el, body.el, plan.el, personal.el, reviewed ? reviewed.el : null, general, btn);
     sh = UI.sheet({ title: note ? 'Editar evolução' : 'Nova evolução', content: form, wide: true, focus: body.input });
     return sh;
@@ -106,7 +106,7 @@
           h('button', { type: 'button', class: 'btn auto sm', onclick: function () { S.noteSheet(R, { sessions: sessions, onSaved: load }); } }, UI.svg('plus', 16), 'Nova evolução'),
           h('button', { type: 'button', class: 'btn ghost auto sm', onclick: function () { S.recordSheet(R, F); } }, UI.svg('file-text', 16), 'Prontuário em PDF'))));
       box.appendChild(h('p', { class: 'small muted' }, 'O que você escreve aqui fica cifrado e só você lê. Não vai para o paciente nem para colegas.'));
-      if (drafts) box.appendChild(UI.notice('warn', drafts === 1 ? '1 rascunho esperando a sua revisão. Ele não entra no prontuário até você revisar.' : drafts + ' rascunhos esperando a sua revisão. Eles não entram no prontuário até você revisar.'));
+      if (drafts) box.appendChild(UI.notice('warn', drafts === 1 ? '1 rascunho esperando a sua revisão. Fica fora do prontuário até lá.' : drafts + ' rascunhos esperando a sua revisão. Ficam fora do prontuário até lá.'));
       var pend = pending();
       if (pend.length) {
         box.appendChild(h('section', { class: 'card' }, h('h2', null, pend.length === 1 ? '1 sessão sem evolução' : pend.length + ' sessões sem evolução'),

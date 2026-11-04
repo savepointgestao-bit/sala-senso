@@ -25,6 +25,27 @@
     if (/recording_not_ready/.test(m)) return 'Esta gravação já está sendo transcrita.';
     return UI.errorText(e, 'Não deu certo agora. Tente de novo.');
   }
+  /* Rascunho da evolução pela IA: o servidor responde com um código (ver supabase/functions/_shared/draft.js) e aqui vira frase. */
+  var DRAFT_ERR = {
+    not_configured: 'A escrita por IA ainda não foi ligada no servidor.',
+    transcript_too_short: 'Texto curto demais para escrever a evolução.',
+    transcript_too_long: 'Texto longo demais para a IA.',
+    draft_exists: 'Esta gravação já tem um rascunho.',
+    draft_busy: 'O rascunho já está sendo escrito. Aguarde.',
+    rate_limited: 'Muitos pedidos. Tente mais tarde.',
+    record_required: 'Ligue esta anotação a um paciente primeiro.',
+    provider_busy: 'A IA está ocupada agora. Tente de novo em instantes.',
+    provider_timeout: 'A IA demorou demais. Tente de novo.',
+    draft_empty: 'Sem conteúdo clínico suficiente neste texto.',
+    not_allowed: 'Disponível só com o CRP verificado.',
+    transcript_not_ready: 'A transcrição ainda não está pronta.'
+  };
+  function draftErr(e) {
+    var m = String((e && e.message) || '');
+    for (var k in DRAFT_ERR) if (Object.prototype.hasOwnProperty.call(DRAFT_ERR, k) && m.indexOf(k) >= 0) return DRAFT_ERR[k];
+    if (/provider_|draft_/.test(m)) return 'A IA não conseguiu escrever agora. Tente de novo em instantes.';
+    return UI.errorText(e, 'Não deu certo agora. Tente de novo.');
+  }
 
   /* ---------------------------------------------------------------- lista */
   S.transcripts = function (ctx, q) {
@@ -33,7 +54,7 @@
     var timer = null;
     var node = S.shell(ctx, 'pacientes', [
       UI.backLink(recordId ? '#/pacientes/' + recordId : '#/inicio', recordId ? 'Ficha do paciente' : 'Início'),
-      UI.pageHead('Transcrições', 'Texto das consultas e anotações gravadas no app. O áudio é apagado depois que vira texto.'),
+      UI.pageHead('Transcrições', 'O áudio é apagado depois que vira texto.'),
       holder]);
 
     function actionBtn(label, icon, fn) {
@@ -49,6 +70,7 @@
       var note = null;
       if (it.status === 'stored') note = local ? 'O áudio está neste celular.' : 'Suba o áudio pelo celular que gravou.';
       if (it.status === 'failed') note = 'O áudio fica guardado por 3 dias. ' + (it.error ? '(' + it.error + ')' : '');
+      if (ready && it.draft_doc_id) note = 'Rascunho da evolução gerado.';
       var action = null;
       if (it.status === 'stored' && local) {
         action = actionBtn('Subir agora', 'upload', function (b) {
@@ -59,13 +81,13 @@
         /* O audio chegou, mas o pedido de transcricao nao foi aceito (provedor fora do ar, por exemplo). Com o audio ainda neste celular, refaz o pedido por aqui. */
         action = actionBtn('Tentar de novo', 'refresh-cw', function (b) {
           b.disabled = true;
-          var p = local ? Recorder.sendNow(it.id) : API.transcripts.request(it.id).then(function () { UI.toast('Pedido enviado. Avisamos quando ficar pronta.', 'circle-check'); });
+          var p = local ? Recorder.sendNow(it.id) : API.transcripts.request(it.id).then(function () { UI.toast('Pedido enviado.', 'circle-check'); });
           p.then(function () { return load(); }).catch(function (e) { b.disabled = false; Diag.error('transcricao-reenviar', e); UI.toast(errText(e)); });
         });
       } else if (it.status === 'failed') {
         action = actionBtn('Tentar de novo', 'refresh-cw', function (b) {
           b.disabled = true;
-          API.transcripts.request(it.id).then(function () { UI.toast('Pedido enviado. Avisamos quando ficar pronta.', 'circle-check'); return load(); })
+          API.transcripts.request(it.id).then(function () { UI.toast('Pedido enviado.', 'circle-check'); return load(); })
             .catch(function (e) { b.disabled = false; Diag.error('transcricao-tentar', e); UI.toast(errText(e)); });
         });
       }
@@ -78,7 +100,7 @@
     function draw(items) {
       clear(holder);
       if (!items.length) {
-        holder.appendChild(UI.empty('mic', 'Nenhuma transcrição ainda', 'Quando você gravar uma consulta ou uma anotação de voz no app, o texto aparece aqui.'));
+        holder.appendChild(UI.empty('mic', 'Nenhuma transcrição ainda', 'Grave uma consulta ou anotação no app e o texto aparece aqui.'));
       } else {
         holder.appendChild(h('div', { class: 'panel tr-list' }, items.map(row)));
       }
@@ -130,14 +152,14 @@
         });
         clear(banner);
         if (d.kind === 'session' && d.speakers < 2) {
-          banner.appendChild(h('p', { class: 'muted mb0' }, 'Só uma voz foi detectada nesta gravação. Confira o texto com cuidado.'));
+          banner.appendChild(h('p', { class: 'muted mb0' }, 'Só uma voz detectada. Confira o texto.'));
         } else if (hasBoth) {
           var swap = h('button', { type: 'button', class: 'btn ghost auto sm', 'data-label': 'Trocar vozes', onclick: function () {
             swap.disabled = true;
             API.transcripts.swapRoles(id).then(function (r) { roles = r; d.roles_source = 'manual'; UI.toast('Vozes trocadas.', 'circle-check'); paint(); })
               .catch(function (e) { swap.disabled = false; Diag.error('transcricao-trocar', e); UI.toast(errText(e)); });
           } }, UI.svg('refresh-cw', 16), 'Trocar vozes');
-          banner.appendChild(h('p', { class: 'mb0' }, d.roles_source === 'manual' ? 'Você ajustou quem é quem.' : 'Quem é quem foi definido automaticamente. Confira e troque se estiver ao contrário.'));
+          banner.appendChild(h('p', { class: 'mb0' }, d.roles_source === 'manual' ? 'Você ajustou quem é quem.' : 'Quem é quem foi definido automaticamente.'));
           banner.appendChild(swap);
         }
       }
@@ -147,20 +169,55 @@
         return d.utterances.map(function (u) { return who(u.sp) + ' (' + stamp(u.t0) + '): ' + u.x; }).join('\n\n');
       }
       var copy = h('button', { type: 'button', class: 'btn auto', 'data-label': 'Copiar texto', onclick: function () {
-        UI.copyText(plainText()).then(function () { UI.toast('Texto copiado.', 'circle-check'); }, function () { UI.toast('Não deu para copiar. Selecione o texto e copie.'); });
+        UI.copyText(plainText()).then(function () { UI.toast('Texto copiado.', 'circle-check'); }, function () { UI.toast('Não deu para copiar. Selecione e copie.'); });
       } }, UI.svg('copy', 18), 'Copiar texto');
       var del = h('button', { type: 'button', class: 'btn ghost auto danger', 'data-label': 'Apagar transcrição', onclick: function () {
-        UI.confirmBox({ title: 'Apagar esta transcrição?', text: 'O texto some do Senso e não dá para recuperar. Se você já usou o que precisava na evolução, pode apagar.', ok: 'Apagar transcrição', cancel: 'Manter' }).then(function (yes) {
+        UI.confirmBox({ title: 'Apagar esta transcrição?', text: 'O texto some do Senso e não dá para recuperar.', ok: 'Apagar transcrição', cancel: 'Manter' }).then(function (yes) {
           if (!yes) return;
           API.transcripts.remove(id).then(function () { UI.toast('Transcrição apagada.', 'circle-check'); location.hash = '#/transcricao'; })
             .catch(function (e) { Diag.error('transcricao-apagar', e); UI.toast(/audio_pending/.test(String((e && e.message) || '')) ? 'O áudio ainda está sendo apagado. Tente de novo em instantes.' : errText(e)); });
         });
       } }, UI.svg('trash-2', 18), 'Apagar transcrição');
 
+      /* Evolução pela IA: o Claude lê só este texto e escreve um rascunho na ficha; quem revisa e aprova é a psicóloga. */
+      function aiCard() {
+        var box = h('div', { class: 'card tr-ai' });
+        function head(t) { box.appendChild(h('div', { class: 'tr-ai-head' }, UI.svg('sparkles', 20), t)); }
+        if (d.draft_doc_id) {
+          head('Rascunho da evolução pronto');
+          box.appendChild(h('p', { class: 'muted' }, 'Está na ficha' + (d.patient_name ? ' de ' + UI.firstName(d.patient_name) : '') + ', esperando a sua revisão.'));
+          box.appendChild(h('a', { class: 'btn auto', href: '#/pacientes/' + d.record_id + '?aba=evolucao' }, UI.svg('file-text', 18), 'Abrir evolução'));
+          return box;
+        }
+        if (!d.record_id) {
+          box.appendChild(h('p', { class: 'muted' }, 'Ligue esta anotação a um paciente para gerar a evolução.'));
+          return box;
+        }
+        box.appendChild(h('p', { class: 'muted' }, 'Escrito por IA. Nada vale até você revisar e aprovar na ficha.'));
+        var go = h('button', { type: 'button', class: 'btn auto', 'data-label': 'Gerar rascunho da evolução', onclick: function () {
+          UI.confirmBox({ title: 'Gerar o rascunho com IA?', text: 'O texto desta transcrição vai para a Anthropic (empresa do Claude) só para escrever o rascunho. O áudio e o cadastro do paciente não vão; nomes ditos na conversa seguem no texto.', ok: 'Gerar rascunho', cancel: 'Agora não' }).then(function (yes) {
+            if (!yes) return;
+            UI.busy(go, true);
+            API.transcripts.draft(id).then(function (r) {
+              UI.toast('Rascunho pronto.', 'circle-check');
+              location.hash = '#/pacientes/' + ((r && r.record_id) || d.record_id) + '?aba=evolucao';
+            }).catch(function (e) {
+              Diag.error('transcricao-rascunho', e);
+              UI.busy(go, false); go.insertBefore(UI.svg('sparkles', 18), go.firstChild);
+              UI.toast(draftErr(e));
+              if (/draft_exists/.test(String((e && e.message) || ''))) API.transcripts.get(id).then(draw).catch(function () { /* fica como esta */ });
+            });
+          });
+        } }, UI.svg('sparkles', 18), 'Gerar rascunho da evolução');
+        box.appendChild(go);
+        return box;
+      }
+
       holder.appendChild(h('div', null,
         UI.pageHead(titleOf(d), T.whenLabel(d.started_at) + (d.seconds ? ' · ' + minutes(d.seconds) : '')),
+        aiCard(),
         h('div', { class: 'card tr-card' }, banner, lines),
-        h('p', { class: 'muted tr-warn' }, 'Revise antes de usar. A transcrição automática pode errar nomes, remédios e números. O texto é só um apoio: a evolução é sua.'),
+        h('p', { class: 'muted tr-warn' }, 'Revise antes de usar. A transcrição automática pode errar nomes, remédios e números.'),
         h('div', { class: 'btn-row' }, copy, del)));
     }
 
