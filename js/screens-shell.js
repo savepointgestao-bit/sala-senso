@@ -101,6 +101,7 @@
       return h('a', { class: 'help-btn ' + cls, href: '#/ajuda', 'aria-current': active === 'ajuda' ? 'page' : null, 'aria-label': 'Preciso de ajuda' }, UI.svg('life-buoy', 20), h('span', { class: 'lbl' }, 'Preciso de ajuda'));
     }
     var withHelp = !pro && !adminMode;
+    if (pro && !adminMode && window.Recorder) Recorder.attach(ctx);   /* so no APK: barra "Gravando" e avisos pendentes da gravacao */
     if (withHelp && window.Assistant) Assistant.attach(ctx);   /* botao redondo do assistente em todas as telas do paciente */
 
     var moreBtn = menu.more.length ? h('button', { type: 'button', class: 'more-btn', 'aria-current': activeMore ? 'page' : null, 'aria-haspopup': 'dialog', onclick: function () {
@@ -136,11 +137,15 @@
   };
 
   /* Cartao de aviso fixo no topo do inicio quando ha novidade importante (ex.: pedidos de consulta aguardando). */
-  S.pendingStrip = function (icon, text, href, actionLabel, onAction) {
+  /* Aviso de gravacao, mostrado junto de tudo que o paciente toca para confirmar uma consulta (o aceite entra sozinho, sem caixinha). */
+  S.REC_NOTICE = 'Ao confirmar, você autoriza que seu(sua) psicólogo(a) grave a consulta só para transcrever e montar o relatório. O áudio é apagado depois. Você pode desligar em Conta.';
+  S.recordNote = function () { return h('p', { class: 'small muted mb0 rec-note' }, UI.svg('mic', 14), ' ', S.REC_NOTICE); };
+
+  S.pendingStrip = function (icon, text, href, actionLabel, onAction, note) {
     if (onAction) {
       /* Com onAction o botao faz a acao ali mesmo (um toque), sem abrir outra tela. */
       var btn = h('button', { type: 'button', class: 'btn auto sm', 'data-label': actionLabel || 'Ver', onclick: function () { onAction(btn); } }, actionLabel || 'Ver');
-      return h('div', { class: 'cta-card strip' }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, text)), btn);
+      return h('div', { class: 'cta-card strip' }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, text), note ? h('div', { class: 's rec-note' }, note) : null), btn);
     }
     return h('a', { class: 'cta-card strip', href: href }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, text)),
       h('span', { class: 'btn auto sm' }, actionLabel || 'Ver'));

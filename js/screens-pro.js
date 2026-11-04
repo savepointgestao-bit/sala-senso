@@ -253,6 +253,8 @@
         R.transferred_at ? h('div', { class: 'mt16' }, UI.notice('info', 'Transferido' + (R.transferred_to_name ? ' para ' + R.transferred_to_name : '') + ' em ' + UI.fmtDate(UI.dt.dayOf(R.transferred_at)) + '. O cadastro fica aqui só para você consultar.'))
         : h('div', { class: 'btn-row mt16' },
           h('button', { type: 'button', class: 'btn', onclick: function () { S.newAppointmentSheet({ record: { id: R.record_id, name: R.full_name }, onDone: load }); } }, UI.svg('calendar-plus', 18), 'Marcar consulta'),
+          window.Recorder ? Recorder.noteButton(R.record_id, R.social_name || R.full_name, 'btn ghost') : null,
+          h('a', { class: 'btn ghost', href: '#/transcricao?paciente=' + R.record_id }, UI.svg('file-text', 18), 'Transcrições'),
           wa ? h('a', { class: 'btn ghost', href: wa, target: '_blank', rel: 'noopener' }, UI.svg('message-circle', 18), 'WhatsApp') : null));
     }
     function verifyBanner() {

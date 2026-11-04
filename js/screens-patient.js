@@ -169,7 +169,8 @@
     var actions = [];
     if (a.status === 'scheduled' && future) {
       if (a.patient_confirmed_at) extra.push(h('p', { class: 'small mb0 confirmed' }, UI.svg('circle-check', 16), ' Presença confirmada. ', UI.firstName(a.professional_name), ' foi avisado(a).'));
-      else actions.push(UI.button('Vou comparecer', { auto: true, icon: 'circle-check', onclick: function (ev) {
+      else extra.push(S.recordNote());
+      if (!a.patient_confirmed_at) actions.push(UI.button('Vou comparecer', { auto: true, icon: 'circle-check', onclick: function (ev) {
         UI.busy(ev.currentTarget, true);
         API.booking.confirmAttendance(a.id).then(function () { UI.toast('Presença confirmada.', 'circle-check'); reload(); }).catch(function (e) { UI.busy(ev.currentTarget, false); Diag.error('confirmar-presenca', e); UI.toast(UI.errorText(e)); });
       } }));
@@ -269,7 +270,7 @@
       if (info.office_note) area.appendChild(h('p', { class: 'small muted' }, UI.svg('map-pin', 14), ' ', info.office_note));
       if (info.price_cents != null) area.appendChild(h('div', { class: 'price-line' }, h('span', null, 'Valor da consulta'), h('b', null, UI.money(info.price_cents))));
       area.appendChild(h('p', { class: 'small muted' }, 'Pagamento online: em breve. Por enquanto, combine o pagamento direto com o(a) psicólogo(a).'));
-      area.appendChild(general); area.appendChild(send);
+      area.appendChild(S.recordNote()); area.appendChild(general); area.appendChild(send);
     }
     load();
     return sh;

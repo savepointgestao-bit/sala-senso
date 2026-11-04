@@ -73,6 +73,7 @@
     { re: /^pacientes\/([A-Za-z0-9-]+)$/, who: 'professional', title: 'Ficha do paciente', build: function (ctx, q, m) { return screen('patientFile')(ctx, m[1], q); } },
     { re: /^agenda$/, who: 'professional', title: 'Agenda', build: function (ctx, q) { return screen('agenda')(ctx, q); } },
     { re: /^financeiro$/, who: 'professional', title: 'Financeiro', build: function (ctx, q) { return screen('finance')(ctx, q); } },
+    { re: /^transcricao$/, who: 'professional', title: 'Transcrições', build: function (ctx, q) { return q && q.id ? S.transcript(ctx, q.id) : S.transcripts(ctx, q); } },
     { re: /^relatorios$/, who: 'professional', title: 'Relatórios', build: function (ctx, q) { return screen('reports')(ctx, q); } },
     { re: /^avaliacoes$/, who: 'professional', title: 'Avaliações', build: function (ctx) { return screen('proReviews')(ctx); } },
     { re: /^atendimento$/, who: 'professional', title: 'Atendimento', build: function (ctx) { return screen('service')(ctx); } }
@@ -137,7 +138,7 @@
 
   var wasAuthed = null, token = 0, queued = false;
 
-  function mount(node, title) { UI.mount(node, title); if (window.Assistant) Assistant.sync(); }
+  function mount(node, title) { UI.mount(node, title); if (window.Assistant) Assistant.sync(); if (window.Recorder) Recorder.place(); }
 
   function errorPage(msg, retry) { return S.errorPage(msg, retry ? render : null); }
 
@@ -266,7 +267,7 @@
   window.addEventListener('hashchange', render);
 
   API.onAuth(function (ev) {
-    if (ev === 'SIGNED_OUT') { wasAuthed = false; Idle.stop(); if (window.Assistant) Assistant.reset(); render(); }
+    if (ev === 'SIGNED_OUT') { wasAuthed = false; Idle.stop(); if (window.Assistant) Assistant.reset(); if (window.Recorder) Recorder.reset(); render(); }
     else if (ev === 'PASSWORD_RECOVERY') { if (location.hash === '#/redefinir-senha') render(); else location.hash = '#/redefinir-senha'; }
     else if (ev === 'SIGNED_IN') { if (!wasAuthed) render(); }   /* o Supabase repete SIGNED_IN ao voltar para a aba: nao redesenhar, senao apaga o que a pessoa digitou */
   });

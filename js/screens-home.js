@@ -158,11 +158,13 @@
     var holder = h('div', null, verified ? UI.loading() : null);
 
     function actionTiles() {
-      return h('div', { class: 'tiles' },
+      var tiles = h('div', { class: 'tiles' },
         h('button', { type: 'button', class: 'tile act', onclick: function () { S.patientSheet(null, function (id) { go('#/pacientes/' + id); }); } }, h('span', { class: 'ico-box' }, UI.svg('user-plus', 22)), h('span', { class: 't' }, 'Novo paciente')),
         h('button', { type: 'button', class: 'tile act', onclick: function () { S.newAppointmentSheet({ onDone: function () { refresh(); } }); } }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar consulta')),
         h('a', { class: 'tile act', href: '#/agenda?aba=semana' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('span', { class: 't' }, 'Agenda da semana')),
         h('a', { class: 'tile act', href: '#/atendimento' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'WhatsApp e avisos')));
+      return h('div', null, tiles, h('div', { class: 'panel tr-link' }, h('a', { class: 'item', href: '#/transcricao' }, h('span', { class: 'ico-box' }, UI.svg('file-text', 20)),
+        h('span', { class: 'grow' }, h('span', { class: 't' }, 'Transcrições'), h('span', { class: 's' }, 'Texto das consultas e anotações gravadas no app')), UI.svg('chevron-right', 18))));
     }
 
     function draw(D) {
@@ -251,7 +253,7 @@
           UI.busy(btn, true);
           API.booking.confirmAttendance(ask.id).then(function () { UI.toast('Presença confirmada. ' + UI.firstName(ask.professional_name) + ' foi avisado(a).', 'circle-check'); return reload(); })
             .catch(function (e) { UI.busy(btn, false); Diag.error('confirmar-presenca', e); UI.toast(UI.errorText(e)); });
-        }));
+        }, S.REC_NOTICE));
       }
       if (next && !(ask && ask.id === next.id)) out.push(S.pendingStrip('calendar-check', 'Próxima consulta: ' + UI.dt.whenLabel(next.starts_at) + ' com ' + next.professional_name + (next.patient_confirmed_at ? ' (presença confirmada)' : ''), '#/consultas', 'Ver'));
       (D.reqs || []).filter(function (q) { return q.origin === 'professional'; }).forEach(function (q) {
@@ -507,6 +509,16 @@
     diag.el.disabled = true;
     API.hasConsent('diagnostics').then(function (g) { diag.set(g); diag.el.disabled = false; }).catch(function () { /* fica desligado */ });
 
+    /* so paciente: a gravacao da consulta liga sozinha quando ele confirma uma consulta; aqui ele desliga (e liga de novo) quando quiser */
+    var rec = null;
+    if (!isPro) {
+      rec = UI.toggle({ value: false, label: 'Gravação da consulta para transcrição', onChange: function (v) {
+        return API.setConsent('session_recording', v).then(function () { UI.toast(v ? 'Gravação liberada.' : 'Gravação desligada. Seu(sua) psicólogo(a) não grava mais.', 'circle-check'); }).catch(function (e) { UI.toast('Não deu para salvar. Tente de novo.'); throw e; });
+      } });
+      rec.el.disabled = true;
+      API.hasConsent('session_recording').then(function (g) { rec.set(g); rec.el.disabled = false; }).catch(function () { /* fica desligado */ });
+    }
+
     var exportT = h('span', { class: 't' }, 'Baixar meus dados');
     function needIdentity(o) {
       o.needsCode = canMfa && enrolled; o.back = 'conta';
@@ -525,6 +537,8 @@
     } }, h('span', { class: 'ico-box' }, UI.svg('download', 20)), exportT);
 
     var privacidade = h('div', { class: 'group' },
+      rec ? h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('mic', 20)),
+        h('span', null, h('span', { class: 't' }, 'Gravação da consulta'), h('span', { class: 's' }, 'Seu(sua) psicólogo(a) grava o áudio só para transcrever e montar o relatório. O áudio é apagado depois.')), rec.el) : null,
       h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 20)),
         h('span', { class: 't' }, 'Informações técnicas ao suporte'), diag.el),
       exportBtn,

@@ -25,6 +25,14 @@ Um espaço gratuito para você acompanhar suas sessões com seu(sua) psicólogo(
 - Você pode parar de compartilhar a qualquer momento.
 - Os registros que ele(a) fizer no prontuário são dele(a) e seguem as regras profissionais de guarda. Eles não ficam no portal.
 
+4A. GRAVAÇÃO DA CONSULTA PARA TRANSCRIÇÃO
+- Ao pedir uma consulta ou tocar em "Vou comparecer", você autoriza que seu(sua) psicólogo(a) grave o áudio da consulta, só para transcrever e montar o relatório ou a evolução. A tela avisa isso na hora, perto do botão.
+- Quem grava é o(a) psicólogo(a), pelo celular dele(a). Você recebe um aviso no sininho quando a gravação começa.
+- Para virar texto, o áudio é enviado por conexão segura a um serviço de transcrição (AssemblyAI), que pode processar fora do Brasil (Estados Unidos). O áudio é apagado do Senso e do serviço assim que o texto fica pronto; se a transcrição falhar, o áudio é apagado em poucos dias.
+- O texto fica criptografado no Senso e só o(a) psicólogo(a) lê. Ele revisa o texto antes de ir para o prontuário.
+- Você pode desligar quando quiser, em Conta > Gravação da consulta. Depois que desligar, nenhuma consulta é gravada, e a gravação só volta se você mesmo ligar de novo.
+- Se não quiser ser gravado(a), desligue antes da consulta. O atendimento continua igual.
+
 5. SEU DIÁRIO
 - É seu. Privado por padrão. Nós não lemos.
 - Cada entrada tem uma opção "Compartilhar com meu(minha) psicólogo(a)". Você escolhe, uma a uma.

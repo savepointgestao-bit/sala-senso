@@ -395,6 +395,15 @@
   }
   function reviewable(a) { return (a.status === 'done' || (a.status === 'scheduled' && a.startsAt + a.duration * MIN < Date.now())) && !S.receipts[a.id]; }
 
+  /* Como no banco (gatilho appt_recording_consent): quando o paciente confirma a consulta, o aceite da gravacao entra sozinho, so se ele nunca decidiu antes.
+     Quem desligou em Conta continua desligado. */
+  var REC_VERSION = 'grav-2026-11';
+  function autoRecordingConsent(u) {
+    if (!u.consents) u.consents = [];
+    if (u.consents.some(function (c) { return c.kind === 'session_recording'; })) return;
+    u.consents.push({ kind: 'session_recording', granted: true, doc_version: REC_VERSION, at: new Date().toISOString() });
+  }
+
   var booking = api.booking;
   booking.info = function (proId) {
     var u = patient();
@@ -435,6 +444,7 @@
         patientNote: String(note || '').trim().slice(0, 300) || null, declineReason: null, priceCents: g.price_cents, paymentStatus: 'none', requestedByPatient: true,
         createdAt: Date.now(), decidedAt: null };
       S.appts.push(a);
+      autoRecordingConsent(u);
       H.notify(p.id, 'appointment_requested', 'Novo pedido de consulta', H.nameOf(u) + ' pediu ' + whenText(t) + '.', '#/agenda');
       return a.id;
     });
@@ -482,6 +492,7 @@
       var done = confirmedOf(a);
       if (done) return done;
       a.confirmedAt = Date.now(); a.confirmSig = sigOf(a);
+      autoRecordingConsent(u);
       H.notify(a.proId, 'appointment_confirmed', 'Presença confirmada', H.nameOf(u) + ' confirmou presença em ' + whenText(a.startsAt) + '.', '#/agenda');
       return iso(a.confirmedAt);
     });
@@ -547,8 +558,150 @@
     });
   };
 
+
+  /* ---------------------------------------------------------------- gravacao da consulta (psicologo), como as funcoes recording_status, start_session_recording e finish_session_recording */
+  S.recordings = S.recordings || [];
+  var WINDOW_BEFORE = 2 * HOUR, WINDOW_AFTER = 3 * HOUR;
+  function recCheck(u, id) {
+    var a = mineAppt(u.id, id);
+    if (!a) throw pgErr('appointment_not_found');
+    var r = H.recById(a.recordId), pu = r && r.userId ? H.byId(r.userId) : null, now = Date.now(), end = a.startsAt + a.duration * MIN;
+    var active = S.recordings.filter(function (x) { return x.apptId === a.id && x.status === 'recording'; })[0];
+    var out = { allowed: false, reason: 'ok', mode: a.mode, active_id: active ? active.id : null, appt: a, patient: pu };
+    if (a.status !== 'scheduled') out.reason = 'not_scheduled';
+    else if (now < a.startsAt - WINDOW_BEFORE || now > end + WINDOW_AFTER) out.reason = 'outside_window';
+    else if (!pu || !r.verifiedAt) out.reason = 'not_linked';
+    else {
+      var last = null; (pu.consents || []).forEach(function (c) { if (c.kind === 'session_recording') last = c.granted; });
+      if (!last) out.reason = 'no_consent';
+    }
+    out.allowed = out.reason === 'ok';
+    return out;
+  }
+  api.recording = {
+    status: function (id) { var u = pro(); return tick(null).then(function () { var c = recCheck(u, id); return { allowed: c.allowed, reason: c.reason, mode: c.mode, active_id: c.active_id }; }); },
+    start: function (id) {
+      var u = pro();
+      return tick(null).then(function () {
+        var c = recCheck(u, id);
+        if (!c.allowed) throw pgErr('recording_not_allowed:' + c.reason);
+        if (c.active_id) return c.active_id;
+        var row = { id: nid('rec'), kind: 'session', apptId: c.appt.id, proId: u.id, recordId: c.appt.recordId, mode: c.appt.mode, status: 'recording', startedAt: Date.now(), endedAt: null, seconds: 0 };
+        S.recordings.push(row);
+        H.notify(c.patient.id, 'recording_started', 'Gravação da consulta', 'Sua consulta com ' + H.nameOf(u) + ' está sendo gravada só para transcrição. O áudio é apagado depois. Você pode desligar em Conta.', '#/conta');
+        return row.id;
+      });
+    },
+    startNote: function (recordId) {
+      var u = pro();
+      return tick(null).then(function () {
+        if (recordId && !H.recById(recordId)) throw pgErr('record_not_found');
+        if (recordId && H.recById(recordId).proId !== u.id) throw pgErr('record_not_found');
+        var open = S.recordings.filter(function (x) { return x.proId === u.id && x.kind === 'note' && x.status === 'recording'; })[0];
+        if (open) return open.id;
+        var row = { id: nid('rec'), kind: 'note', apptId: null, proId: u.id, recordId: recordId || null, mode: null, status: 'recording', startedAt: Date.now(), endedAt: null, seconds: 0 };
+        S.recordings.push(row);
+        return row.id;
+      });
+    },
+    finish: function (id, seconds) {
+      var u = pro();
+      return tick(null).then(function () {
+        var row = S.recordings.filter(function (x) { return x.id === id && x.proId === u.id; })[0];
+        if (!row) throw pgErr('recording_not_found');
+        if (row.status === 'recording') { row.status = 'stored'; row.endedAt = Date.now(); row.seconds = Math.max(0, Math.min(86400, Math.round(seconds || 0))); }
+        return true;
+      });
+    }
+  };
+
+  /* ---------------------------------------------------------------- transcricao (como audio_ticket, transcribe-start, transcripts_list, transcript_get, transcript_swap_roles e transcript_delete) */
+  S.transcribeMode = S.transcribeMode || 'ok';          /* 'ok' = vira texto em ~1 s; 'fail' = o provedor falha; 'hold' = fica transcrevendo ate mudar o modo; 'refuse' = o provedor recusa o pedido (teste) */
+  /* Mudar o modo solta o que estava segurado: 'ok' termina com texto, 'fail' termina com erro. */
+  api.demoTranscribe = function (mode) {
+    S.transcribeMode = mode || 'ok';
+    if (S.transcribeMode !== 'hold') S.recordings.forEach(function (r) {
+      if (r.status === 'transcribing' && r.held) { r.held = false; setTimeout(function () { finishTranscribe(r); }, 300); }
+    });
+    return Promise.resolve(true);
+  };
+  var DEMO_TEXT = [
+    ['A', 'Bom dia, como você está hoje?'],
+    ['B', 'Bom dia. Essa semana foi difícil, quase não dormi e briguei com meu irmão por causa de dinheiro.'],
+    ['A', 'O que você sentiu nessa hora?'],
+    ['B', 'Raiva, mas depois fiquei com culpa.'],
+    ['A', 'E o que você costuma fazer com essa culpa quando ela aparece?'],
+    ['B', 'Fico remoendo. Não consigo parar de pensar no que eu disse.']
+  ];
+  function myRec(u, id) {
+    var row = S.recordings.filter(function (x) { return x.id === id && x.proId === u.id; })[0];
+    if (!row) throw pgErr('recording_not_found');
+    return row;
+  }
+  function recName(row) { var r = row.recordId ? H.recById(row.recordId) : null; return r ? r.name : null; }
+  /* O provedor terminou (ou falhou): estado e aviso no sininho, como o webhook faz no servidor. */
+  function finishTranscribe(row) {
+    if (row.status !== 'transcribing') return;
+    if (S.transcribeMode === 'fail') {
+      row.status = 'failed'; row.error = 'Download error: arquivo vazio';
+      H.notify(row.proId, 'transcript_failed', 'Não deu para transcrever', 'O áudio de uma gravação não foi transcrito. Abra Transcrições para tentar de novo.', '#/transcricao');
+      return;
+    }
+    row.status = 'transcribed'; row.audioPath = null; row.transcribedAt = Date.now();
+    row.transcript = { roles: row.kind === 'note' ? { A: 'psychologist' } : { A: 'psychologist', B: 'patient' }, rolesSource: 'assemblyai',
+      utterances: (row.kind === 'note' ? [['A', 'Lembrar de ligar para a escola da paciente e remarcar a próxima semana.']] : DEMO_TEXT).map(function (x, i) { return { sp: x[0], t0: i * 9000, t1: i * 9000 + 8000, x: x[1] }; }) };
+    var who = recName(row);
+    H.notify(row.proId, 'transcript_ready', 'Transcrição pronta', row.kind === 'session' ? 'A transcrição da consulta com ' + (who || 'o(a) paciente') + ' está pronta para revisar.' : 'A transcrição da sua anotação de voz está pronta.', '#/transcricao?id=' + row.id);
+  }
+  api.transcripts = {
+    ticket: function (id) {
+      var u = pro(), row = myRec(u, id);
+      if (['stored', 'uploaded', 'failed'].indexOf(row.status) < 0) throw pgErr('recording_not_ready');
+      row.audioPath = u.id + '/' + id + '.m4a';
+      return { bucket: 'session-audio', path: row.audioPath };
+    },
+    target: function (ticket) { return { url: 'demo://storage/' + ticket.bucket + '/' + ticket.path, token: 'demo', apikey: 'demo' }; },
+    request: function (id, bytes) {
+      var u = pro(), row = myRec(u, id);
+      if (!row.audioPath || ['stored', 'uploaded', 'failed'].indexOf(row.status) < 0) throw pgErr('recording_not_ready');
+      if (S.transcribeMode === 'refuse') { row.status = 'uploaded'; throw pgErr('provider_error'); }   /* o provedor recusa o pedido: a gravacao fica "Enviada" */
+      row.status = 'transcribing'; row.error = null;
+      if (S.transcribeMode === 'hold') { row.held = true; return true; }
+      setTimeout(function () { finishTranscribe(row); }, 700);
+      return true;
+    },
+    list: function (recordId) {
+      var u = pro();
+      return S.recordings.filter(function (x) { return x.proId === u.id && ['stored', 'uploaded', 'transcribing', 'transcribed', 'failed'].indexOf(x.status) >= 0 && (!recordId || x.recordId === recordId); })
+        .sort(function (a, b) { return b.startedAt - a.startedAt; })
+        .map(function (x) { return { id: x.id, kind: x.kind, status: x.status, started_at: iso(x.startedAt), seconds: x.seconds, record_id: x.recordId, patient_name: recName(x), has_text: !!x.transcript, roles_source: x.transcript ? x.transcript.rolesSource : null, error: x.error || null }; });
+    },
+    get: function (id) {
+      var u = pro(), row = myRec(u, id);
+      if (!row.transcript) throw pgErr('transcript_not_ready');
+      var sp = {}; row.transcript.utterances.forEach(function (x) { sp[x.sp] = 1; });
+      return { id: row.id, kind: row.kind, started_at: iso(row.startedAt), seconds: row.seconds, record_id: row.recordId, patient_name: recName(row),
+        roles: JSON.parse(JSON.stringify(row.transcript.roles)), roles_source: row.transcript.rolesSource, speakers: Object.keys(sp).length, language: 'pt',
+        utterances: JSON.parse(JSON.stringify(row.transcript.utterances)) };
+    },
+    swapRoles: function (id) {
+      var u = pro(), row = myRec(u, id);
+      if (!row.transcript) throw pgErr('transcript_not_ready');
+      var r = row.transcript.roles, out = {};
+      Object.keys(r).forEach(function (k) { out[k] = r[k] === 'psychologist' ? 'patient' : r[k] === 'patient' ? 'psychologist' : r[k]; });
+      row.transcript.roles = out; row.transcript.rolesSource = 'manual';
+      return out;
+    },
+    remove: function (id) {
+      var u = pro(), row = myRec(u, id);
+      if (row.audioPath) throw pgErr('audio_pending');
+      row.transcript = null; row.status = 'deleted';
+      return true;
+    }
+  };
+
   /* Como no servidor, todo erro chega como promessa recusada (nada de excecao na hora da chamada). */
-  ['agenda', 'booking', 'pro', 'notify', 'invite', 'sharing', 'diary'].forEach(function (ns) {
+  ['agenda', 'booking', 'pro', 'notify', 'invite', 'sharing', 'diary', 'recording', 'transcripts'].forEach(function (ns) {
     var o = api[ns];
     Object.keys(o).forEach(function (k) {
       var f = o[k];

@@ -209,6 +209,48 @@
     s = UI.sheet({ title: 'Cobrar a falta?', content: [h('p', { class: 'muted' }, a.full_name + ' não compareceu em ' + T.whenLabel(a.starts_at) + '. Se você cobrar, a falta entra em “A receber” como uma sessão. Dá para mudar depois.'),
       h('div', { class: 'btn-row' }, UI.button('Cobrar a falta', { onclick: function (ev) { mark(true, ev.currentTarget); } }), UI.button('Não cobrar', { variant: 'ghost', onclick: function (ev) { mark(false, ev.currentTarget); } }))] });
   }
+  /* "Iniciar consulta": so no app do celular e perto do horario. Liga o microfone (presencial) ou o microfone com a chamada no viva-voz (online).
+     O banco diz se pode gravar (o paciente autoriza ao confirmar a consulta e desliga em Conta); sem autorizacao a consulta segue normal, sem gravar. */
+  function recordRow(a, rows, closeSheet) {
+    var sub = h('span', { class: 's' }, 'Verificando...');
+    var btn = h('button', { type: 'button', class: 'item', disabled: true }, h('span', { class: 'ico-box' }, UI.svg('mic', 20)), h('span', null, h('span', { class: 't' }, 'Iniciar consulta'), sub));
+    rows.push(btn);
+    var live = Recorder.state();
+    function go(fn) { btn.onclick = function () { fn(); }; btn.disabled = false; }
+    API.recording.status(a.id).then(function (st) {
+      if (live.active && live.appt !== a.id && !st.active_id) {
+        sub.textContent = 'Já existe uma gravação em andamento. Encerre pela barra para iniciar esta.';
+        return;
+      }
+      if (st.active_id || (live.active && live.appt === a.id)) {
+        sub.textContent = 'Gravando agora. Toque para encerrar a gravação.';
+        btn.querySelector('.t').textContent = 'Encerrar gravação';
+        go(function () {
+          closeSheet();
+          UI.confirmBox({ title: 'Encerrar a gravação?', text: 'A consulta continua; só o áudio para.', ok: 'Encerrar gravação', cancel: 'Continuar gravando' }).then(function (yes) {
+            if (!yes) return;
+            Recorder.stop().then(function () { UI.toast('Gravação encerrada. O áudio será usado só para a transcrição.', 'circle-check'); })
+              .catch(function () { UI.toast('Gravação encerrada neste aparelho. O aviso ao servidor vai ser refeito.'); });
+          });
+        });
+        return;
+      }
+      if (!st.allowed) {
+        sub.textContent = st.reason === 'no_consent' ? 'Sem gravação: o(a) paciente não autorizou ou desligou em Conta.' : Recorder.errorText(new Error('recording_not_allowed:' + st.reason));
+        return;
+      }
+      sub.textContent = a.mode === 'online' ? 'Grava pelo microfone. Deixe a chamada no viva-voz para pegar a voz do(a) paciente.' : 'Grava o áudio só para transcrever. O áudio é apagado depois.';
+      go(function () {
+        closeSheet();
+        Recorder.askFirst().then(function (yes) {
+          if (!yes) return;
+          return Recorder.start(a).then(function () { UI.toast('Gravando. O(a) paciente foi avisado(a).', 'mic'); })
+            .catch(function (e) { Diag.error('iniciar-gravacao', e); UI.toast(Recorder.errorText(e)); });
+        });
+      });
+    }).catch(function (e) { Diag.error('status-gravacao', e); sub.textContent = 'Não deu para verificar a gravação agora.'; });
+  }
+
   function apptSheet(a, reload) {
     var future = Date.parse(a.starts_at) > Date.now();
     var sh, rows = [];
@@ -224,6 +266,7 @@
       row('calendar-days', 'Sugerir outro horário', 'O(a) paciente escolhe se aceita', function () { sh.close('go'); proposeSheet(a, reload); });
       row('ban', 'Recusar', 'Avisa o(a) paciente', function () { sh.close('go'); declineSheet(a, reload); }, 'danger');
     }
+    if (a.status === 'scheduled' && window.Recorder && Recorder.inWindow(a)) recordRow(a, rows, function () { sh.close('go'); });
     if (a.status === 'scheduled') {
       if (!future) {
         row('circle-check', 'Marcar como realizada', 'A consulta aconteceu', function () { setStatus('done', 'Marcada como realizada.'); });

@@ -1,0 +1,30 @@
+/* Senso portal: gravacao da consulta. Aviso ao paciente e barra "Gravando" do psicologo (so no app do celular). Sem estilo inline (CSP). */
+
+/* aviso de gravacao perto dos botoes de confirmar (paciente) */
+.rec-note { display: flex; gap: .4rem; align-items: flex-start; margin: .5rem 0 0; color: var(--mute); font-size: .82rem; line-height: 1.4; }
+.rec-note svg { flex: none; margin-top: .12rem; }
+.cta-card .rec-note { display: block; }
+.cta-card .rec-note { margin-top: .25rem; }
+
+/* barra "Gravando": uma pilula flutuante em qualquer tela, com o tempo e o botao de encerrar */
+.rec-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(8.9rem + env(safe-area-inset-bottom)); z-index: 27; display: flex; align-items: center; gap: .6rem; max-width: calc(100vw - 2rem); padding: .4rem .45rem .4rem .95rem; border-radius: 999px; background: var(--ink); color: var(--bg); box-shadow: var(--pop); font-weight: 650; font-size: .92rem; }
+.rec-bar[hidden] { display: none; }
+.rec-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #ff5a5a; animation: rec-pulse 1.4s infinite ease-in-out; }
+.rec-time { font-variant-numeric: tabular-nums; min-width: 2.6rem; }
+.rec-stop { flex: none; display: inline-flex; align-items: center; gap: .4rem; min-height: 40px; padding: 0 .95rem; border: 0; border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.rec-stop:hover { background: var(--surface2); }
+.rec-stop:focus-visible { outline: 3px solid var(--pri); outline-offset: 2px; }
+@keyframes rec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
+@media (min-width: 960px) { .rec-bar { bottom: 1.5rem; } }
+
+/* botao redondo do microfone (anotacao de voz), em toda tela do psicologo, no mesmo canto do botao do assistente do paciente */
+.rec-fab { position: fixed; right: 1.1rem; bottom: calc(4.9rem + env(safe-area-inset-bottom)); z-index: 8; width: 56px; height: 56px; padding: 0; display: grid; place-items: center; border-radius: 50%; border: 0; background: var(--pri); color: var(--pri-ink); box-shadow: var(--pop); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rec-fab:hover { background: var(--pri-h); }
+.rec-fab:focus-visible { outline: 3px solid var(--pri); outline-offset: 3px; }
+.rec-fab[hidden] { display: none; }
+html.rec-fab-on .main { padding-bottom: 9rem; }
+@media (min-width: 960px) {
+  .rec-fab { right: 1.5rem; bottom: 1.5rem; }
+  html.rec-fab-on .main { padding-bottom: 6.5rem; }
+}

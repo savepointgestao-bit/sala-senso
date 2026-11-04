@@ -444,6 +444,42 @@
       }
     },
 
+    /* gravacao da consulta para transcricao (so psicologo, so no app do celular). O aceite do paciente entra sozinho ao confirmar a consulta
+       e ele desliga em Conta; o banco decide se pode gravar (status), registra cada gravacao (start) e o tempo total (finish). */
+    recording: {
+      status: function (appointmentId) { return sb.rpc('recording_status', { p_appointment: appointmentId }).then(ok); },
+      start: function (appointmentId) { return sb.rpc('start_session_recording', { p_appointment: appointmentId }).then(ok); },
+      /* anotacao de voz fora de consulta (sem aceite, sem aviso); recordId e opcional: o paciente a que ela se refere */
+      startNote: function (recordId) { return sb.rpc('start_note_recording', { p_record: recordId || null }).then(ok); },
+      finish: function (id, seconds) { return sb.rpc('finish_session_recording', { p_id: id, p_seconds: Math.max(0, Math.round(seconds || 0)) }).then(ok).then(function () { return true; }); }
+    },
+
+    /* transcricao da gravacao (AssemblyAI, pela funcao de borda transcribe-start). O audio sobe para um balde privado, vira texto com as vozes
+       separadas e e apagado; o texto fica cifrado no banco e so a psicologa dona le. */
+    transcripts: {
+      ticket: function (recordingId) { return sb.rpc('audio_ticket', { p_recording: recordingId }).then(ok); },
+      /* Para onde o app nativo sobe o arquivo: endereco do balde + o login do proprio psicologo (o banco so deixa subir o arquivo da gravacao dele). */
+      target: function (ticket) {
+        return sb.auth.getSession().then(function (r) {
+          var s = r.data && r.data.session;
+          if (!s) throw new Error('not_authenticated');
+          return { url: cfg.supabaseUrl + '/storage/v1/object/' + ticket.bucket + '/' + ticket.path, token: s.access_token, apikey: cfg.supabaseAnonKey };
+        });
+      },
+      request: function (recordingId, bytes) {
+        return sb.functions.invoke('transcribe-start', { body: { recording_id: recordingId, bytes: bytes || null } }).then(function (r) {
+          if (!r.error) return true;
+          var ctx = r.error.context;
+          var read = ctx && typeof ctx.json === 'function' ? ctx.json().then(function (b) { return (b && b.error) || 'internal'; }, function () { return 'internal'; }) : Promise.resolve('network');
+          return read.then(function (code) { throw new Error(code); });
+        });
+      },
+      list: function (recordId) { return sb.rpc('transcripts_list', { p_record: recordId || null, p_limit: 40 }).then(ok); },
+      get: function (id) { return sb.rpc('transcript_get', { p_recording: id }).then(ok); },
+      swapRoles: function (id) { return sb.rpc('transcript_swap_roles', { p_recording: id }).then(ok); },
+      remove: function (id) { return sb.rpc('transcript_delete', { p_recording: id }).then(ok).then(function () { return true; }); }
+    },
+
     /* central de avisos (sininho). O psicologo escolhe o que quer receber; o paciente recebe tudo. */
     notify: {
       list: function (limit) { return sb.rpc('my_notifications', { p_limit: limit || 30 }).then(ok); },

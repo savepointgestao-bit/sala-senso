@@ -263,7 +263,8 @@
         bk.replace ? h('li', null, 'Troca: a consulta de ' + UI.dt.whenLabel(bk.replace.starts_at) + ' será cancelada depois que o pedido for enviado.') : null
       ];
       say(h('div', null, h('p', null, h('b', null, 'Confira o pedido:')), h('ul', { class: 'sum' }, rows),
-        h('p', null, UI.firstName(bk.pro.full_name) + ' confirma o pedido e eu aviso você pelo sininho. O pagamento é combinado direto com ele(a).')));
+        h('p', null, UI.firstName(bk.pro.full_name) + ' confirma o pedido e eu aviso você pelo sininho. O pagamento é combinado direto com ele(a).'),
+        h('p', { class: 'small' }, window.Screens.REC_NOTICE.replace('Ao confirmar', 'Ao enviar o pedido'))));
       choose([
         { label: 'Enviar pedido', icon: 'send', run: function () { sendRequest(bk); } },
         { label: 'Mudar o horário', icon: 'calendar-days', kind: 'ghost', run: function () { askDay(bk); } },
@@ -314,7 +315,7 @@
         a.status === 'scheduled' && future ? h('li', null, 'Presença: ', h('b', null, a.patient_confirmed_at ? 'confirmada' : 'ainda não confirmada')) : null];
       if (a.status === 'reschedule_proposed') lines.push(h('li', null, 'Seu pedido era para ' + UI.dt.whenLabel(a.starts_at) + '.' + (a.decline_reason ? ' Recado: ' + a.decline_reason : '')));
       if (a.status === 'scheduled' && a.mode === 'in_person' && a.office_note) lines.push(h('li', null, 'Local: ' + a.office_note));
-      say(h('div', null, h('ul', { class: 'sum' }, lines)));
+      say(h('div', null, h('ul', { class: 'sum' }, lines), a.status === 'scheduled' && future && !a.patient_confirmed_at ? h('p', { class: 'small' }, window.Screens.REC_NOTICE) : null));
 
       if (a.status === 'reschedule_proposed') {
         items.push({ label: 'Aceitar o novo horário', icon: 'check', run: function () {
