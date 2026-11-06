@@ -25,13 +25,13 @@
     if (/recording_not_ready/.test(m)) return 'Esta gravação já está sendo transcrita.';
     return UI.errorText(e, 'Não deu certo agora. Tente de novo.');
   }
-  /* Rascunho da evolução pela IA: o servidor responde com um código (ver supabase/functions/_shared/draft.js) e aqui vira frase. */
+  /* Resumo da sessão pela IA (cai na ficha como rascunho): o servidor responde com um código (ver supabase/functions/_shared/draft.js) e aqui vira frase. */
   var DRAFT_ERR = {
     not_configured: 'A escrita por IA ainda não foi ligada no servidor.',
-    transcript_too_short: 'Texto curto demais para escrever a evolução.',
+    transcript_too_short: 'Texto curto demais para escrever o resumo da sessão.',
     transcript_too_long: 'Texto longo demais para a IA.',
-    draft_exists: 'Esta gravação já tem um rascunho.',
-    draft_busy: 'O rascunho já está sendo escrito. Aguarde.',
+    draft_exists: 'Esta gravação já tem um resumo.',
+    draft_busy: 'O resumo já está sendo escrito. Aguarde.',
     rate_limited: 'Muitos pedidos. Tente mais tarde.',
     record_required: 'Ligue esta anotação a um paciente primeiro.',
     provider_busy: 'A IA está ocupada agora. Tente de novo em instantes.',
@@ -70,7 +70,7 @@
       var note = null;
       if (it.status === 'stored') note = local ? 'O áudio está neste celular.' : 'Suba o áudio pelo celular que gravou.';
       if (it.status === 'failed') note = 'O áudio fica guardado por 3 dias. ' + (it.error ? '(' + it.error + ')' : '');
-      if (ready && it.draft_doc_id) note = 'Rascunho da evolução gerado.';
+      if (ready && it.draft_doc_id) note = 'Resumo da sessão gerado.';
       var action = null;
       if (it.status === 'stored' && local) {
         action = actionBtn('Subir agora', 'upload', function (b) {
@@ -179,27 +179,27 @@
         });
       } }, UI.svg('trash-2', 18), 'Apagar transcrição');
 
-      /* Evolução pela IA: o Claude lê só este texto e escreve um rascunho na ficha; quem revisa e aprova é a psicóloga. */
+      /* Resumo da sessão pela IA: o Claude lê só este texto e deixa o resumo na ficha como rascunho; quem revisa e aprova é a psicóloga. */
       function aiCard() {
         var box = h('div', { class: 'card tr-ai' });
         function head(t) { box.appendChild(h('div', { class: 'tr-ai-head' }, UI.svg('sparkles', 20), t)); }
         if (d.draft_doc_id) {
-          head('Rascunho da evolução pronto');
+          head('Resumo da sessão pronto');
           box.appendChild(h('p', { class: 'muted' }, 'Está na ficha' + (d.patient_name ? ' de ' + UI.firstName(d.patient_name) : '') + ', esperando a sua revisão.'));
           box.appendChild(h('a', { class: 'btn auto', href: '#/pacientes/' + d.record_id + '?aba=evolucao' }, UI.svg('file-text', 18), 'Abrir evolução'));
           return box;
         }
         if (!d.record_id) {
-          box.appendChild(h('p', { class: 'muted' }, 'Ligue esta anotação a um paciente para gerar a evolução.'));
+          box.appendChild(h('p', { class: 'muted' }, 'Ligue esta anotação a um paciente para gerar o resumo da sessão.'));
           return box;
         }
         box.appendChild(h('p', { class: 'muted' }, 'Escrito por IA. Nada vale até você revisar e aprovar na ficha.'));
-        var go = h('button', { type: 'button', class: 'btn auto', 'data-label': 'Gerar rascunho da evolução', onclick: function () {
-          UI.confirmBox({ title: 'Gerar o rascunho com IA?', text: 'O texto desta transcrição vai para a Anthropic (empresa do Claude) só para escrever o rascunho. O áudio e o cadastro do paciente não vão; nomes ditos na conversa seguem no texto.', ok: 'Gerar rascunho', cancel: 'Agora não' }).then(function (yes) {
+        var go = h('button', { type: 'button', class: 'btn auto', 'data-label': 'Gerar resumo da sessão', onclick: function () {
+          UI.confirmBox({ title: 'Gerar o resumo da sessão com IA?', text: 'O texto desta transcrição vai para a Anthropic (empresa do Claude) só para escrever o resumo. O áudio e o cadastro do paciente não vão; nomes ditos na conversa seguem no texto.', ok: 'Gerar resumo', cancel: 'Agora não' }).then(function (yes) {
             if (!yes) return;
             UI.busy(go, true);
             API.transcripts.draft(id).then(function (r) {
-              UI.toast('Rascunho pronto.', 'circle-check');
+              UI.toast('Resumo pronto.', 'circle-check');
               location.hash = '#/pacientes/' + ((r && r.record_id) || d.record_id) + '?aba=evolucao';
             }).catch(function (e) {
               Diag.error('transcricao-rascunho', e);
@@ -208,7 +208,7 @@
               if (/draft_exists/.test(String((e && e.message) || ''))) API.transcripts.get(id).then(draw).catch(function () { /* fica como esta */ });
             });
           });
-        } }, UI.svg('sparkles', 18), 'Gerar rascunho da evolução');
+        } }, UI.svg('sparkles', 18), 'Gerar resumo da sessão');
         box.appendChild(go);
         return box;
       }

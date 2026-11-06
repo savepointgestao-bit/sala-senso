@@ -14,6 +14,9 @@
   var roleHint = null;       /* tipo de conta escolhido antes de entrar com Google ou Microsoft */
 
   function err(code, message) { var e = new Error(message || code); e.code = code; return e; }
+  /* Plano do psicologo (Free, Pro, Pro AI): todo mundo comeca em Free, como no banco. */
+  var PLANS = ['free', 'pro', 'pro_ai'];
+  function planOf(u) { return u.plan || 'free'; }
   function emit(ev) { listeners.forEach(function (f) { try { f(ev); } catch (e) { /* ignore */ } }); }
   function tick(v) { return new Promise(function (res) { setTimeout(function () { res(v); }, 60); }); }
   function cur() { return session ? users[session.email] : null; }
@@ -172,7 +175,7 @@
       var m = u.meta;
       return tick({
         profile: { id: u.id, role: u.role, full_name: m.fullName, email: session.email, phone: m.phone || null, birth_date: m.birthDate || null, guardian_name: m.guardianName || null, guardian_phone: m.guardianPhone || null },
-        professional: u.role === 'professional' ? { crp_region: m.crpRegion, crp_number: m.crpNumber, verification: u.verification } : null
+        professional: u.role === 'professional' ? { crp_region: m.crpRegion, crp_number: m.crpNumber, verification: u.verification, plan: planOf(u) } : null
       });
     },
 
@@ -245,13 +248,37 @@
 
     /* equipe: mesmas regras do banco (conta de admin; o codigo so e exigido de quem cadastrou o app ou se a chave da equipe estiver ligada) */
     admin: {
-      professionals: function (status) {
+      professionals: function (status, plan) {
         var u = cur(), want = status || 'pending';
         if (!adminOk(u)) return tick([]);
-        return tick(Object.keys(users).map(function (k) { return users[k]; }).filter(function (x) { return x.role === 'professional' && x.verification === want; }).map(function (x) {
+        if (plan && PLANS.indexOf(plan) < 0) return tick(null).then(function () { throw err('invalid_plan', 'invalid_plan'); });
+        return tick(Object.keys(users).map(function (k) { return users[k]; }).filter(function (x) {
+          return x.role === 'professional' && (want === 'all' || x.verification === want) && (!plan || planOf(x) === plan);
+        }).map(function (x) {
           return { id: x.id, full_name: x.meta.fullName, email: Object.keys(users).filter(function (e) { return users[e] === x; })[0], crp_region: x.meta.crpRegion, crp_number: x.meta.crpNumber,
-            created_at: x.created, verification: x.verification, verification_note: x.note || null, verified_at: x.verifiedAt || null };
+            created_at: x.created, verification: x.verification, verification_note: x.note || null, verified_at: x.verifiedAt || null, plan: planOf(x), plan_changed_at: x.planChangedAt || null };
         }));
+      },
+      /* Plano do psicologo: so a equipe troca (igual ao banco: admin com codigo, nome de plano valido, psicologo existente). */
+      setPlan: function (id, plan) {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
+          if (PLANS.indexOf(plan) < 0) throw err('invalid_plan', 'invalid_plan');
+          var t = Object.keys(users).map(function (k) { return users[k]; }).filter(function (x) { return x.id === id && x.role === 'professional'; })[0];
+          if (!t) throw err('professional_not_found', 'professional_not_found');
+          if (planOf(t) !== plan) { t.plan = plan; t.planChangedAt = new Date().toISOString(); }
+          return { id: t.id, plan: planOf(t), plan_changed_at: t.planChangedAt || null };
+        });
+      },
+      planCounts: function () {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
+          var pros = Object.keys(users).map(function (k) { return users[k]; }).filter(function (x) { return x.role === 'professional'; });
+          var n = function (p) { return pros.filter(function (x) { return planOf(x) === p; }).length; };
+          return { free: n('free'), pro: n('pro'), pro_ai: n('pro_ai') };
+        });
       },
       setVerification: function (id, status, note) {
         var u = cur();

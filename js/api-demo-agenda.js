@@ -638,7 +638,8 @@
   var DEMO_DRAFT = {
     session: { title: 'Culpa após briga com o irmão', demand: 'Insônia e culpa depois de uma discussão por dinheiro com o irmão.',
       interventions: 'Exploração do que sentiu na hora da briga e de como lida com a culpa quando ela aparece.',
-      body: 'A paciente relata uma semana difícil, com pouco sono e uma discussão com o irmão por causa de dinheiro. Refere raiva no momento e culpa depois, e diz remoer o que falou sem conseguir parar de pensar.', plan: '' },
+      body: 'A paciente relata uma semana difícil, com pouco sono e uma discussão com o irmão por causa de dinheiro. Refere raiva no momento e culpa depois, e diz remoer o que falou sem conseguir parar de pensar.',
+      plan: 'Definido na sessão:\n- Anotar à noite o que a faz remoer a conversa.\n\nEm aberto:\n- Se vai procurar o irmão para conversar.\n\nPróximos passos:\n- Retomar o tema da culpa na próxima sessão.' },
     note: { title: 'Combinado com a escola', demand: '', interventions: '', body: 'Lembrar de ligar para a escola da paciente e remarcar a próxima semana.', plan: '' }
   };
   function myRec(u, id) {
@@ -678,7 +679,7 @@
       setTimeout(function () { finishTranscribe(row); }, 700);
       return true;
     },
-    /* Rascunho da evolucao pelo Claude (como a funcao de borda draft-generate + draft_begin): um por gravacao, trava contra toque duplo, grava pela mesma
+    /* Resumo da sessao pelo Claude, salvo como rascunho (como a funcao de borda draft-generate + draft_begin): um por gravacao, trava contra toque duplo, grava pela mesma
        pro_doc_save da ficha (origem IA, rascunho). Modos de teste (api.demoDraft): 'ok' 0,7 s; 'slow' 3 s; 'busy' (provider_busy); 'fail' (provider_error). */
     draft: function (id) {
       var u = pro(), row = myRec(u, id);

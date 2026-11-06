@@ -1,12 +1,13 @@
-/* Equipe: fila de verificacao de CRP e chamados de suporte. So aparece para contas de admin com dois fatores;
-   o banco confere de novo a cada pedido (funcoes admin_*), entao esconder o menu nao e a protecao, so a conveniencia. */
+/* Equipe: fila de verificacao de CRP, plano de cada psicologo (Free, Pro, Pro AI) e chamados de suporte. So aparece para contas de admin
+   com dois fatores; o banco confere de novo a cada pedido (funcoes admin_*), entao esconder o menu nao e a protecao, so a conveniencia. */
 (function () {
   'use strict';
   var h = UI.h;
   var S = window.Screens = window.Screens || {};
   function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
 
-  var PRO_FILTER = [['pending', 'Pendentes'], ['verified', 'Verificados'], ['suspended', 'Suspensos'], ['rejected', 'Recusados']];
+  var PRO_FILTER = [['pending', 'Pendentes'], ['verified', 'Verificados'], ['suspended', 'Suspensos'], ['rejected', 'Recusados'], ['all', 'Todos']];
+  var PLAN_FILTER = [['', 'Todos os planos']].concat(Plans.LIST);
   var TICKET_FILTER = [['open', 'Abertos'], ['answered', 'Respondidos'], ['closed', 'Fechados']];
   var CATEGORY = { duvida: 'Dúvida', erro: 'Algo não funciona', sugestao: 'Sugestão', conta: 'Conta e acesso', pagamento: 'Pagamentos', privacidade: 'Privacidade e dados' };
 
@@ -17,6 +18,7 @@
     if (/recent_login_required/.test(m)) return 'Confirme sua identidade de novo e tente outra vez.';
     if (/not_allowed/.test(m)) return 'Sem permissão. Confira se o segundo fator está ativo.';
     if (/not_found/.test(m)) return 'Este item não existe mais. Atualize a lista.';
+    if (/invalid_plan/.test(m)) return 'Esse plano não existe. Atualize a página.';
     if (/failed to fetch|network|load failed/i.test(m)) return 'Sem conexão. Verifique a internet e tente de novo.';
     return 'Não foi possível concluir agora. Tente de novo.';
   }
@@ -83,7 +85,28 @@
     return b;
   }
 
-  function proCard(p, refresh) {
+  /* Plano do psicologo: troca na hora, sem confirmacao (da para voltar). Se o banco recusar, o seletor volta para o plano de antes. */
+  function planRow(p, onPlan) {
+    var f = UI.field({ label: 'Plano', type: 'select', options: Plans.LIST });
+    f.input.value = Plans.rank(p.plan) < 0 ? 'free' : p.plan;
+    f.input.setAttribute('aria-label', 'Plano de ' + p.full_name);
+    f.input.addEventListener('change', function () {
+      var want = f.value(), prev = p.plan;
+      f.input.disabled = true;
+      API.admin.setPlan(p.id, want).then(function (r) {
+        p.plan = r.plan;
+        UI.toast('Plano de ' + p.full_name + ': ' + Plans.label(r.plan), 'circle-check');
+        if (onPlan) onPlan();
+      }).catch(function (e) {
+        Diag.error('equipe', e);
+        f.input.value = prev;
+        UI.toast(errText(e), 'circle-alert');
+      }).then(function () { f.input.disabled = false; });
+    });
+    return h('div', { class: 'plan-row' }, f.el);
+  }
+
+  function proCard(p, refresh, onPlan) {
     var acts = [];
     if (p.verification === 'pending') {
       acts.push(actionBtn('Verificar', { run: function () { return decide(p, 'verified', refresh); } }));
@@ -98,6 +121,7 @@
         h('div', { class: 'who' }, h('b', null, p.full_name), h('span', null, 'CRP ' + p.crp_region + '/' + p.crp_number))),
       h('div', { class: 'meta' }, h('span', null, p.email), h('span', null, 'Cadastro em ' + day(p.created_at) + (p.verified_at ? '. Verificado em ' + day(p.verified_at) : ''))),
       p.verification_note ? h('p', { class: 'note' }, h('b', null, 'Anotação: '), p.verification_note) : null,
+      planRow(p, onPlan),
       h('div', { class: 'actions' }, acts));
   }
 
@@ -129,26 +153,40 @@
   }
 
   S.team = function (ctx) {
-    var tab = 'pro', filters = { pro: 'pending', tix: 'open' };
+    var tab = 'pro', filters = { pro: 'pending', plan: '', tix: 'open' };
     var holder = h('div', { 'aria-live': 'polite' });
-    var filterHolder = h('div', { class: 'filter' });
+    var filterHolder = h('div', { class: 'filters' });
+    var countsHolder = h('div', { 'aria-live': 'polite' });
     var seq = 0;
+
+    /* Quantos psicologos em cada plano (so numeros). Atualiza depois de cada troca de plano. */
+    function drawCounts() {
+      if (tab !== 'pro') { clear(countsHolder); return; }
+      API.admin.planCounts().then(function (c) {
+        if (tab !== 'pro') return;
+        clear(countsHolder);
+        countsHolder.appendChild(h('div', { class: 'stat-row plans', role: 'group', 'aria-label': 'Psicólogos por plano' },
+          Plans.LIST.map(function (pl) { return h('div', { class: 'stat' }, h('b', null, String(c[pl[0]] || 0)), h('span', null, pl[1])); })));
+      }).catch(function (e) { Diag.error('equipe', e); clear(countsHolder); });
+    }
 
     function empty(text) { return h('div', { class: 'empty' }, h('span', { class: 'ico-box' }, UI.svg('check', 28)), h('h2', null, 'Nada por aqui'), h('p', null, text)); }
 
     function load() {
       var my = ++seq;
       clear(holder); holder.appendChild(h('p', { class: 'muted' }, 'Carregando...'));
+      if (tab !== 'pro') clear(countsHolder);
       if (tab === 'seg') { securityPanel(my); return; }
       var isPro = tab === 'pro';
-      (isPro ? API.admin.professionals(filters.pro) : API.admin.tickets(filters.tix)).then(function (rows) {
+      if (isPro) drawCounts();
+      (isPro ? API.admin.professionals(filters.pro, filters.plan) : API.admin.tickets(filters.tix)).then(function (rows) {
         if (my !== seq) return;
         clear(holder);
         if (!rows.length) {
-          holder.appendChild(empty(isPro ? (filters.pro === 'pending' ? 'Nenhum cadastro esperando conferência.' : 'Nenhum psicólogo nesta situação.') : (filters.tix === 'open' ? 'Nenhum chamado aberto.' : 'Nenhum chamado nesta situação.')));
+          holder.appendChild(empty(isPro ? (filters.pro === 'pending' && !filters.plan ? 'Nenhum cadastro esperando conferência.' : 'Nenhum psicólogo com este filtro.') : (filters.tix === 'open' ? 'Nenhum chamado aberto.' : 'Nenhum chamado nesta situação.')));
           return;
         }
-        rows.forEach(function (r) { holder.appendChild(isPro ? proCard(r, load) : ticketCard(r, load)); });
+        rows.forEach(function (r) { holder.appendChild(isPro ? proCard(r, load, drawCounts) : ticketCard(r, load)); });
       }).catch(function (e) {
         if (my !== seq) return;
         Diag.error('equipe', e);
@@ -202,7 +240,13 @@
       var f = UI.field({ label: isPro ? 'Mostrar' : 'Mostrar chamados', type: 'select', options: isPro ? PRO_FILTER : TICKET_FILTER });
       f.input.value = isPro ? filters.pro : filters.tix;
       f.input.addEventListener('change', function () { filters[isPro ? 'pro' : 'tix'] = f.value(); load(); });
-      filterHolder.appendChild(f.el);
+      filterHolder.appendChild(h('div', { class: 'filter' }, f.el));
+      if (isPro) {
+        var pf = UI.field({ label: 'Plano', type: 'select', options: PLAN_FILTER });
+        pf.input.value = filters.plan;
+        pf.input.addEventListener('change', function () { filters.plan = pf.value(); load(); });
+        filterHolder.appendChild(h('div', { class: 'filter' }, pf.el));
+      }
     }
 
     var seg = UI.segmented({ label: 'Seção', value: tab, options: [['pro', 'Psicólogos'], ['tix', 'Suporte'], ['seg', 'Segurança']], onChange: function (v) { tab = v; drawFilter(); load(); } });
@@ -215,7 +259,7 @@
     return S.shell(ctx, 'equipe', [
       h('div', { class: 'hello' }, h('div', { class: 'grow' }, h('h1', null, 'Equipe'), h('div', { class: 'sub' }, 'Conferência de CRP, suporte e segurança')), lookup),
       S.mfaTip(ctx),
-      seg.el, filterHolder, holder
+      seg.el, countsHolder, filterHolder, holder
     ]);
   };
 })();

@@ -161,7 +161,10 @@
         if (!u.data || !u.data.user) return null;
         return Promise.all([
           sb.from('profiles').select('id, role, full_name, email, phone, birth_date, guardian_name, guardian_phone').eq('id', u.data.user.id).maybeSingle(),
-          sb.from('professionals').select('crp_region, crp_number, verification').eq('id', u.data.user.id).maybeSingle()
+          sb.from('professionals').select('crp_region, crp_number, verification, plan').eq('id', u.data.user.id).maybeSingle().then(function (x) {
+            /* Banco ainda sem a migracao dos planos (a coluna "plan" nao existe): le sem ela, para o login do psicologo nao quebrar. */
+            return x.error ? sb.from('professionals').select('crp_region, crp_number, verification').eq('id', u.data.user.id).maybeSingle() : x;
+          })
         ]).then(function (r) {
           if (r[0].error) throw wrap(r[0].error);
           if (!r[0].data) return null;
@@ -220,7 +223,13 @@
 
     /* Equipe (so contas de admin; o banco exige 2 fatores em toda funcao admin_*) */
     admin: {
-      professionals: function (status) { return sb.rpc('admin_list_pending', { p_status: status || 'pending' }).then(ok); },
+      /* status: 'pending', 'verified', 'suspended', 'rejected' ou 'all' (todas as situacoes). plan: 'free', 'pro', 'pro_ai' ou vazio (todos). */
+      professionals: function (status, plan) {
+        return sb.rpc('admin_list_pending', { p_status: status === 'all' ? null : (status || 'pending'), p_plan: plan || null }).then(ok);
+      },
+      /* Plano do psicologo (Free, Pro ou Pro AI). So a equipe troca; fica na auditoria. */
+      setPlan: function (id, plan) { return sb.rpc('admin_set_plan', { p_professional: id, p_plan: plan }).then(ok); },
+      planCounts: function () { return sb.rpc('admin_plan_counts').then(ok); },
       setVerification: function (id, status, note) {
         return sb.rpc('admin_set_verification', { p_professional: id, p_status: status, p_note: note || null }).then(ok).then(function () { return true; });
       },

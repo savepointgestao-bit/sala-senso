@@ -477,11 +477,14 @@ details.faq .body p { font-size: .9rem; }
 .person .head .who { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .person .head .who b { overflow-wrap: anywhere; }
 .person .head .who span { font-size: .85rem; color: var(--mute); }
-.person .meta { display: flex; flex-direction: column; gap: .1rem; font-size: .85rem; color: var(--mute); overflow-wrap: anywhere; }
+.person .meta { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; font-size: .85rem; color: var(--mute); overflow-wrap: anywhere; }
 .person .note { margin: 0; font-size: .88rem; background: var(--surface2); border-radius: var(--r-m); padding: .55rem .75rem; }
 .person .msg { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .92rem; }
 .person .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .2rem; }
-.filter { max-width: 340px; }
+.filters { display: flex; flex-wrap: wrap; gap: .2rem .9rem; }
+.filter { flex: 1 1 11rem; max-width: 340px; }
+.person .plan-row { max-width: 240px; }
+.stat-row.plans { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 /* molduras de nivel: o anel muda de espessura e de desenho a cada marco (nao so de cor) */
 .avatar.sm { width: 32px; height: 32px; font-size: .75rem; }
