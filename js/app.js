@@ -232,6 +232,8 @@
         }
         if (path === 'completar-cadastro') { location.hash = '#/inicio'; return; }
         var pro = ctx.me.profile.role === 'professional';
+        /* Conta desativada pela equipe: nao entra em nada (so a tela que explica e o botao de sair). */
+        if (pro && ctx.policy && ctx.policy.deactivated && !ctx.admin) return mount(S.accountDeactivated(), 'Conta desativada');
         var needMfa = pro || ctx.admin;
         Idle.start(needMfa ? 'professional' : 'patient');
         if (needMfa && !ctx.mfa.enrolled && ctx.policy.mfa_required) return mount(S.mfaSetup({ required: true }), 'Verificação em duas etapas');

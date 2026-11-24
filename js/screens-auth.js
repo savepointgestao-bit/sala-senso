@@ -165,22 +165,15 @@
 
     var social = oauthBlock({ keep: function () { return keep.checked(); } });
     return authPage([h('h1', null, 'Entrar'), social, social ? sep('ou entre com e-mail') : null, form,
-      h('p', { class: 'auth-foot' }, 'Não tem conta? ', h('a', { href: '#/criar-conta' }, 'Criar conta'))]);
+      h('p', { class: 'auth-foot' }, 'Psicólogo(a) sem conta? ', h('a', { href: '#/criar-conta/profissional' }, 'Criar conta')),
+      h('p', { class: 'small muted center' }, 'É paciente? Peça o link ao seu psicólogo(a) e crie a conta por ele.')]);
   };
 
-  /* ---------------------------------------------------------------- escolher perfil */
+  /* ---------------------------------------------------------------- escolher perfil
+     Paciente so cria conta pelo link do psicologo (24/11/2026): sem convite guardado, "Criar conta" e so do psicologo. */
   S.chooseRole = function () {
-    function choice(href, icon, title, desc) {
-      return h('a', { class: 'choice', href: href }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('span', null, h('b', null, title), h('span', { class: 'd' }, desc)), h('span', { class: 'go' }, UI.svg('chevron-right', 20)));
-    }
-    var social = oauthBlock();
-    return authPage([
-      h('h1', null, 'Criar conta'),
-      choice('#/criar-conta/profissional', 'calendar', 'Sou psicólogo(a)', 'Agenda, pacientes e recibos'),
-      choice('#/criar-conta/paciente', 'user', 'Sou paciente', 'Sessões e diário. Gratuito'),
-      social ? sep('ou crie a conta com') : null, social,
-      h('p', { class: 'auth-foot' }, 'Já tem conta? ', h('a', { href: '#/entrar' }, 'Entrar'))
-    ], { back: { href: '#/entrar', text: 'Entrar' } });
+    if (!S.invite.get()) return S.signupProfessional();
+    return S.signupPatient();
   };
 
   /* ---------------------------------------------------------------- cadastro do profissional */
@@ -223,11 +216,28 @@
       terms.el, dpa.el, general, btn);
 
     var socialPro = oauthBlock({ role: 'professional' });
-    return authPage([h('h1', null, 'Cadastro de psicólogo(a)'), socialPro, socialPro ? sep('ou preencha com e-mail') : null, form], { back: { href: '#/criar-conta', text: 'Voltar' } });
+    return authPage([h('h1', null, 'Cadastro de psicólogo(a)'), socialPro, socialPro ? sep('ou preencha com e-mail') : null, form], { back: { href: '#/entrar', text: 'Entrar' } });
   };
 
   /* ---------------------------------------------------------------- cadastro do paciente */
+  /* Conta de psicologo desativada pela equipe do Senso: os dados ficam guardados, mas nada abre. */
+  S.accountDeactivated = function () {
+    return authPage([S.statusIcon('lock', 'warn'), h('h1', null, 'Conta desativada'),
+      h('p', { class: 'lead' }, 'Sua conta foi desativada pela equipe do Senso. Seus dados continuam guardados. Para reativar, fale com o suporte.'),
+      h('div', { class: 'stack mt24' }, h('a', { class: 'btn', href: '#/suporte' }, 'Falar com o suporte'),
+        UI.button('Sair', { variant: 'ghost', onclick: function () { API.signOut().then(function () { go('#/entrar'); }); } }))]);
+  };
+
+  /* Sem o link do psicologo nao ha cadastro de paciente: a tela explica e manda para o login. */
+  S.patientNeedsInvite = function () {
+    return authPage([S.statusIcon('link', 'warn'), h('h1', null, 'Cadastro só pelo link do seu psicólogo(a)'),
+      h('p', { class: 'lead' }, 'A conta de paciente é criada pelo link que o seu psicólogo(a) manda. Peça o link a ele(a) e abra por lá.'),
+      h('div', { class: 'stack mt24' }, h('a', { class: 'btn', href: '#/entrar' }, 'Já tenho conta'),
+        h('a', { class: 'btn ghost', href: '#/criar-conta/profissional' }, 'Sou psicólogo(a)'))]);
+  };
+
   S.signupPatient = function () {
+    if (!S.invite.get()) return S.patientNeedsInvite();
     var pf = S.patientForm({ code: S.invite.get() });
     var email = UI.field({ label: 'E-mail', type: 'email', autocomplete: 'email', inputmode: 'email', required: true });
     var pw = UI.field({ label: 'Senha', type: 'password', autocomplete: 'new-password', toggle: true, required: true });
@@ -245,22 +255,25 @@
       if (S.focusFirst(bads)) return;
       UI.busy(btn, true);
       API.signUp('patient', Object.assign({ email: email.value().trim(), password: pw.value() }, r.data))
-        .then(function () { Diag.log('signup:paciente:ok'); S.invite.clear(); go('#/confirmar-email?' + qs({ email: email.value().trim() })); })
+        .then(function () { Diag.log('signup:paciente:ok'); /* o convite fica guardado: "Refazer cadastro" volta para o cadastro de paciente */ go('#/confirmar-email?' + qs({ email: email.value().trim() })); })
         .catch(function (e) { UI.busy(btn, false); general.appendChild(UI.notice('bad', friendly(e) || unexpected('signup-pat', e))); });
     } },
       pf.parts.identity, email.el, pw.el, meter.el, pf.parts.invite, pf.parts.consent, general, btn);
 
     var socialPat = oauthBlock({ role: 'patient' });
-    return authPage([h('h1', null, 'Cadastro de paciente'), h('p', { class: 'lead' }, 'Leva 1 minuto. Só pedimos o essencial.'), socialPat, socialPat ? sep('ou preencha com e-mail') : null, form], { back: { href: '#/criar-conta', text: 'Voltar' } });
+    return authPage([h('h1', null, 'Cadastro de paciente'), h('p', { class: 'lead' }, 'Leva 1 minuto. Só pedimos o essencial.'), socialPat, socialPat ? sep('ou preencha com e-mail') : null, form], { back: { href: '#/entrar', text: 'Entrar' } });
   };
 
   /* ---------------------------------------------------------------- completar cadastro (depois de entrar com Google ou Microsoft) */
   S.completeSignup = function (ctx) {
     var acct = ctx.auth || {};
     var provider = (acct.providers || [])[0] === 'azure' ? 'Microsoft' : ((acct.providers || [])[0] === 'google' ? 'Google' : '');
-    var role = acct.roleHint || null;
-
-    var roleSeg = UI.segmented({ label: 'Tipo de conta', value: role, options: [['professional', 'Sou psicólogo(a)'], ['patient', 'Sou paciente']], onChange: function (v) { role = v; roleErr.classList.add('hide'); drawRole(); } });
+    /* paciente so com o link do psicologo guardado; sem ele, so da para seguir como psicologo */
+    var hasInvite = !!S.invite.get();
+    var role = acct.roleHint === 'patient' && !hasInvite ? null : (acct.roleHint || null);
+    var roleOpts = hasInvite ? [['professional', 'Sou psicólogo(a)'], ['patient', 'Sou paciente']] : [['professional', 'Sou psicólogo(a)']];
+    var roleSeg = UI.segmented({ label: 'Tipo de conta', value: role, options: roleOpts, onChange: function (v) { role = v; roleErr.classList.add('hide'); drawRole(); } });
+    var noInviteNote = hasInvite ? null : h('p', { class: 'small muted' }, 'É paciente? A conta de paciente só é criada pelo link do seu psicólogo(a). Saia, abra o link que ele(a) mandou e entre de novo.');
     var roleErr = h('div', { class: 'err hide', role: 'alert' }, 'Escolha o tipo de conta.');
 
     var name = UI.field({ label: 'Nome completo', autocomplete: 'name', required: true, autocapitalize: 'words', maxlength: 120, value: acct.name || '' });
@@ -309,7 +322,7 @@
           general.appendChild(UI.notice('bad', friendly(e) || unexpected('complete-signup', e)));
         });
     } },
-      h('div', { class: 'field' }, h('div', { class: 'lbl' }, 'Como você vai usar o Senso?'), roleSeg.el, roleErr),
+      h('div', { class: 'field' }, h('div', { class: 'lbl' }, 'Como você vai usar o Senso?'), roleSeg.el, roleErr, noInviteNote),
       name.el, proBox, patBox, general, btn);
     drawRole();
 

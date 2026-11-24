@@ -6,7 +6,8 @@
   var S = window.Screens = window.Screens || {};
   function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
 
-  var PRO_FILTER = [['pending', 'Pendentes'], ['verified', 'Verificados'], ['suspended', 'Suspensos'], ['rejected', 'Recusados'], ['all', 'Todos']];
+  var PRO_FILTER = [['pending', 'Pendentes'], ['verified', 'Verificados'], ['suspended', 'Pausados'], ['rejected', 'Recusados'], ['deactivated', 'Desativados'], ['all', 'Todos']];
+  var STATUS_LABEL = { pending: 'CRP em análise', verified: 'Verificado', suspended: 'Acesso pausado', rejected: 'Recusado', deactivated: 'Conta desativada' };
   var PLAN_FILTER = [['', 'Todos os planos']].concat(Plans.LIST);
   var TICKET_FILTER = [['open', 'Abertos'], ['answered', 'Respondidos'], ['closed', 'Fechados']];
   var CATEGORY = { duvida: 'Dúvida', erro: 'Algo não funciona', sugestao: 'Sugestão', conta: 'Conta e acesso', pagamento: 'Pagamentos', privacidade: 'Privacidade e dados' };
@@ -19,6 +20,10 @@
     if (/not_allowed/.test(m)) return 'Sem permissão. Confira se o segundo fator está ativo.';
     if (/not_found/.test(m)) return 'Este item não existe mais. Atualize a lista.';
     if (/invalid_plan/.test(m)) return 'Esse plano não existe. Atualize a página.';
+    if (/confirm_mismatch/.test(m)) return 'O e-mail digitado não é o da conta. Nada foi apagado.';
+    if (/deactivate_first/.test(m)) return 'Desative a conta antes de apagar.';
+    if (/team_member/.test(m)) return 'Essa conta é da equipe. Tire da equipe antes.';
+    if (/account_deactivated/.test(m)) return 'Essa conta está desativada. Reative antes.';
     if (/failed to fetch|network|load failed/i.test(m)) return 'Sem conexão. Verifique a internet e tente de novo.';
     return 'Não foi possível concluir agora. Tente de novo.';
   }
@@ -64,17 +69,55 @@
       text: function (p) { return p.full_name + ', CRP ' + p.crp_region + '/' + p.crp_number + '.'; } },
     rejected: { title: 'Recusar cadastro', confirm: 'Recusar', danger: true, hint: 'Fica registrado. A pessoa não acessa dados de pacientes.', label: 'Motivo', toast: 'Cadastro recusado',
       text: function (p) { return p.full_name + ' não terá acesso a pacientes.'; } },
-    suspended: { title: 'Suspender acesso', confirm: 'Suspender', danger: true, hint: 'Corta o acesso agora. Fica registrado.', label: 'Motivo', toast: 'Acesso suspenso',
-      text: function (p) { return p.full_name + ' perde o acesso aos pacientes imediatamente.'; } }
+    suspended: { title: 'Pausar acesso', confirm: 'Pausar', danger: true, hint: 'Corta o acesso agora. Fica registrado.', label: 'Motivo', toast: 'Acesso pausado',
+      text: function (p) { return p.full_name + ' continua entrando, mas perde o acesso aos pacientes e à agenda na hora.'; } },
+    deactivated: { title: 'Desativar conta', confirm: 'Desativar', danger: true, hint: 'Guarda tudo e dá para reativar depois. Fica registrado.', label: 'Motivo', toast: 'Conta desativada',
+      text: function (p) { return p.full_name + ' não entra mais no Senso, o link de cadastro dele(a) para e ele(a) some da lista dos pacientes.'; } }
   };
 
   function decide(p, status, refresh) {
     var d = DECISION[status];
     return noteDialog({ title: d.title, text: d.text(p), label: d.label, hint: d.hint, confirm: d.confirm, danger: d.danger }).then(function (note) {
       if (note === null) return;
-      return (status === 'verified' ? ensureFresh() : Promise.resolve(true)).then(function (ok) {
+      return (status === 'verified' || status === 'deactivated' ? ensureFresh() : Promise.resolve(true)).then(function (ok) {
         if (!ok) return;
-        return API.admin.setVerification(p.id, status, note).then(function () { UI.toast(d.toast, 'circle-check'); refresh(); });
+        var run = status === 'deactivated' ? API.admin.deactivate(p.id, note) : API.admin.setVerification(p.id, status, note);
+        return run.then(function () { UI.toast(d.toast, 'circle-check'); refresh(); });
+      });
+    }).catch(function (e) { Diag.error('equipe', e); UI.toast(errText(e), 'circle-alert'); });
+  }
+
+  /* So o dono: reativar (volta a situacao de antes) e apagar de vez (so desativada, digitando o e-mail da conta). */
+  function reactivate(p, refresh) {
+    return ensureFresh().then(function (ok) {
+      if (!ok) return;
+      return API.admin.reactivate(p.id).then(function (st) { UI.toast('Conta reativada: ' + (STATUS_LABEL[st] || st).toLowerCase(), 'circle-check'); refresh(); });
+    }).catch(function (e) { Diag.error('equipe', e); UI.toast(errText(e), 'circle-alert'); });
+  }
+  function removeForGood(p, refresh) {
+    return new Promise(function (resolve) {
+      var done = false, ov;
+      function finish(v) { if (done) return; done = true; document.removeEventListener('keydown', onKey); if (ov.parentNode) ov.parentNode.removeChild(ov); resolve(v); }
+      function onKey(ev) { if (ev.key === 'Escape') finish(null); }
+      var mail = UI.field({ label: 'Digite o e-mail da conta para confirmar', type: 'email', autocomplete: 'off', hint: p.email });
+      var ok = UI.button('Apagar de vez', { type: 'submit', variant: 'danger' });
+      var cancel = UI.button('Cancelar', { variant: 'ghost', onclick: function () { finish(null); } });
+      var form = h('form', { novalidate: true, onsubmit: function (ev) {
+        ev.preventDefault();
+        if (mail.value().trim().toLowerCase() !== String(p.email || '').toLowerCase()) { mail.setError('Não é o e-mail desta conta.'); mail.input.focus(); return; }
+        finish(mail.value().trim());
+      } }, h('h2', { id: 'del-t' }, 'Apagar a conta de vez'),
+        h('p', null, 'Apaga a conta de ' + p.full_name + ', as fichas, a agenda e o financeiro dele(a). Pacientes com conta ficam sem vínculo. Não dá para desfazer.'),
+        mail.el, h('div', { class: 'dialog-actions' }, ok, cancel));
+      ov = h('div', { class: 'overlay' }, h('div', { class: 'dialog form', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'del-t' }, form));
+      document.body.appendChild(ov);
+      document.addEventListener('keydown', onKey);
+      mail.input.focus();
+    }).then(function (email) {
+      if (email === null) return;
+      return ensureFresh().then(function (fresh) {
+        if (!fresh) return;
+        return API.admin.deleteProfessional(p.id, email).then(function () { UI.toast('Conta apagada', 'circle-check'); refresh(); });
       });
     }).catch(function (e) { Diag.error('equipe', e); UI.toast(errText(e), 'circle-alert'); });
   }
@@ -106,19 +149,28 @@
     return h('div', { class: 'plan-row' }, f.el);
   }
 
-  function proCard(p, refresh, onPlan) {
+  function proCard(p, refresh, onPlan, owner) {
     var acts = [];
-    if (p.verification === 'pending') {
+    if (p.verification === 'deactivated') {
+      if (owner) {
+        acts.push(actionBtn('Reativar', { run: function () { return reactivate(p, refresh); } }));
+        acts.push(actionBtn('Apagar de vez', { variant: 'ghost', run: function () { return removeForGood(p, refresh); } }));
+      }
+    } else if (p.verification === 'pending') {
       acts.push(actionBtn('Verificar', { run: function () { return decide(p, 'verified', refresh); } }));
       acts.push(actionBtn('Recusar', { variant: 'ghost', run: function () { return decide(p, 'rejected', refresh); } }));
     } else if (p.verification === 'verified') {
-      acts.push(actionBtn('Suspender', { variant: 'ghost', run: function () { return decide(p, 'suspended', refresh); } }));
+      acts.push(actionBtn('Pausar acesso', { variant: 'ghost', run: function () { return decide(p, 'suspended', refresh); } }));
+    } else if (p.verification === 'suspended') {
+      acts.push(actionBtn('Liberar acesso', { run: function () { return decide(p, 'verified', refresh); } }));
     } else {
       acts.push(actionBtn('Verificar de novo', { variant: 'ghost', run: function () { return decide(p, 'verified', refresh); } }));
     }
+    if (owner && p.verification !== 'deactivated') acts.push(actionBtn('Desativar conta', { variant: 'ghost', run: function () { return decide(p, 'deactivated', refresh); } }));
     return h('div', { class: 'card person' },
       h('div', { class: 'head' }, h('span', { class: 'avatar', 'aria-hidden': 'true' }, UI.initials(p.full_name)),
-        h('div', { class: 'who' }, h('b', null, p.full_name), h('span', null, 'CRP ' + p.crp_region + '/' + p.crp_number))),
+        h('div', { class: 'who' }, h('b', null, p.full_name), h('span', null, 'CRP ' + p.crp_region + '/' + p.crp_number)),
+        h('span', { class: 'tag' }, STATUS_LABEL[p.verification] || p.verification)),
       h('div', { class: 'meta' }, h('span', null, p.email), h('span', null, 'Cadastro em ' + day(p.created_at) + (p.verified_at ? '. Verificado em ' + day(p.verified_at) : ''))),
       p.verification_note ? h('p', { class: 'note' }, h('b', null, 'Anotação: '), p.verification_note) : null,
       planRow(p, onPlan),
@@ -152,7 +204,54 @@
       h('div', { class: 'actions' }, acts));
   }
 
+  /* Aba Equipe: o dono ve todos e adiciona ou tira moderador (no maximo 2); o moderador so ve. */
+  function teamPanel(holder, owner, isCurrent) {
+    API.admin.team().then(function (t) {
+      if (!isCurrent()) return;
+      clear(holder);
+      var mods = t.members.filter(function (m) { return m.role === 'moderator'; }).length;
+      var list = h('div', { class: 'group' }, t.members.map(function (m) {
+        var right = owner && m.role === 'moderator' ? actionBtn('Tirar da equipe', { variant: 'ghost', run: function () {
+          return API.admin.removeModerator(m.user_id).then(function () { UI.toast((m.name || m.email) + ' saiu da equipe', 'circle-check'); teamPanel(holder, owner, isCurrent); })
+            .catch(function (e) { Diag.error('equipe', e); UI.toast(errText(e), 'circle-alert'); });
+        } }) : null;
+        return h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg(m.role === 'owner' ? 'shield-check' : 'user', 20)),
+          h('span', { class: 'grow' }, h('span', { class: 't' }, (m.name || m.email) + (m.is_me ? ' (você)' : '')),
+            h('span', { class: 's' }, (m.role === 'owner' ? 'Dono' : 'Moderador(a)') + (m.email ? '. ' + m.email : ''))), right);
+      }));
+      holder.appendChild(list);
+      if (!owner) {
+        holder.appendChild(h('p', { class: 'small muted' }, 'Como moderador(a), você confere CRP, pausa e libera acesso, troca plano e responde o suporte. Desativar contas e montar a equipe fica com o dono.'));
+        return;
+      }
+      if (mods >= t.max_moderators) {
+        holder.appendChild(h('p', { class: 'small muted' }, 'Você já tem ' + t.max_moderators + ' moderadores, o máximo. Tire um para colocar outro.'));
+        return;
+      }
+      var mail = UI.field({ label: 'E-mail da conta do novo moderador(a)', type: 'email', autocomplete: 'off', hint: 'A pessoa precisa ter conta no Senso. Moderador(a) confere CRP, pausa e libera acesso, troca plano e responde o suporte.' });
+      var add = UI.button('Adicionar moderador(a)', { type: 'submit' });
+      var form = h('form', { novalidate: true, class: 'card', onsubmit: function (ev) {
+        ev.preventDefault();
+        if (!UI.emailValid(mail.value())) { mail.setError('Digite um e-mail válido.'); mail.input.focus(); return; }
+        UI.busy(add, true);
+        ensureFresh().then(function (ok) {
+          if (!ok) return null;
+          return API.admin.addModerator(mail.value().trim());
+        }).then(function (r) {
+          UI.busy(add, false);
+          if (!r) return;
+          if (r.ok) { UI.toast((r.name || 'Moderador(a)') + ' entrou na equipe', 'circle-check'); teamPanel(holder, owner, isCurrent); return; }
+          mail.setError(r.error === 'no_account' ? 'Não há conta com esse e-mail. Peça para a pessoa criar a conta antes.'
+            : r.error === 'already_team' ? 'Essa conta já é da equipe.' : 'Já são 2 moderadores, o máximo.');
+        }).catch(function (e) { UI.busy(add, false); Diag.error('equipe', e); UI.toast(errText(e), 'circle-alert'); });
+      } }, mail.el, add);
+      holder.appendChild(h('div', { class: 'group-title' }, 'Adicionar moderador(a) (' + mods + ' de ' + t.max_moderators + ')'));
+      holder.appendChild(form);
+    }).catch(function (e) { if (!isCurrent()) return; Diag.error('equipe', e); clear(holder); holder.appendChild(UI.notice('bad', errText(e))); });
+  }
+
   S.team = function (ctx) {
+    var owner = ((ctx.policy && ctx.policy.team_role) || 'owner') === 'owner';
     var tab = 'pro', filters = { pro: 'pending', plan: '', tix: 'open' };
     var holder = h('div', { 'aria-live': 'polite' });
     var filterHolder = h('div', { class: 'filters' });
@@ -177,6 +276,7 @@
       clear(holder); holder.appendChild(h('p', { class: 'muted' }, 'Carregando...'));
       if (tab !== 'pro') clear(countsHolder);
       if (tab === 'seg') { securityPanel(my); return; }
+      if (tab === 'team') { teamPanel(holder, owner, function () { return my === seq; }); return; }
       var isPro = tab === 'pro';
       if (isPro) drawCounts();
       (isPro ? API.admin.professionals(filters.pro, filters.plan) : API.admin.tickets(filters.tix)).then(function (rows) {
@@ -186,7 +286,7 @@
           holder.appendChild(empty(isPro ? (filters.pro === 'pending' && !filters.plan ? 'Nenhum cadastro esperando conferência.' : 'Nenhum psicólogo com este filtro.') : (filters.tix === 'open' ? 'Nenhum chamado aberto.' : 'Nenhum chamado nesta situação.')));
           return;
         }
-        rows.forEach(function (r) { holder.appendChild(isPro ? proCard(r, load, drawCounts) : ticketCard(r, load)); });
+        rows.forEach(function (r) { holder.appendChild(isPro ? proCard(r, load, drawCounts, owner) : ticketCard(r, load)); });
       }).catch(function (e) {
         if (my !== seq) return;
         Diag.error('equipe', e);
@@ -235,7 +335,7 @@
 
     function drawFilter() {
       clear(filterHolder);
-      if (tab === 'seg') return;
+      if (tab === 'seg' || tab === 'team') return;
       var isPro = tab === 'pro';
       var f = UI.field({ label: isPro ? 'Mostrar' : 'Mostrar chamados', type: 'select', options: isPro ? PRO_FILTER : TICKET_FILTER });
       f.input.value = isPro ? filters.pro : filters.tix;
@@ -249,7 +349,9 @@
       }
     }
 
-    var seg = UI.segmented({ label: 'Seção', value: tab, options: [['pro', 'Psicólogos'], ['tix', 'Suporte'], ['seg', 'Segurança']], onChange: function (v) { tab = v; drawFilter(); load(); } });
+    /* Seguranca (obrigatoriedade do 2FA) e so do dono; Equipe aparece para os dois (o moderador so ve). */
+    var tabs = [['pro', 'Psicólogos'], ['tix', 'Suporte']].concat(owner ? [['seg', 'Segurança']] : []).concat([['team', 'Equipe']]);
+    var seg = UI.segmented({ label: 'Seção', value: tab, options: tabs, onChange: function (v) { tab = v; drawFilter(); load(); } });
     drawFilter(); load();
 
     var cfg = (window.PSI_CONFIG && window.PSI_CONFIG.team) || {};
@@ -257,7 +359,7 @@
       ? h('a', { class: 'btn ghost sm auto', href: cfg.crpLookupUrl, target: '_blank', rel: 'noopener noreferrer' }, UI.svg('id-card', 18), 'Consultar CRP no CFP') : null;
 
     return S.shell(ctx, 'equipe', [
-      h('div', { class: 'hello' }, h('div', { class: 'grow' }, h('h1', null, 'Equipe'), h('div', { class: 'sub' }, 'Conferência de CRP, suporte e segurança')), lookup),
+      h('div', { class: 'hello' }, h('div', { class: 'grow' }, h('h1', null, 'Equipe'), h('div', { class: 'sub' }, owner ? 'Contas dos psicólogos, suporte, segurança e moderadores' : 'Moderação: CRP, acesso, planos e suporte')), lookup),
       S.mfaTip(ctx),
       seg.el, countsHolder, filterHolder, holder
     ]);

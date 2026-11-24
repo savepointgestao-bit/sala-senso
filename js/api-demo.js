@@ -21,6 +21,11 @@
   function tick(v) { return new Promise(function (res) { setTimeout(function () { res(v); }, 60); }); }
   function cur() { return session ? users[session.email] : null; }
   function recent() { return Date.now() - lastAuth <= 600000; }
+  /* Dono da equipe (moderador nao e dono). Contas de equipe antigas, sem papel, contam como dono. */
+  function ownerOk(u) { return adminOk(u) && (u.teamRole || 'owner') === 'owner'; }
+  function allUsers() { return Object.keys(users).map(function (k) { return users[k]; }); }
+  function emailOfUser(x) { return Object.keys(users).filter(function (e) { return users[e] === x; })[0] || ''; }
+  function proById(id) { return allUsers().filter(function (x) { return x.id === id && x.role === 'professional'; })[0] || null; }
 
   /* Mesmas regras do banco para baixar ou apagar dados: profissional com 2 fatores e identidade confirmada ha ate 10 min. */
   /* Igual ao banco: o codigo (aal2) vale sempre para quem cadastrou o app autenticador; sem app, so se a obrigatoriedade estiver ligada. */
@@ -84,7 +89,7 @@
     resendConfirmation: function () { return tick(true); },
     demoConfirmEmail: function (email) { var u = users[String(email).toLowerCase()]; if (u) { u.confirmed = true; u.confirmedAt = new Date().toISOString(); } return tick(true); },
     demoVerify: function () { var u = cur(); if (u) { u.verification = 'verified'; care().seedExamples(u); } return tick(true); },
-    demoMakeAdmin: function (email) { var u = users[String(email).toLowerCase()]; if (u) u.admin = true; return tick(true); },
+    demoMakeAdmin: function (email) { var u = users[String(email).toLowerCase()]; if (u) { u.admin = true; u.teamRole = u.teamRole || 'owner'; } return tick(true); },
 
     signIn: function (email, password, keepSession) {
       var u = users[String(email).trim().toLowerCase()];
@@ -184,7 +189,8 @@
       return tick(null).then(function () {
         if (!u) throw err('not_allowed', 'not_allowed');
         var admin = !!u.admin;
-        return { profile_complete: !!u.role, role: u.role || null, is_admin: admin, mfa_required: (admin && adminMfaRequired) || (u.role === 'professional' && mfaRequired), mfa_enrolled: !!(u.factor && u.factor.verified),
+        return { profile_complete: !!u.role, role: u.role || null, is_admin: admin, team_role: admin ? (u.teamRole || 'owner') : null,
+          deactivated: u.role === 'professional' && u.verification === 'deactivated', mfa_required: (admin && adminMfaRequired) || (u.role === 'professional' && mfaRequired), mfa_enrolled: !!(u.factor && u.factor.verified),
           test_mode: admin ? (u.mode || 'admin') : null };
       });
     },
@@ -284,7 +290,9 @@
         var u = cur();
         return tick(null).then(function () {
           if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
+          if (status === 'deactivated') throw err('not_allowed', 'not_allowed');
           var t = Object.keys(users).map(function (k) { return users[k]; }).filter(function (x) { return x.id === id && x.role === 'professional'; })[0];
+          if (t && t.verification === 'deactivated') throw err('account_deactivated', 'account_deactivated');
           if (status === 'verified' && Date.now() - lastAuth > 600000) throw err('recent_login_required', 'recent_login_required');
           if (!t) throw err('professional_not_found', 'professional_not_found');
           t.verification = status; t.note = String(note || '').trim().slice(0, 500) || null; t.verifiedAt = status === 'verified' ? new Date().toISOString() : null;
@@ -320,10 +328,87 @@
       setMfaRequired: function (required) {
         var u = cur();
         return tick(null).then(function () {
-          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
+          if (!ownerOk(u)) throw err('not_allowed', 'not_allowed');
           if (typeof required !== 'boolean') throw err('invalid_data', 'invalid_data');
           if (!recent()) throw err('recent_login_required', 'recent_login_required');
           mfaRequired = required; return true;
+        });
+      },
+      /* ---- equipe: dono e moderadores (no maximo 2). Moderador confere CRP, pausa, libera, troca plano e ve o suporte. ---- */
+      team: function () {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!adminOk(u)) throw err('not_allowed', 'not_allowed');
+          var owner = ownerOk(u);
+          var members = allUsers().filter(function (x) { return x.admin && (owner || (x.teamRole || 'owner') === 'owner' || x === u); })
+            .sort(function (a, b) { return ((b.teamRole || 'owner') === 'owner') - ((a.teamRole || 'owner') === 'owner'); })
+            .map(function (x) { return { user_id: x.id, role: x.teamRole || 'owner', name: x.meta ? x.meta.fullName : null, email: emailOfUser(x), added_at: x.teamAddedAt || x.created, is_me: x === u }; });
+          return { me: u.teamRole || 'owner', max_moderators: 2, members: members };
+        });
+      },
+      addModerator: function (email) {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!ownerOk(u)) throw err('not_allowed', 'not_allowed');
+          if (!recent()) throw err('recent_login_required', 'recent_login_required');
+          var t = users[String(email || '').trim().toLowerCase()];
+          if (!t || !t.role) return { ok: false, error: 'no_account' };
+          if (t.admin) return { ok: false, error: 'already_team' };
+          if (allUsers().filter(function (x) { return x.admin && x.teamRole === 'moderator'; }).length >= 2) return { ok: false, error: 'limit_reached' };
+          t.admin = true; t.teamRole = 'moderator'; t.teamAddedAt = new Date().toISOString();
+          return { ok: true, user_id: t.id, name: t.meta.fullName };
+        });
+      },
+      removeModerator: function (id) {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!ownerOk(u)) throw err('not_allowed', 'not_allowed');
+          var t = allUsers().filter(function (x) { return x.id === id && x.admin && x.teamRole === 'moderator'; })[0];
+          if (!t) throw err('not_found', 'not_found');
+          t.admin = false; t.teamRole = null; t.mode = null;
+          return true;
+        });
+      },
+      /* Desativar: guarda tudo, o psicologo nao entra, o link para e ele some da lista dos pacientes. So o dono. */
+      deactivate: function (id, note) {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!ownerOk(u)) throw err('not_allowed', 'not_allowed');
+          if (!recent()) throw err('recent_login_required', 'recent_login_required');
+          var t = proById(id);
+          if (!t) throw err('professional_not_found', 'professional_not_found');
+          if (t.admin) throw err('team_member', 'team_member');
+          if (t.verification === 'deactivated') return true;
+          t.beforeDeactivation = t.verification; t.verification = 'deactivated';
+          if (String(note || '').trim()) t.note = String(note).trim().slice(0, 500);
+          return true;
+        });
+      },
+      reactivate: function (id) {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!ownerOk(u)) throw err('not_allowed', 'not_allowed');
+          if (!recent()) throw err('recent_login_required', 'recent_login_required');
+          var t = proById(id);
+          if (!t || t.verification !== 'deactivated') throw err('not_deactivated', 'not_deactivated');
+          t.verification = t.beforeDeactivation || 'pending'; t.beforeDeactivation = null;
+          return t.verification;
+        });
+      },
+      /* Apagar de vez: so o dono, so conta desativada, digitando o e-mail da conta. */
+      deleteProfessional: function (id, confirmEmail) {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!ownerOk(u)) throw err('not_allowed', 'not_allowed');
+          if (!recent()) throw err('recent_login_required', 'recent_login_required');
+          var t = proById(id);
+          if (!t) throw err('professional_not_found', 'professional_not_found');
+          if (t.admin) throw err('team_member', 'team_member');
+          if (t.verification !== 'deactivated') throw err('deactivate_first', 'deactivate_first');
+          var email = emailOfUser(t);
+          if (String(confirmEmail || '').trim().toLowerCase() !== email) throw err('confirm_mismatch', 'confirm_mismatch');
+          care().afterDelete(t); delete users[email];
+          return true;
         });
       },
       /* Modo de teste da conta de equipe: 'admin', 'professional' ou 'patient'. No modo paciente a conta vira de paciente de verdade (igual ao banco). */

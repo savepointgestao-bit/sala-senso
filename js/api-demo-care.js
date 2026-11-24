@@ -92,8 +92,11 @@
     if (role === 'patient') {
       var bad = birthRules(d.birthDate, d.guardianName, d.guardianPhone);
       if (bad) return bad;
-      /* link valido exige o aceite; codigo que nao existe e ignorado em silencio, como no banco */
-      if (d.inviteCode && proByCode(d.inviteCode) && d.acceptLink !== true) return 'consent_required';
+      /* Paciente so cria conta pelo link de um psicologo, com o aceite do vinculo (como no banco: invite_required).
+         _semConvite: SO nos testes automaticos, para criar paciente sem vinculo (no banco os testes usam uma "porta" escondida). */
+      if (d._semConvite === true) return null;
+      if (!d.inviteCode || !proByCode(d.inviteCode)) return 'invite_required';
+      if (d.acceptLink !== true) return 'consent_required';
       return null;
     }
     if (!d.crpRegion || !/^[0-9]{3,8}$/.test(d.crpNumber || '')) return 'crp';
@@ -112,7 +115,8 @@
      Se os dois lados pedirem, vincula na hora. Aceitar do psicologo deixa o cadastro conferido. */
   var REQ_LIFE = 14 * 86400000;
   function pendingReq(q) { return q.status === 'pending' && q.expiresAt > Date.now(); }
-  /* Liga de verdade. by: 'professional' (o psicologo aceitou) ou 'patient' (o paciente aceitou). Usa a ficha indicada, a que bate por celular ou e-mail, ou cria. */
+  /* Liga de verdade. by: 'professional' (o psicologo aceitou), 'patient' (o paciente aceitou) ou 'invite' (entrou pelo link do psicologo:
+     direto e conferido). Usa a ficha indicada, a que bate por celular ou e-mail, ou cria. */
   function makeLink(pro, pt, recordId, by) {
     var already = recFor(pro.id, pt.id);
     if (already) return already;
@@ -130,13 +134,14 @@
       rec.userId = pt.id; rec.name = m.fullName; rec.phone = m.phone || rec.phone; rec.email = email; rec.birth = m.birthDate || rec.birth;
       rec.guardianName = m.guardianName || rec.guardianName; rec.guardianPhone = m.guardianPhone || rec.guardianPhone;
       if (rec.status === 'discharged') rec.status = 'active';
-      if (by === 'professional') rec.verifiedAt = rec.verifiedAt || Date.now(); else if (!sameMail) rec.verifiedAt = null;
+      if (by === 'professional' || by === 'invite') rec.verifiedAt = rec.verifiedAt || Date.now(); else if (!sameMail) rec.verifiedAt = null;
     } else {
       rec = { id: nid('rec'), proId: pro.id, userId: pt.id, name: m.fullName, phone: m.phone || null, email: email, birth: m.birthDate || null,
-        guardianName: m.guardianName || null, guardianPhone: m.guardianPhone || null, guardianAuthAt: null, verifiedAt: by === 'professional' ? Date.now() : null, status: 'active', createdAt: Date.now() };
+        guardianName: m.guardianName || null, guardianPhone: m.guardianPhone || null, guardianAuthAt: null, verifiedAt: (by === 'professional' || by === 'invite') ? Date.now() : null, status: 'active', createdAt: Date.now() };
       S.records.push(rec);
     }
-    if (by === 'professional') notify(pt.id, 'link_accepted', 'Vínculo confirmado', nameOf(pro) + ' aceitou seu pedido. Agora você pode marcar consultas.', '#/psicologo');
+    if (by === 'invite') notify(pro.id, 'patient_linked', 'Novo paciente', m.fullName + ' entrou pelo seu link e já está vinculado(a).', '#/pacientes/' + rec.id);
+    else if (by === 'professional') notify(pt.id, 'link_accepted', 'Vínculo confirmado', nameOf(pro) + ' aceitou seu pedido. Agora você pode marcar consultas.', '#/psicologo');
     else if (rec.verifiedAt) notify(pro.id, 'patient_linked', 'Paciente vinculado', m.fullName + ' aceitou seu pedido e já está ligado(a) ao cadastro que você fez.', '#/pacientes/' + rec.id);
     else notify(pro.id, 'patient_linked', 'Confira o cadastro', m.fullName + ' aceitou seu pedido, mas o e-mail da conta é outro. Confirme se é a mesma pessoa.', '#/pacientes/' + rec.id);
     return rec;
@@ -164,10 +169,10 @@
     else notify(pt.id, 'link_invite', 'Pedido de vínculo', notice || (nameOf(pro) + ' pediu para acompanhar você no Senso. Aceite se você é paciente dele(a).'), '#/psicologo');
     return 'requested';
   }
-  /* Cadastro pelo link: a conta nasce e faz um pedido (nao vira paciente sozinha). */
-  function requestByCode(u, code) {
+  /* Cadastro pelo link: a conta nasce ja vinculada ao psicologo do link (e conferida). */
+  function linkByCode(u, code) {
     var pro = proByCode(code);
-    if (pro && isPatient(u)) openRequest(pro, u, 'patient');
+    if (pro && isPatient(u)) makeLink(pro, u, null, 'invite');
     return pro;
   }
 
@@ -242,7 +247,12 @@
   api.invite = {
     info: function (code) {
       var pro = proByCode(code);
-      return tick(pro ? { ok: true, name: nameOf(pro), crp_region: pro.meta.crpRegion, crp_number: pro.meta.crpNumber, verified: pro.verification === 'verified' } : { ok: false });
+      if (!pro) return tick({ ok: false });
+      var out = { ok: true, name: nameOf(pro), crp_region: pro.meta.crpRegion, crp_number: pro.meta.crpNumber, verified: pro.verification === 'verified' };
+      /* paciente logado: ja e paciente desse psicologo (same), de outro (other) ou de ninguem (none) */
+      var u = core.cur();
+      if (isPatient(u)) out.mine = linked(pro.id, u.id) ? 'same' : (activePros(u).length ? 'other' : 'none');
+      return tick(out);
     },
     mine: function () {
       var u = needPro();
@@ -259,9 +269,11 @@
         var pro = proByCode(code);
         if (!pro) return { ok: false, error: 'invalid_code' };
         if (linked(pro.id, u.id)) return { ok: false, error: 'already_linked' };
+        if (activePros(u).length) return { ok: false, error: 'linked_elsewhere' };
         if (accept !== true) return { ok: false, error: 'consent_required' };
-        var status = openRequest(pro, u, 'patient');
-        return { ok: true, status: status, professional_id: pro.id, name: nameOf(pro) };
+        makeLink(pro, u, null, 'invite');
+        S.requests.forEach(function (q) { if (q.patientId === u.id && q.proId === pro.id && q.status === 'pending') { q.status = 'approved'; q.decidedAt = Date.now(); } });
+        return { ok: true, status: 'linked', professional_id: pro.id, name: nameOf(pro) };
       });
     }
   };
@@ -271,6 +283,8 @@
   function shareKey(entryId, proId) { return entryId + '|' + proId; }
   function isShared(entryId, proId) { return !!S.shares[shareKey(entryId, proId)]; }
   function myPros(u) { return S.records.filter(function (r) { return r.userId === u.id; }).map(function (r) { return r.proId; }); }
+  /* vinculos que contam para "ja tem psicologo": psicologo desativado pela equipe nao prende o paciente */
+  function activePros(u) { return myPros(u).filter(function (id) { var p = byId(id); return p && p.verification !== 'deactivated'; }); }
   /* Modo de compartilhar com cada psicologo: ask (pergunta depois de registrar, padrao), always ou never. */
   function modeOf(uid, proId) { return S.mode[uid + '|' + proId] || 'ask'; }
   function nowHm() { return hmOf(Date.now()); }
@@ -914,7 +928,8 @@
   api.booking = api.booking || {};
   api.booking.psychologists = function () {
     var u = needPatient();
-    return tick(S.records.filter(function (r) { return r.userId === u.id; }).map(function (r) {
+    /* psicologo desativado pela equipe some da lista */
+    return tick(S.records.filter(function (r) { return r.userId === u.id && byId(r.proId) && byId(r.proId).verification !== 'deactivated'; }).map(function (r) {
       var p = byId(r.proId), c = P(p).contact;
       return { professional_id: p.id, full_name: nameOf(p), whatsapp: c.enabled ? c.phone : null, verified: !!r.verifiedAt, booking_enabled: !!P(p).settings.booking_enabled };
     }));
@@ -924,7 +939,7 @@
   api._care = {
     profileRules: profileRules, birthRules: birthRules, isMinor: isMinor, syncProfile: syncProfile,
     afterCreate: function (u, email, role, data) {
-      if (role === 'patient' && data.inviteCode && data.acceptLink === true) requestByCode(u, data.inviteCode);
+      if (role === 'patient' && data.inviteCode && data.acceptLink === true) linkByCode(u, data.inviteCode);
       if (role === 'professional') P(u);
     },
     afterDelete: function (u) {

@@ -238,6 +238,17 @@
       /* Dois fatores dos psicologos: so numeros (quantos usam) e se a obrigatoriedade esta ligada */
       mfaAdoption: function () { return sb.rpc('admin_mfa_adoption').then(ok); },
       setMfaRequired: function (required) { return sb.rpc('admin_set_mfa_required', { p_required: !!required }).then(ok).then(function () { return true; }); },
+      /* Equipe -> { me: 'owner'|'moderator', max_moderators, members: [{ user_id, role, name, email, added_at, is_me }] }.
+         Moderador ve so a si e o dono. */
+      team: function () { return sb.rpc('admin_team').then(ok); },
+      /* So o dono. e-mail de uma conta existente -> { ok, user_id, name } ou { ok: false, error: no_account|already_team|limit_reached } */
+      addModerator: function (email) { return sb.rpc('admin_add_moderator', { p_email: email }).then(ok); },
+      removeModerator: function (userId) { return sb.rpc('admin_remove_moderator', { p_user: userId }).then(ok).then(function () { return true; }); },
+      /* So o dono. Desativar guarda tudo, bloqueia a entrada e esconde dos pacientes; reativar devolve a situacao de antes (texto). */
+      deactivate: function (id, note) { return sb.rpc('admin_deactivate_professional', { p_professional: id, p_note: note || null }).then(ok).then(function () { return true; }); },
+      reactivate: function (id) { return sb.rpc('admin_reactivate_professional', { p_professional: id }).then(ok); },
+      /* So o dono, so conta desativada, com o e-mail da conta digitado para confirmar. Apaga de vez. */
+      deleteProfessional: function (id, confirmEmail) { return sb.rpc('admin_delete_professional', { p_professional: id, p_confirm_email: confirmEmail }).then(ok).then(function () { return true; }); },
       /* Modo de teste da conta de equipe: 'admin', 'professional' ou 'patient'. O banco recusa quem nao e da equipe. */
       setMode: function (mode) { return sb.rpc('admin_set_mode', { p_mode: mode }).then(ok); }
     },
