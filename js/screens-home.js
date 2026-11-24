@@ -84,7 +84,17 @@
         h('span', null, it.days_this_week + (it.days_this_week === 1 ? ' dia' : ' dias') + ' de uso na semana')));
   }
   /* list opcional: quem já carregou a lista (início do psicólogo) passa aqui e evita buscar de novo. */
-  S.patientsOverview = function (list) {
+  /* Quem precisa de atenção primeiro: humor mais baixo no último check-in, depois quem não registrou nada, por último quem tirou a
+     autorização (não dá para ver). Empate: ordem alfabética. */
+  function attention(it) {
+    if (!it.consent) return 9;
+    var last = it.checkins && it.checkins[0];
+    if (!last || last.mood == null) return 6;
+    return last.mood;
+  }
+  /* o.limit: mostra só os N primeiros (por atenção) e um botão para a lista completa (o.moreHref). */
+  S.patientsOverview = function (list, o) {
+    o = o || {};
     var holder = h('div', { 'aria-live': 'polite' }, h('p', { class: 'muted' }, 'Carregando...'));
     function draw(items) {
       clear(holder);
@@ -92,7 +102,12 @@
         holder.appendChild(h('div', { class: 'card' }, h('p', { class: 'mb0' }, 'Nenhum paciente com conta vinculada ainda. Quando alguém criar a conta pelo seu link, o nível e o check-in aparecem aqui.')));
         return;
       }
-      items.forEach(function (it) { holder.appendChild(patientCard(it)); });
+      var sorted = items.slice().sort(function (a, b) { return (attention(a) - attention(b)) || String(a.full_name).localeCompare(String(b.full_name), 'pt-BR'); });
+      var shown = o.limit ? sorted.slice(0, o.limit) : sorted;
+      shown.forEach(function (it) { holder.appendChild(patientCard(it)); });
+      if (o.limit && sorted.length > o.limit && o.moreHref) {
+        holder.appendChild(h('a', { class: 'btn ghost mb16', href: o.moreHref }, 'Ver todos os pacientes (' + sorted.length + ')'));
+      }
       holder.appendChild(h('p', { class: 'pt-note' }, 'Você vê nível, humor, energia e ansiedade. O texto do diário só aparece quando o paciente compartilha.'));
     }
     if (list) { draw(list); return holder; }
@@ -160,46 +175,55 @@
     function actionTiles() {
       var tiles = h('div', { class: 'tiles' },
         h('button', { type: 'button', class: 'tile act', onclick: function () { S.patientSheet(null, function (id) { go('#/pacientes/' + id); }); } }, h('span', { class: 'ico-box' }, UI.svg('user-plus', 22)), h('span', { class: 't' }, 'Novo paciente')),
-        h('button', { type: 'button', class: 'tile act', onclick: function () { S.newAppointmentSheet({ onDone: function () { refresh(); } }); } }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar consulta')),
-        h('a', { class: 'tile act', href: '#/agenda?aba=semana' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('span', { class: 't' }, 'Agenda da semana')),
-        h('a', { class: 'tile act', href: '#/atendimento' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'WhatsApp e avisos')));
-      return h('div', null, tiles, h('div', { class: 'panel tr-link' }, h('a', { class: 'item', href: '#/transcricao' }, h('span', { class: 'ico-box' }, UI.svg('file-text', 20)),
+        h('button', { type: 'button', class: 'tile act', onclick: function () { S.newAppointmentSheet({ onDone: function () { refresh(); } }); } }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar consulta')))
+      return h('div', null, tiles, h('div', { class: 'group tr-link mt16' }, h('a', { class: 'item', href: '#/transcricao' }, h('span', { class: 'ico-box' }, UI.svg('file-text', 20)),
         h('span', { class: 'grow' }, h('span', { class: 't' }, 'Transcrições'), h('span', { class: 's' }, 'Consultas e anotações de voz em texto')), UI.svg('chevron-right', 18))));
     }
 
     function draw(D) {
       clear(holder);
+      var alerts = h('div', { class: 'home-alerts', 'aria-live': 'polite' });
       var toVerify = D.patients.filter(function (x) { return !x.verified; }).length;
       var asks = D.view.pending.filter(function (a) { return a.status === 'requested'; }).length;
-      if (asks) holder.appendChild(S.pendingStrip('calendar-plus', asks === 1 ? '1 pedido de consulta esperando você' : asks + ' pedidos de consulta esperando você', '#/agenda?aba=pedidos', 'Responder'));
-      if (toVerify) holder.appendChild(S.pendingStrip('hourglass', toVerify === 1 ? '1 cadastro para conferir' : toVerify + ' cadastros para conferir', '#/pacientes?f=verify', 'Conferir'));
+      if (asks) alerts.appendChild(S.pendingStrip('calendar-plus', asks === 1 ? '1 pedido de consulta esperando você' : asks + ' pedidos de consulta esperando você', '#/agenda?aba=pedidos', 'Responder'));
+      if (toVerify) alerts.appendChild(S.pendingStrip('hourglass', toVerify === 1 ? '1 cadastro para conferir' : toVerify + ' cadastros para conferir', '#/pacientes?f=verify', 'Conferir'));
       var reqIn = (D.requests || []).filter(function (q) { return q.origin === 'patient'; }).length;
-      if (reqIn) holder.appendChild(S.pendingStrip('user-plus', reqIn === 1 ? '1 pedido de vínculo esperando você' : reqIn + ' pedidos de vínculo esperando você', '#/pacientes', 'Responder'));
+      if (reqIn) alerts.appendChild(S.pendingStrip('user-plus', reqIn === 1 ? '1 pedido de vínculo esperando você' : reqIn + ' pedidos de vínculo esperando você', '#/pacientes', 'Responder'));
       var trIn = ((D.transfers || {}).incoming || []).length;
-      if (trIn) holder.appendChild(S.pendingStrip('arrow-right', trIn === 1 ? '1 paciente encaminhado por um colega' : trIn + ' pacientes encaminhados por colegas', '#/pacientes', 'Ver'));
+      if (trIn) alerts.appendChild(S.pendingStrip('arrow-right', trIn === 1 ? '1 paciente encaminhado por um colega' : trIn + ' pacientes encaminhados por colegas', '#/pacientes', 'Ver'));
 
       var t = UI.dt.today();
       var todays = D.view.appointments.filter(function (a) { return UI.dt.dayOf(a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at) === t && a.status !== 'requested'; });
       var later = D.view.appointments.filter(function (a) { return a.status === 'scheduled' && UI.dt.dayOf(a.starts_at) > t; }).slice(0, 3);
-      holder.appendChild(h('div', { class: 'group-title' }, 'Hoje'));
-      if (todays.length) holder.appendChild(h('div', { class: 'group' }, todays.map(function (a) { return S.apptRow(a, refresh); })));
-      else holder.appendChild(h('div', { class: 'card' }, h('p', { class: 'mb0' }, 'Nenhuma consulta hoje.' + (later.length ? ' A próxima é ' + UI.dt.whenLabel(later[0].starts_at) + ', com ' + later[0].full_name + '.' : ''))));
-      if (todays.length && later.length) {
-        holder.appendChild(h('div', { class: 'group-title' }, 'Próximas'));
-        holder.appendChild(h('div', { class: 'group' }, later.map(function (a) { return h('a', { class: 'item', href: '#/agenda?d=' + UI.dt.dayOf(a.starts_at) }, h('span', { class: 'ico-box' }, UI.svg('calendar-check', 20)),
-          h('span', { class: 'grow' }, h('span', { class: 't' }, a.full_name), h('span', { class: 's' }, UI.dt.whenLabel(a.starts_at))), h('span', { class: 'chev' }, UI.svg('chevron-right', 18))); })));
-      }
-      holder.appendChild(h('div', { class: 'group-title' }, 'Atalhos'));
-      holder.appendChild(actionTiles());
+      var todayContent = todays.length
+        ? h('div', { class: 'group' }, todays.map(function (a) { return S.apptRow(a, refresh); }))
+        : h('div', { class: 'card home-empty' },
+          h('span', { class: 'ico-box' }, UI.svg('calendar-check', 20)),
+          h('div', null,
+            h('b', null, 'Agenda livre hoje'),
+            h('p', { class: 'muted mb0' }, later.length
+              ? 'A próxima consulta é ' + UI.dt.whenLabel(later[0].starts_at) + ', com ' + later[0].full_name + '.'
+              : 'Quando houver consultas, elas aparecem aqui.')));
+      var left = h('div', { class: 'home-pro-column primary' },
+        h('section', { class: 'home-section' }, h('div', { class: 'group-title' }, 'Hoje'), todayContent),
+        later.length ? h('section', { class: 'home-section' }, h('div', { class: 'group-title' }, 'Próximas consultas'), h('div', { class: 'group' }, later.map(function (a) {
+          return h('a', { class: 'item', href: '#/agenda?d=' + UI.dt.dayOf(a.starts_at) }, h('span', { class: 'ico-box' }, UI.svg('calendar-check', 20)),
+            h('span', { class: 'grow' }, h('span', { class: 't' }, a.full_name), h('span', { class: 's' }, UI.dt.whenLabel(a.starts_at))), h('span', { class: 'chev' }, UI.svg('chevron-right', 18)));
+        }))) : null,
+        h('section', { class: 'home-section' }, h('div', { class: 'group-title' }, 'Ações frequentes'), actionTiles()));
 
-      holder.appendChild(h('div', { class: 'group-title' }, 'Acompanhamento do humor'));
-      holder.appendChild(S.patientsOverview(D.overview));
       var bc = S.birthdayCard ? S.birthdayCard(D.births) : null;
-      if (bc) holder.appendChild(bc);
-      holder.appendChild(h('div', { class: 'group-title' }, 'Link de cadastro'));
-      holder.appendChild(S.inviteCard());
       var ck = proChecklist(ctx, { hasPatients: D.patients.length > 0, bookingOn: D.booking });
-      if (ck) holder.appendChild(ck);
+      /* com pacientes, o link de cadastro vira uma linha só (copiar); sem pacientes, o cartão completo ajuda a começar */
+      var invite = D.patients.length ? h('section', { class: 'home-section' }, S.inviteMini())
+        : h('section', { class: 'home-section' }, h('div', { class: 'group-title' }, 'Convide pacientes'), S.inviteCard());
+      var right = h('div', { class: 'home-pro-column secondary' },
+        h('section', { class: 'home-section' }, h('div', { class: 'group-title' }, 'Acompanhamento dos pacientes'), S.patientsOverview(D.overview, { limit: 3, moreHref: '#/pacientes' })),
+        bc ? h('section', { class: 'home-section' }, bc) : null,
+        invite,
+        ck ? h('section', { class: 'home-section' }, h('div', { class: 'group-title' }, 'Primeiros passos'), ck) : null);
+      if (alerts.childNodes.length) holder.appendChild(alerts);
+      holder.appendChild(h('div', { class: 'home-pro-grid' }, left, right));
     }
 
     if (verified) {
@@ -234,7 +258,7 @@
 
   S.homePatient = function (ctx) {
     var p = ctx.me.profile;
-    var holder = h('div'), D = null;
+    var holder = h('div', { class: 'home-patient-stack' }), D = null;
 
     function apptStrips() {
       var now = Date.now(), out = [], list = D.appts || [];
@@ -277,8 +301,13 @@
         if (link) tiles.push(h('a', { class: 'tile act', href: link, target: '_blank', rel: 'noopener' }, h('span', { class: 'ico-box' }, UI.svg('message-circle', 22)), h('span', { class: 't' }, 'Falar com ' + UI.firstName(x.full_name))));
       });
       if (D.psy.some(function (x) { return x.booking_enabled && x.verified !== false; })) tiles.push(h('a', { class: 'tile act', href: '#/consultas' }, h('span', { class: 'ico-box' }, UI.svg('calendar-plus', 22)), h('span', { class: 't' }, 'Marcar uma consulta')));
-      tiles.push(h('a', { class: 'tile act help', href: '#/ajuda' }, h('span', { class: 'ico-box' }, UI.svg('life-buoy', 22)), h('span', { class: 't' }, 'Preciso de ajuda')));
-      return h('div', { class: 'tiles' }, tiles);
+      /* "Preciso de ajuda" já fica sempre a vista na moldura: não repete aqui */
+      return tiles.length ? h('div', { class: 'tiles' }, tiles) : null;
+    }
+    /* O Lab saiu da barra de baixo e mora aqui */
+    function labRow() {
+      return h('div', { class: 'group' }, h('a', { class: 'item', href: '#/lab' }, h('span', { class: 'ico-box' }, UI.svg('flask-conical', 20)),
+        h('span', { class: 'grow' }, h('span', { class: 't' }, 'Lab'), h('span', { class: 's' }, 'Games, relaxar, emoções e hábitos. Só seu.')), h('span', { class: 'chev' }, UI.svg('chevron-right', 18))));
     }
 
     function draw() {
@@ -291,7 +320,7 @@
           h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu psicólogo(a) vincula você'), h('div', { class: 's' }, 'Pelo celular da sua conta ou pelo link que ele(a) mandou.')),
           h('a', { class: 'btn auto sm', href: '#/psicologo' }, 'Ver como')));
       }
-      holder.appendChild(S.levelCard(D.prog));
+      /* primeiro o que se faz todo dia (registrar como está), depois o nível */
       if (D.consent) {
         holder.appendChild(S.moodCard({ entries: D.entries, pros: D.pros, shares: D.shares, onSaved: reload }));
       } else {
@@ -299,8 +328,10 @@
           h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu diário'), h('div', { class: 's' }, 'Registre como você está.')),
           h('a', { class: 'btn auto sm', href: '#/diario' }, 'Começar')));
       }
-      holder.appendChild(h('div', { class: 'group-title' }, 'Atalhos'));
-      holder.appendChild(quick());
+      holder.appendChild(S.levelCard(D.prog));
+      var q = quick();
+      if (q) { holder.appendChild(h('div', { class: 'group-title' }, 'Atalhos')); holder.appendChild(q); }
+      holder.appendChild(labRow());
     }
     function reload() {
       return load().then(draw).catch(function (e) { Diag.error('home-paciente', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar agora. Atualize a página.')); });
@@ -313,7 +344,7 @@
       });
     }
     reload();
-    return S.shell(ctx, 'inicio', [hello(p), holder]);
+    return S.shell(ctx, 'inicio', [hello(p, 'Suas consultas, seu diário e seu acompanhamento em um só lugar.'), holder]);
   };
 
   /* ---------------------------------------------------------------- conta */
@@ -439,7 +470,7 @@
 
     var dados = S.profileGroup(ctx);
 
-    /* atalhos: telas que moravam no menu e agora ficam aqui dentro (Meu psicologo(a) e Avaliacoes tambem) */
+    /* atalhos: telas que moravam no menu e agora ficam aqui dentro (Meu psicologo(a), Avaliacoes e WhatsApp, link e avisos tambem) */
     var adminMode = !!ctx.admin && (ctx.mode || 'admin') === 'admin';
     var atalhos = [];
     if (!isPro) {
@@ -452,6 +483,7 @@
       }).catch(function () { /* sem aviso, sem problema */ });
       atalhos.push(psyRow);
     } else if (!adminMode) {
+      atalhos.push(linkRow('message-circle', 'WhatsApp, link e avisos', '#/atendimento'));
       atalhos.push(linkRow('star', 'Avaliações', '#/avaliacoes'));
     }
     atalhos.push(linkRow('life-buoy', 'Suporte', '#/suporte'));
@@ -476,24 +508,26 @@
     } else if (enrolled) {
       mfaRow = h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('shield-check', 20)),
         h('span', { class: 't' }, 'Verificação em duas etapas'), h('span', { class: 'badge ok tag' }, 'Ativa'));
+      /* uma linha só: "Ativa" e, quando não é obrigatória, o botão pequeno para desativar ali mesmo */
     } else {
       mfaRow = linkRow('shield-check', 'Verificação em duas etapas', '#/ativar-2fa', 'Recomendada');
     }
     var mfaOff = null;
     if (canMfa && enrolled && !mustMfa) {
-      mfaOff = h('button', { type: 'button', class: 'item', onclick: function () {
+      mfaOff = h('button', { type: 'button', class: 'btn ghost auto sm', 'aria-label': 'Desativar verificação em duas etapas', onclick: function () {
         mfaOff.disabled = true;
         S.confirmIdentity({ title: 'Desativar verificação em duas etapas', text: 'Por segurança, confirme sua senha e o código do app.', confirmLabel: 'Desativar', danger: true, needsCode: true, back: 'conta' }).then(function (ok) {
           if (!ok) { mfaOff.disabled = false; return; }
           return API.mfa.unenroll(ctx.mfa.factorId).then(function () { Diag.log('mfa:desativado'); UI.toast('Verificação em duas etapas desativada.', 'shield-check'); refresh(); });
         }).catch(function (e) { mfaOff.disabled = false; Diag.error('mfa-off', e); UI.toast(sensitiveError(e) || 'Não deu para desativar agora.'); });
-      } }, h('span', { class: 'ico-box' }, UI.svg('lock', 20)), h('span', { class: 't' }, 'Desativar verificação em duas etapas'));
+      } }, 'Desativar');
+      mfaRow.appendChild(mfaOff);
     }
     var seguranca = h('div', { class: 'group' },
       auth.hasPassword ? linkRow('key-round', 'Alterar senha', '#/redefinir-senha?interna=1')
         : h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('key-round', 20)), h('span', null, h('span', { class: 't' }, 'Você entra com ' + (via || 'sua conta Google ou Microsoft')), h('span', { class: 's' }, 'Sem senha no Senso. A senha é a do ' + (via || 'provedor')))),
       othersBtn,
-      mfaRow, mfaOff);
+      mfaRow);
 
     /* so no app do celular: bloqueio por PIN e lembretes de consulta */
     var device = S.deviceGroup ? S.deviceGroup(ctx) : null;

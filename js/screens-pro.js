@@ -137,7 +137,7 @@
       return node;
     }
     var all = [], births = [], reqs = [], wait = [], transfers = { incoming: [], outgoing: [] }, filter = FILTERS.some(function (f) { return f[0] === (q && q.f); }) || (q && q.f) === 'wait' ? q.f : 'all', term = '';
-    var listBox = h('div', { 'aria-live': 'polite' }), chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrar pacientes' });
+    var listBox = h('div', { 'aria-live': 'polite' }), chips = h('div', { class: 'chips patient-filters', role: 'group', 'aria-label': 'Filtrar pacientes' });
     var search = UI.field({ label: 'Buscar paciente', type: 'search', placeholder: 'Nome, e-mail ou celular', maxlength: 80 });
     search.input.addEventListener('input', function () { term = plain(search.value()); drawList(); });
 
@@ -315,7 +315,7 @@
       var linkBox = h('div');
       box.appendChild(linkBox);
       API.invite.mine().then(function (st) {
-        if (!st || !st.enabled) { linkBox.appendChild(h('p', { class: 'small muted mb0' }, 'O seu link de cadastro está desativado. Ative na tela Atendimento.')); return; }
+        if (!st || !st.enabled) { linkBox.appendChild(h('p', { class: 'small muted mb0' }, 'O seu link de cadastro está desativado. Ative em Conta, WhatsApp, link e avisos.')); return; }
         var url = S.invite.url(st.code);
         var msg = 'Olá, ' + UI.firstName(R.full_name) + '! Aqui está o meu link para você criar a sua conta no Senso e pedir para ser meu paciente: ' + url;
         var wa = UI.waLink(R.phone, msg);

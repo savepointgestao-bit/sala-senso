@@ -15,11 +15,23 @@
 .chat-fab:hover { background: var(--pri-soft); }
 .chat-fab:focus-visible { outline: 3px solid var(--pri); outline-offset: 3px; }
 .chat-fab[hidden] { display: none; }
+/* ---------------------------------------------------------------- balao de fala ao lado do botao ("Precisa de ajuda?", dicas) */
+.chat-tip { position: fixed; right: calc(1.1rem + 62px + .75rem); bottom: calc(4.9rem + env(safe-area-inset-bottom) + 6px); z-index: 8; display: flex; align-items: stretch; max-width: min(17rem, calc(100vw - 1.1rem - 62px - .75rem - 1rem)); background: var(--surface); color: var(--ink); border: 1.5px solid var(--pri); border-radius: var(--r-l); box-shadow: var(--pop); transform-origin: 100% 85%; animation: tip-in .22s ease-out; }
+.chat-tip[hidden] { display: none; }
+/* o rabinho aponta para o botao */
+.chat-tip::after { content: ""; position: absolute; right: -8px; bottom: 16px; width: 12px; height: 12px; background: var(--surface); border-right: 1.5px solid var(--pri); border-top: 1.5px solid var(--pri); transform: rotate(45deg); border-radius: 0 3px 0 0; }
+.chat-tip-msg { flex: 1 1 auto; min-width: 0; margin: 0; padding: .7rem .4rem .7rem .95rem; border: 0; background: none; color: inherit; font: inherit; font-size: .95rem; line-height: 1.35; font-weight: 600; text-align: left; cursor: pointer; border-radius: var(--r-l) 0 0 var(--r-l); -webkit-tap-highlight-color: transparent; }
+.chat-tip-x { flex: none; align-self: flex-start; display: grid; place-items: center; width: 32px; height: 32px; margin: .25rem .25rem 0 0; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--mute); opacity: .7; cursor: pointer; }
+.chat-tip-x:hover { opacity: 1; background: var(--pri-soft); }
+.chat-tip-msg:focus-visible, .chat-tip-x:focus-visible { outline: 3px solid var(--pri); outline-offset: -2px; }
+@keyframes tip-in { from { opacity: 0; transform: translateX(8px) scale(.94); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .chat-tip { animation: none; } }
 /* o botao do diario ("Novo registro") fica logo acima, para os dois nao se sobreporem; e o fim da pagina ganha folga para nada ficar escondido */
 .app[data-assist] .fab { bottom: calc(9.5rem + env(safe-area-inset-bottom)); }
 .app[data-assist] .main { padding-bottom: 10rem; }
 @media (min-width: 960px) {
   .chat-fab { right: 1.5rem; bottom: 1.5rem; }
+  .chat-tip { right: calc(1.5rem + 62px + .75rem); bottom: calc(1.5rem + 6px); max-width: 20rem; }
   .app[data-assist] .main { padding-bottom: 6.5rem; }
 }
 

@@ -1,95 +1,115 @@
 ====================================================================
-DOCUMENTO 02 - POLÍTICA DE PRIVACIDADE DA PLATAFORMA ONLINE (CONTA E PORTAL)
-Status: rascunho para revisão jurídica | Vale: quando o portal sair | Público
-Vigência: [DATA-VIGÊNCIA] | Versão do texto: 0.1
+DOCUMENTO 01: POLÍTICA DE PRIVACIDADE DO SENSO (APLICATIVO E PORTAL)
+Texto público | Versão 1.0 (10/11/2026), minuta para aprovação jurídica
+Vigência: [DATA-VIGÊNCIA] | Substitui as políticas separadas do app e da plataforma
 ====================================================================
 
 1. QUEM SOMOS E QUAIS SÃO OS PAPÉIS
-[NOME EMPRESARIAL], CNPJ [CNPJ], [ENDEREÇO] ("nós") opera o Senso e seu portal online. Contato: [EMAIL-PRIVACIDADE]. Encarregado: [ENCARREGADO].
+O Senso é uma ferramenta de gestão de consultório para psicólogos (aplicativo Android e portal na web), oferecida por [NOME EMPRESARIAL], CNPJ [CNPJ], com sede em [ENDEREÇO] ("nós"). Contato sobre privacidade: [EMAIL-PRIVACIDADE]. Encarregado pelo tratamento de dados pessoais: [ENCARREGADO].
+O papel de cada um muda conforme o dado (LGPD, art. 5, VI e VII):
+a) DADOS DO ATENDIMENTO: o psicólogo é o CONTROLADOR e nós somos OPERADORES. São a ficha e o cadastro do paciente, as sessões, a agenda, as evoluções, as escalas, os medicamentos, os planos, os documentos e anexos, os pagamentos e recibos, as gravações de consulta, as transcrições e os rascunhos de evolução. Tratamos esses dados só para prestar o serviço, conforme as instruções do psicólogo (Contrato de Tratamento de Dados).
+b) CONTAS E SERVIÇO: somos CONTROLADORES do cadastro e do login do profissional e do paciente, da verificação do CRP, do registro dos aceites, da segurança e dos registros de acesso, do suporte, da cobrança da assinatura do profissional e do diário pessoal do paciente (item 6).
+c) ACOMPANHAMENTO: o número de humor, energia e ansiedade que o paciente registra, e o nível dele, ficam visíveis ao psicólogo vinculado (item 6). Para o psicólogo, passa a ser dado do atendimento.
 
-Os papéis mudam conforme o dado (proposta, a validar com advogado):
-- DADOS DO ATENDIMENTO (agenda, pagamentos e recibos ligados ao vínculo profissional-paciente): o PSICÓLOGO é o controlador. Nós somos operadores e tratamos só conforme as instruções dele (Documento 05).
-- CONTA E DIÁRIO PESSOAL DO PACIENTE e CONTA DO PROFISSIONAL: nós somos controladores, porque oferecemos o serviço diretamente a essas pessoas.
-- Quando o paciente compartilha uma entrada do diário com o psicólogo, o psicólogo passa a ter acesso a essa entrada para fins do atendimento e responde por ela como controlador.
-- Enquanto o paciente estiver vinculado a um psicólogo, o psicólogo vê o acompanhamento do paciente (os números de humor, energia e ansiedade, e o nível). Isso é explicado ao paciente antes de ele aceitar o vínculo (seção 5).
+2. RESUMO EM LINGUAGEM SIMPLES
+- O Senso só funciona com conta online. Os dados ficam no aparelho e são sincronizados com o nosso servidor, que fica no Brasil (São Paulo).
+- Os dados são criptografados no servidor com chave guardada em um cofre separado. Isso protege contra vazamento do banco, mas NÃO é criptografia de ponta a ponta: por ser feita no servidor, a plataforma tem meios técnicos de abrir os dados. Nosso acesso é restrito ao mínimo necessário e não lemos diários nem evoluções.
+- Não temos anúncios, não vendemos dados e não usamos rastreadores de terceiros.
+- Gravar consulta, transcrever e pedir rascunho de evolução por inteligência artificial são recursos opcionais e enviam dados a prestadores nos Estados Unidos (itens 7 a 9).
+- Você pode pedir acesso, correção e exclusão dos seus dados a qualquer momento (item 11).
 
-2. DADOS QUE TRATAMOS
-a) Profissional: nome, CRP e UF, CPF [se exigido], e-mail, telefone, foto, dados de verificação do CRP (quem conferiu, quando e uma anotação), dados de cobrança da assinatura, dados do recebimento via provedor de pagamento.
-b) Paciente: nome, e-mail ou telefone, data de nascimento (para saber se é menor de idade), vínculo com o profissional, preferências de notificação.
-c) Agenda: datas, horários, modalidade (presencial/online), link da sessão e status. A simples existência de uma sessão com psicólogo já revela dado de saúde.
-d) Pagamentos: valor, data, status, recibo. Dados de Pix e de conta são tratados pelo provedor de pagamento. Não guardamos número de cartão.
-e) Diário: texto, humor, energia, ansiedade e etiquetas de sentimento que o próprio paciente registra (dado de saúde, sensível). O texto é guardado criptografado no servidor.
-   Nível, pontos (XP) e moldura da foto: calculados por nós a partir do uso do diário e do humor, com limite por dia. O paciente e o psicólogo vinculado veem o nível e a moldura. Os pontos de cada dia e o que os gerou não são mostrados.
-   Conquistas: marcos calculados a partir de contagens (por exemplo, quantos textos escritos, quantas sessões). Cada pessoa vê só as suas.
-f) Dados técnicos: endereço IP, data e hora de acesso, tipo de aparelho e navegador, identificadores para notificações. Guardamos os registros de acesso pelo prazo do Marco Civil da Internet (6 meses). Contadores de uso por pessoa e ação, para barrar abuso, são apagados em 1 dia.
-g) Suporte: categoria, assunto e mensagem que você nos enviar. Informações técnicas (versão, aparelho e últimos passos na tela, sem e-mail nem senha) só vão junto se você marcar e autorizar, e você vê o que será enviado antes.
-h) Entrada com Google ou Microsoft (opcional): se você escolher entrar com a sua conta Google ou Microsoft, recebemos do provedor o seu e-mail, o seu nome e um identificador da conta. Não recebemos a sua senha do provedor, nem contatos, agenda, e-mails ou arquivos dessas contas. Os demais dados (tipo de conta, CRP ou data de nascimento, aceites) você informa aqui, ao completar o cadastro.
+3. QUE DADOS TRATAMOS
+a) Profissional: nome, CRP e UF, e-mail, telefone, foto, data de aceite dos termos, situação e anotação da conferência do CRP (quem conferiu, quando e resultado), plano de assinatura.
+b) Paciente: nome, data de nascimento, celular, e-mail, vínculo com o psicólogo, preferências de aviso e, para menor de 18 anos, nome e celular do responsável.
+c) Atendimento (dados do psicólogo, que somos operadores): cadastro e ficha do paciente, sessões, agenda, evoluções, escalas (PHQ-9 e GAD-7), medicamentos, planos de rotina, documentos e anexos, pagamentos, recibos, despesas, lista de espera. A simples existência de uma sessão com psicólogo já revela dado de saúde. Cada registro vai em um bloco criptografado.
+d) Diário do paciente: texto, humor, energia, ansiedade e etiquetas de sentimento, escritos pelo próprio paciente. É dado de saúde (sensível).
+e) Nível, pontos (XP), moldura da foto e conquistas: calculados por nós a partir do uso do diário e do humor, com limite diário. O paciente e o psicólogo vinculado veem o nível e a moldura; pontos e conquistas só o próprio usuário vê.
+f) Gravação e transcrição da consulta, e rascunho de evolução por IA (item 7).
+g) Avaliação do rascunho de IA: nota de 1 a 5 estrelas e comentário opcional do psicólogo. Pedimos que o comentário não identifique pacientes.
+h) Transferência de paciente entre psicólogos: quando um psicólogo pede a transferência, passa ao colega só o cadastro (nome, nascimento, celular, e-mail, responsável). O psicólogo declara que o paciente ou o responsável concordou. Não passa prontuário, evolução nem financeiro.
+i) Suporte: categoria, assunto e mensagem que você enviar. Informações técnicas (versão, aparelho, últimos passos na tela, sem e-mail, senha nem dado de paciente) só vão se você marcar e autorizar, depois de ver o conteúdo.
+j) Dados técnicos e de segurança: endereço IP, data e hora de acesso, tipo de aparelho e navegador, registros de auditoria (o que foi feito, por quem e quando, sem conteúdo de diário nem de evolução) e contadores de uso para barrar abuso, apagados em 1 dia.
+k) Entrada com Google ou Microsoft: recurso ainda não ativado. Quando for, receberemos do provedor o e-mail, o nome e um identificador da conta, nunca a senha, os contatos, a agenda nem os arquivos.
 
-3. DADOS QUE NÃO COLETAMOS
-- Evolução clínica e prontuário do psicólogo: ficam só no aparelho dele.
-- Queixa, motivo da consulta e diagnóstico em formulários.
-- Localização, contatos do telefone, microfone e câmera.
-- Nenhum rastreador de terceiros, nenhum anúncio.
+4. DADOS QUE NÃO COLETAMOS
+- Localização, contatos do telefone e câmera. O microfone só é usado quando o psicólogo grava uma consulta ou uma anotação de voz.
+- Queixa, motivo da consulta ou diagnóstico em formulários de cadastro.
+- Nenhum rastreador de terceiros, nenhuma ferramenta de análise ou de publicidade.
 
-4. PARA QUE USAMOS E COM QUE BASE LEGAL
-(Proposta; o advogado deve confirmar cada base. Dado de saúde segue o art. 11 da LGPD.)
-- Criar e manter a conta, verificar o CRP: execução de contrato (art. 7, V) e legítimo interesse de segurança (art. 7, IX).
-- Agenda, vínculo, lembretes: tutela da saúde por profissional de saúde (art. 11, II, f) e consentimento (art. 11, I) quando aplicável.
-- Pagamentos e recibos: execução de contrato e cumprimento de obrigação legal/regulatória (art. 7, II; art. 11, II, a).
-- Diário: consentimento específico e destacado do paciente (art. 11, I), que pode ser retirado a qualquer momento.
-- Compartilhar entradas do diário com o psicólogo: consentimento específico, por entrada.
-- Segurança, prevenção a fraude, registros de acesso e limites de uso: obrigação legal (Marco Civil) e legítimo interesse.
-- Suporte: execução de contrato e, para informações técnicas, consentimento (pode ser retirado).
-- Acompanhamento (humor, energia, ansiedade e nível) visível ao psicólogo vinculado: tutela da saúde (art. 11, II, f) e consentimento dado ao aceitar o vínculo [validar com advogado].
+5. PARA QUE USAMOS E COM QUE BASE LEGAL
+Dado de saúde segue o art. 11 da LGPD.
+- Criar e manter a conta, verificar o CRP, prestar o serviço: execução de contrato (art. 7, V) e legítimo interesse de segurança (art. 7, IX).
+- Dados do atendimento, agenda, vínculo e lembretes: tutela da saúde por profissional de saúde (art. 11, II, f) e consentimento quando aplicável (art. 11, I). A base é do psicólogo, que é o controlador.
+- Gravação, transcrição e rascunho por IA: consentimento do paciente (art. 11, I), com aviso na tela, e instrução do psicólogo (item 7).
+- Diário: consentimento específico e destacado do paciente (art. 11, I), que pode ser retirado a qualquer momento. Compartilhar uma entrada com o psicólogo: consentimento específico, por entrada.
+- Acompanhamento (humor, energia, ansiedade e nível) visível ao psicólogo vinculado: tutela da saúde (art. 11, II, f) e ciência do paciente antes de aceitar o vínculo.
 - Nível, XP, moldura e conquistas: execução de contrato (recurso do serviço, para estimular o hábito de registrar). Não são usados para nenhuma outra finalidade.
-- Cobrança da assinatura do profissional: execução de contrato.
-Não usamos seus dados para publicidade, perfilamento comercial, nem os vendemos.
+- Segurança, prevenção a fraude, limites de uso e registros de acesso: obrigação legal (Marco Civil da Internet, art. 15) e legítimo interesse.
+- Suporte: execução de contrato; para as informações técnicas, consentimento.
+- Cobrança da assinatura do profissional: execução de contrato e obrigação legal.
+Não usamos dados para publicidade nem perfilamento comercial, e não os vendemos.
 
-5. O DIÁRIO
-- Privado por padrão. Só o paciente lê.
-- O paciente escolhe, entrada por entrada, o que compartilhar com o psicólogo vinculado.
-- Pode parar de compartilhar a qualquer momento. O acesso do psicólogo cessa na hora.
-- O que o psicólogo já tiver copiado para o prontuário dele passa a ser registro profissional dele, com prazo de guarda do CFP.
-- Ao encerrar o vínculo, o diário continua do paciente.
-- O texto e as etiquetas de sentimento ficam só com o paciente, e o texto é criptografado no servidor. Mesmo uma entrada com humor, energia e ansiedade não mostra o texto ao psicólogo se ela não for compartilhada.
-- O psicólogo vinculado vê, de todas as entradas, apenas a data e os números de humor, energia e ansiedade, mais o nível do paciente. É o acompanhamento que o vínculo pressupõe. Cada consulta dele fica registrada.
-- O paciente é avisado disso antes de aceitar o vínculo e a qualquer momento ao registrar o humor. Ao desfazer o vínculo, o psicólogo deixa de ver o acompanhamento na hora, inclusive dos registros anteriores.
-- Nós (equipe técnica) não lemos diários. O texto é criptografado e a chave fica em cofre separado. Acesso excepcional só por ordem legal ou para resolver incidente grave, com registro.
+6. O DIÁRIO E O ACOMPANHAMENTO
+- O diário é privado por padrão. O texto fica criptografado e só o paciente lê.
+- O paciente escolhe, entrada por entrada, o que compartilhar com o psicólogo vinculado, e pode parar a qualquer momento. O acesso do psicólogo cessa na hora.
+- O que o psicólogo já tiver copiado para o prontuário passa a ser registro profissional dele, com prazo de guarda do CFP.
+- Enquanto vinculado, o psicólogo vê, de todas as entradas, apenas a data e os números de humor, energia e ansiedade, mais o nível do paciente. Nunca o texto nem as etiquetas. O paciente é avisado antes de aceitar o vínculo e na tela do registro. Cada consulta do psicólogo fica registrada na auditoria. Ao desfazer o vínculo, ou se o paciente retirar o consentimento do diário, o acesso termina, inclusive aos registros anteriores.
+- Nós não lemos diários. Exceção: ordem legal ou incidente grave, com registro.
+- O diário não é canal de emergência. Em risco, ligue 188 (CVV) ou 192 (SAMU).
 
-6. COM QUEM COMPARTILHAMOS
+7. GRAVAÇÃO DA CONSULTA, TRANSCRIÇÃO E INTELIGÊNCIA ARTIFICIAL
+Recursos opcionais, só no aplicativo Android do psicólogo, ligados por ele.
+a) Gravação: o psicólogo grava a consulta (ou uma anotação de voz sua) pelo microfone do celular. O paciente é avisado na tela ao pedir ou confirmar a consulta e por aviso no sino quando a gravação começa. Em Conta > Gravação da consulta o paciente pode desligar a qualquer momento; depois de desligar, nunca volta sozinho. Em consulta online, o aplicativo grava o microfone do psicólogo; o outro lado da chamada pode não ser captado.
+b) Áudio: fica criptografado no celular (AES-256-GCM, chave no Android Keystore) e é apagado em até 7 dias. Sobe por conexão segura (HTTPS) para um espaço privado do nosso servidor, onde o psicólogo só consegue enviar (não lê nem apaga) e a equipe não escuta.
+c) Transcrição: o áudio é enviado ao serviço de transcrição AssemblyAI, nos Estados Unidos, só para virar texto, com a fala de cada pessoa identificada. Assim que o texto fica pronto, o áudio é apagado do nosso servidor e pedimos a exclusão no AssemblyAI. O serviço está configurado para não usar o conteúdo para treinar modelos e para apagar os arquivos no prazo mais curto que ele oferece. Se a transcrição falhar, uma limpeza automática apaga o áudio em até 3 dias.
+d) Texto: fica criptografado no servidor e só o psicólogo da consulta lê. O psicólogo revisa antes de usar. A transcrição automática pode errar nomes, remédios e números.
+e) Rascunho por IA: quando o psicólogo pede (ou deixa ligado o rascunho automático, que vem desligado), o texto da transcrição é enviado à Anthropic (modelo Claude), nos Estados Unidos, para escrever um rascunho de evolução. Nunca vai o áudio nem o cadastro do paciente; o nome do paciente não é entregue à IA, mas pode aparecer se for dito na conversa. A IA é instruída a usar só o que está no texto, a não diagnosticar e a ignorar comandos escritos dentro da transcrição. O rascunho nasce marcado "Gerado por IA" e só vale como registro depois que o psicólogo revisar e aprovar. A IA pode errar ou omitir; o conteúdo do prontuário é sempre de responsabilidade do psicólogo.
+f) Registro no Senso: guardamos só o modelo usado e a quantidade de texto processado, nunca o conteúdo.
+g) A Anthropic informa que não usa o conteúdo enviado pela API para treinar seus modelos e que o retém apenas pelo prazo previsto no contrato dela.
+
+8. COM QUEM COMPARTILHAMOS
 - O psicólogo vinculado, dentro do que o vínculo permite.
-- Operadores contratados: hospedagem e banco de dados ([PROVEDOR-HOSPEDAGEM]), pagamentos ([PROVEDOR-PAGAMENTO]), e-mail e notificações ([PROVEDOR-EMAIL]). Todos sob contrato de tratamento de dados.
-- Serviço de transcrição ([PROVEDOR-TRANSCRICAO], hoje AssemblyAI), somente quando o(a) psicólogo(a) grava uma consulta ou uma anotação de voz: recebe o áudio só para gerar o texto, e pedimos a ele que apague tudo assim que o texto fica pronto.
-- Serviço de inteligência artificial ([PROVEDOR-IA], hoje Anthropic, modelo Claude), somente quando o(a) psicólogo(a) pede um rascunho de evolução: recebe só o texto da transcrição (nunca o áudio nem o cadastro do paciente) para escrever o rascunho, que o(a) psicólogo(a) revisa antes de valer.
-- Google e Microsoft, somente se você escolher entrar com a conta deles. Eles tratam o seu login como controladores próprios, conforme as políticas deles (não são nossos operadores), e sabem que você usa o Senso.
-- Equipe de suporte autorizada, que lê os pedidos de suporte e confere o CRP dos psicólogos. Acesso só com senha e segundo fator, e com registro de auditoria. Não lê diários.
+- Operadores contratados, todos sob contrato de tratamento de dados (lista no Anexo A do Contrato de Tratamento de Dados e em [SITE]/operadores): Supabase (banco de dados, autenticação, arquivos e funções, região de São Paulo); AssemblyAI (transcrição, Estados Unidos); Anthropic (rascunho por IA, Estados Unidos); Google (envio de e-mails de conta, como confirmação de cadastro e recuperação de senha); GitHub (hospedagem das páginas do portal, que recebe o endereço IP de quem acessa, nunca dados de pacientes).
+- Quando houver cobrança, um provedor de pagamento, informado aqui antes de entrar em uso.
+- Equipe de suporte autorizada, que lê pedidos de suporte e confere o CRP, com senha e segundo fator (obrigatório para administradores) e registro de auditoria. Não lê diários nem evoluções.
 - Autoridades, quando a lei ou ordem judicial exigir.
-Lista atualizada de operadores: [SITE]/operadores.
+- Google Play: a loja trata dados técnicos de instalação por conta própria, conforme a política dela.
 
-7. TRANSFERÊNCIA INTERNACIONAL
-Hospedamos os dados no Brasil (região de São Paulo). Se algum operador tratar dados fora do país, só faremos com as garantias do art. 33 da LGPD e informaremos aqui. Quando o(a) psicólogo(a) grava uma consulta, o áudio é enviado ao serviço de transcrição, que pode processar nos Estados Unidos; isso só acontece com a gravação autorizada (o paciente pode desligar em Conta) e com as garantias do art. 33 da LGPD. Quando o(a) psicólogo(a) pede um rascunho de evolução com IA, o texto da transcrição (sem o áudio e sem o cadastro) é enviado à Anthropic, que pode processar nos Estados Unidos, com as mesmas garantias. Se você escolher entrar com Google ou Microsoft, o login passa pelos servidores desses provedores, que podem ficar fora do Brasil; isso só acontece quando você clica no botão deles, e você pode sempre usar e-mail e senha.
+9. TRANSFERÊNCIA INTERNACIONAL
+Os dados ficam em servidor no Brasil. Saem do país em dois casos: (1) a transcrição, quando o áudio vai ao AssemblyAI, e (2) o rascunho por IA, quando o texto vai à Anthropic, ambos nos Estados Unidos. Só ocorrem com o recurso ligado e com o aviso ao paciente, que pode desligar a gravação em Conta. Os prestadores têm contrato de tratamento de dados e adotamos as garantias do art. 33 da LGPD, informadas no Anexo C do Contrato de Tratamento de Dados. O provedor do banco de dados (Supabase) pode ter acesso técnico remoto de suporte fora do Brasil, sob o contrato dele. Quem usa e-mail e senha não faz nenhuma outra transferência.
 
-8. QUANTO TEMPO GUARDAMOS
-Veja o Documento 09. Resumo: conta e diário enquanto a conta existir; pedidos de suporte por 2 anos depois de fechados; após pedido de exclusão, apagamos em até 30 dias, e cópias de segurança expiram em até 90 dias; registros de acesso por 6 meses; dados fiscais e de cobrança pelo prazo legal.
+10. QUANTO TEMPO GUARDAMOS
+Resumo: conta e diário enquanto a conta existir; exclusão em até 30 dias depois do pedido e cópias de segurança expiram em até 30 dias; gravação no celular até 7 dias; áudio no servidor até a transcrição sair (no máximo 3 dias); texto da transcrição e rascunhos até o psicólogo apagar ou a conta ser excluída; pedidos de suporte 2 anos depois de fechados; registros de acesso 6 meses; recibos e dados de cobrança pelo prazo fiscal. O psicólogo guarda o prontuário pelo prazo do CFP.
 
-9. SEUS DIREITOS (LGPD, art. 18)
-Confirmação do tratamento, acesso, correção, anonimização, bloqueio ou eliminação, portabilidade, informação sobre compartilhamento, revogação do consentimento, e oposição quando cabível. Peça por [EMAIL-PRIVACIDADE] ou em Conta > Privacidade. Respondemos em até 15 dias.
-Pedidos sobre dados do atendimento podem precisar ser tratados também pelo psicólogo, que é o controlador. Ele pode ter o dever legal de guardar registros mesmo se você pedir exclusão.
+11. SEUS DIREITOS (LGPD, ART. 18)
+Confirmação do tratamento, acesso, correção, anonimização, bloqueio ou eliminação, portabilidade, informação sobre compartilhamento, revogação do consentimento e oposição quando cabível. Peça por [EMAIL-PRIVACIDADE] ou em Conta > Privacidade. Respondemos em até 15 dias. Pedidos sobre dados do atendimento são tratados também pelo psicólogo, que é o controlador e pode ter o dever legal de guardar registros mesmo se você pedir exclusão. Você também pode reclamar à ANPD (www.gov.br/anpd).
 
-10. SEGURANÇA
-Criptografia em trânsito (TLS) e em repouso, controle de acesso por vínculo (cada pessoa só enxerga o que lhe pertence), autenticação em dois fatores (obrigatória para a equipe; disponível e recomendada para psicólogos, e a plataforma pode torná-la obrigatória), limite de tentativas, saída automática depois de um tempo parado, confirmação da senha antes de baixar ou apagar seus dados, registros de auditoria, cópias de segurança criptografadas e revisão de segurança antes de operar com dados reais. Se houver incidente que possa causar dano relevante, avisaremos a ANPD e os titulares no prazo regulamentar.
+12. SEGURANÇA
+Conexão segura (TLS), criptografia dos dados no servidor (AES-256, chave em cofre separado) e no aparelho (Android Keystore), isolamento por linha no banco (cada pessoa só alcança o que lhe pertence), verificação do CRP antes de liberar pacientes, autenticação em dois fatores (recomendada para todos e obrigatória para a equipe), limite de tentativas, saída automática por inatividade (20 minutos para o psicólogo e 60 para o paciente que não marcou "Manter conectado"), confirmação de senha antes de baixar ou apagar dados, registros de auditoria e cópias de segurança criptografadas. No celular: PIN ou digital/rosto com espera progressiva depois de 5 erros. Nenhum sistema é infalível. Se houver incidente que possa causar dano relevante, avisaremos a ANPD, o psicólogo controlador e os titulares nos prazos da regulamentação.
 
-11. CRIANÇAS E ADOLESCENTES
-- Até 12 anos: a conta é criada e gerenciada pelo responsável legal.
-- De 12 a 17 anos: a conta é do adolescente e fica vinculada a um responsável, que consente e acompanha agenda e pagamentos. O diário do adolescente não é visível ao responsável.
-- Tratamos dados de menores sempre no melhor interesse deles (LGPD, art. 14; ECA Digital).
-- Nenhum anúncio, nenhum perfilamento e nenhuma configuração menos protetora por padrão.
+13. CRIANÇAS E ADOLESCENTES
+- O Senso é uma ferramenta de psicólogos e não é dirigido ao público infantil. Menores atendidos são pacientes de um psicólogo e usam o portal por vínculo com ele.
+- Menor de 18 anos informa o nome e o celular de um responsável no cadastro. O psicólogo registra a autorização do responsável depois de falar com ele. O responsável não tem conta no Senso.
+- O diário do menor é dele e não é entregue ao responsável por nós. Tratamos dados de menores no melhor interesse deles (LGPD, art. 14; Lei 15.211/2025, ECA Digital). Sem anúncios, sem perfilamento e sem configuração menos protetora por padrão.
 
-12. COOKIES E ARMAZENAMENTO LOCAL
-O portal web usa apenas o necessário para você continuar logado e manter a segurança. Se você marcar "Manter conectado", a sessão fica guardada neste aparelho; se não marcar, fica só na aba aberta. Guardamos neste aparelho a hora da sua última atividade, para sair da conta sozinho depois de um tempo parado, e sua escolha de aparência (claro ou escuro). Não usamos cookies de publicidade nem de análise de terceiros.
+14. APLICATIVO ANDROID
+- Permissões: internet e estado da rede (só para o servidor do Senso; o app avisa quando o celular está em dados móveis antes de enviar áudio), notificações e iniciar com o aparelho (lembretes de sessão agendados no próprio celular, sem serviço externo de envio), biometria, microfone e serviço em primeiro plano (só enquanto o psicólogo grava, com notificação visível) e fotos e arquivos (só o que você escolher no seletor do sistema).
+- O backup automático do Android está desligado de propósito. O backup do app é um arquivo protegido por senha que você gera e guarda; se perder a senha, não conseguimos recuperar.
+- Apagar os dados do aparelho não apaga a cópia do servidor. O que você exclui no app sai do servidor na próxima sincronização e fica só uma marca de exclusão sem conteúdo. Para encerrar a conta e apagar tudo, use Conta > Excluir conta no portal.
+- Compartilhar PDF, recibo ou mensagem é ação sua, feita pelos aplicativos do sistema, que têm política própria.
 
-13. ALTERAÇÕES
-Avisaremos dentro do app e por e-mail antes de mudanças relevantes, e pediremos novo consentimento quando a lei exigir.
+15. COOKIES E ARMAZENAMENTO LOCAL
+O portal usa só o necessário: manter você conectado (se marcar "Manter conectado"; senão só na aba aberta), a hora da última atividade para a saída automática, e a escolha de aparência claro ou escuro. Sem cookies de publicidade nem de análise de terceiros.
 
-14. CONTATO E AUTORIDADE
-[EMAIL-PRIVACIDADE] | [ENCARREGADO] | ANPD: www.gov.br/anpd
+16. DECISÕES AUTOMATIZADAS E TERCEIROS CITADOS
+- Não tomamos decisões sobre você só por tratamento automatizado (LGPD, art. 20). A transcrição e o rascunho por IA são revisados por um profissional. Nível, XP e conquistas não valem avaliação nem têm efeito clínico, comercial ou de acesso. Você pode pedir a revisão de qualquer decisão automatizada que o afete.
+- Em consultas gravadas podem ser citadas outras pessoas. O tratamento desses dados é do psicólogo, que é o controlador, e só serve à finalidade do atendimento.
+
+17. LIMITES, DIREITOS RESERVADOS E LEI APLICÁVEL
+Nada nesta Política limita os direitos do titular previstos em lei. Podemos tratar dados para cumprir obrigação legal, exercer direitos em processo e prevenir fraude (LGPD, art. 7, VI e IX; art. 11, II, a e g). Lei brasileira. A resolução de reclamações segue a lei; você pode procurar a ANPD ou o Poder Judiciário.
+
+18. ALTERAÇÕES
+Avisaremos dentro do app e por e-mail antes de mudanças relevantes, e pediremos novo consentimento quando a lei exigir. Guardamos as versões anteriores.
+
+19. CONTATO E AUTORIDADE
+[EMAIL-PRIVACIDADE] | [ENCARREGADO] | Autoridade Nacional de Proteção de Dados (ANPD): www.gov.br/anpd

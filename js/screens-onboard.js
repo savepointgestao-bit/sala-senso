@@ -252,4 +252,23 @@
     });
     return holder;
   };
+
+  /* Versão de uma linha (Início do psicólogo que já tem pacientes): o link com Copiar. As outras opções ficam em Conta, WhatsApp, link e avisos. */
+  S.inviteMini = function () {
+    var holder = h('section', { class: 'card invite-mini', 'aria-label': 'Link de cadastro' }, UI.loading());
+    API.invite.mine().then(function (st) {
+      UI.clear(holder);
+      var url = Invite.url(st.code);
+      var copy = UI.button('Copiar', { icon: 'copy', variant: 'ghost', onclick: function () {
+        UI.copyText(url).then(function () { UI.toast('Link copiado.', 'circle-check'); }, function () { UI.toast('Não deu para copiar. Abra Conta, WhatsApp, link e avisos.'); });
+      } });
+      copy.classList.add('auto', 'sm');
+      holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('link', 20)),
+        h('div', { class: 'grow' }, h('div', { class: 't' }, 'Seu link de cadastro'), h('div', { class: 's' }, st.enabled ? 'Mande para novos pacientes.' : 'Desativado. Ative em Conta, WhatsApp, link e avisos.')),
+        st.enabled ? copy : null));
+    }).catch(function (e) {
+      Diag.error('link-convite', e); UI.clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar o seu link agora. Veja em Conta, WhatsApp, link e avisos.'));
+    });
+    return holder;
+  };
 })();

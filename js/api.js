@@ -392,7 +392,15 @@
       report: function (recordId, days) { return sb.rpc('pro_patient_report', { p_record: recordId, p_days: days || 90 }).then(ok); },
       reviews: function () { return sb.rpc('pro_reviews').then(ok); },
       contact: function () { return sb.rpc('pro_contact_get').then(ok); },
-      saveContact: function (enabled, phone) { return sb.rpc('pro_contact_save', { p_enabled: !!enabled, p_phone: phone || null }).then(ok); }
+      saveContact: function (enabled, phone) { return sb.rpc('pro_contact_save', { p_enabled: !!enabled, p_phone: phone || null }).then(ok); },
+      /* lembrete automatico de consulta pelo WhatsApp (chave do psicologo) */
+      waReminders: function () { return sb.rpc('my_wa_reminders').then(ok); },
+      setWaReminders: function (on) { return sb.rpc('set_wa_reminders', { p_on: !!on }).then(ok); }
+    },
+    /* aceite do paciente para receber lembretes pelo WhatsApp */
+    wa: {
+      optin: function () { return sb.rpc('my_wa_optin').then(ok); },
+      setOptin: function (on, phone) { return sb.rpc('set_wa_optin', { p_on: !!on, p_phone: phone || null }).then(ok); }
     },
 
     /* psicologo: agenda (horarios de atendimento, bloqueios, pedidos e consultas) */
@@ -493,6 +501,13 @@
         draft: function (recordingId) {
           return edge('draft-generate', { recording_id: recordingId });
         },
+        /* Resumo automatico: a chave da psicologa (desligada por padrao). Ligada, o servidor escreve o resumo assim que a transcricao fica pronta,
+           mesmo com o app fechado, e deixa o rascunho na ficha. Devolve { on, since }. */
+        /* Nota do resumo (1 a 5 estrelas e um comentario opcional). feedbackPending = resumos prontos ainda sem nota (de um paciente, ou de todos). */
+        feedbackPending: function (recordId) { return sb.rpc('draft_feedback_pending', { p_record: recordId || null }).then(ok); },
+        feedbackSave: function (recordingId, stars, comment) { return sb.rpc('draft_feedback_save', { p_recording: recordingId, p_stars: stars, p_comment: comment || null }).then(ok).then(function () { return true; }); },
+        autoSummary: function () { return sb.rpc('my_auto_summary').then(ok); },
+        setAutoSummary: function (on) { return sb.rpc('set_auto_summary', { p_on: !!on }).then(ok); },
         list: function (recordId) { return sb.rpc('transcripts_list', { p_record: recordId || null, p_limit: 40 }).then(ok); },
         get: function (id) { return sb.rpc('transcript_get', { p_recording: id }).then(ok); },
         swapRoles: function (id) { return sb.rpc('transcript_swap_roles', { p_recording: id }).then(ok); },

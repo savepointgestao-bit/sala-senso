@@ -76,7 +76,7 @@
     { re: /^transcricao$/, who: 'professional', title: 'Transcrições', build: function (ctx, q) { return q && q.id ? S.transcript(ctx, q.id) : S.transcripts(ctx, q); } },
     { re: /^relatorios$/, who: 'professional', title: 'Relatórios', build: function (ctx, q) { return screen('reports')(ctx, q); } },
     { re: /^avaliacoes$/, who: 'professional', title: 'Avaliações', build: function (ctx) { return screen('proReviews')(ctx); } },
-    { re: /^atendimento$/, who: 'professional', title: 'Atendimento', build: function (ctx) { return screen('service')(ctx); } }
+    { re: /^atendimento$/, who: 'professional', title: 'WhatsApp, link e avisos', build: function (ctx) { return screen('service')(ctx); } }
   ];
   function matchRoute(path) {
     for (var i = 0; i < ROUTES.length; i++) {

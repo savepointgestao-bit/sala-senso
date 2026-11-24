@@ -1,5 +1,5 @@
 /* Psicólogo: agenda (pedidos para aprovar, semana, fechar dias e horas, horários de atendimento), marcar consulta direto,
-   avaliações anônimas e a tela Atendimento (WhatsApp, avisos que quer receber, link de cadastro). */
+   avaliações anônimas e a tela "WhatsApp, link e avisos" (dentro da Conta: WhatsApp, lembrete automático, avisos, link de cadastro). */
 (function () {
   'use strict';
   var h = UI.h;
@@ -567,7 +567,10 @@
     var newBtn = h('button', { type: 'button', class: 'btn auto sm', onclick: function () { S.newAppointmentSheet({ day: q && /^\d{4}-\d{2}-\d{2}$/.test(q.d || '') ? q.d : null, onDone: function () { state.reload(); } }); } }, UI.svg('calendar-plus', 18), 'Marcar consulta');
     var freeBtn = h('button', { type: 'button', class: 'btn ghost auto sm', onclick: function () { S.freeSlotsSheet({ onDone: function () { state.reload(); } }); } }, UI.svg('clock', 18), 'Horários livres');
     var holder = h('div');
-    var node = S.shell(ctx, 'agenda', [UI.pageHead('Agenda', null, h('div', { class: 'row-gap' }, freeBtn, newBtn)), holder]);
+    /* no celular os dois botões ficam lado a lado abaixo do título (classe stack), em vez de espremer o título */
+    var head = UI.pageHead('Agenda', null, h('div', { class: 'row-gap' }, freeBtn, newBtn));
+    head.classList.add('stack');
+    var node = S.shell(ctx, 'agenda', [head, holder]);
     var tabNames = ['pedidos', 'semana', 'fechar', 'ajustes'];
     var firstTab = tabNames.indexOf(q && q.aba) >= 0 ? q.aba : (q && q.d ? 'semana' : null);
     var count = 0, tabsApi = null;
@@ -577,9 +580,18 @@
       setCount: function (n) { count = n; var b = holder.querySelector('[data-tab="pedidos"]'); if (b) b.textContent = 'Pedidos' + (n ? ' (' + n + ')' : ''); }
     };
     var cur = null;
+    /* Abre onde faz sentido: com pedido esperando, em Pedidos; sem pedido, na semana. Quem chega com ?aba= ou ?d= vai direto. */
     function build() {
+      if (firstTab || cur) { draw(firstTab || cur); return; }
+      clear(holder); holder.appendChild(UI.loading());
+      var from = T.today();
+      API.agenda.view(from, T.addDays(from, 60)).then(function (v) {
+        count = v.pending.filter(function (a) { return a.status === 'requested'; }).length;
+        draw(count ? 'pedidos' : 'semana');
+      }).catch(function (e) { Diag.error('agenda-inicio', e); draw('semana'); });
+    }
+    function draw(start) {
       clear(holder);
-      var start = firstTab || cur || 'pedidos';
       tabsApi = UI.tabs({ label: 'Seções da agenda', value: start, tabs: [['pedidos', 'Pedidos'], ['semana', 'Agenda'], ['fechar', 'Fechar'], ['ajustes', 'Horários']], onChange: function (k) { cur = k; },
         render: function (k) {
           if (k === 'pedidos') return requestsPanel(state);
@@ -590,6 +602,7 @@
       cur = start; firstTab = null;
       holder.appendChild(tabsApi.el);
       Array.prototype.forEach.call(holder.querySelectorAll('.seg button'), function (b, i) { b.setAttribute('data-tab', tabNames[i]); });
+      state.setCount(count);
     }
     build();
     return node;
@@ -662,6 +675,31 @@
     return holder;
   }
 
+  /* Lembrete automatico de consulta pelo WhatsApp (API oficial): chave do psicologo. Quem recebe e so o paciente que aceitou na conta dele. */
+  function waRemindersCard(ctx) {
+    var pro = ctx.me && ctx.me.professional;
+    if (!(pro && pro.verification === 'verified')) return null;
+    var holder = h('section', { class: 'card', 'data-wa-reminders': '' }, UI.loading());
+    API.pro.waReminders().then(function (st) {
+      clear(holder);
+      var status = h('p', { class: 'small muted', 'aria-live': 'polite' });
+      function say(on) { status.textContent = on ? 'Ligado. Vale para as próximas consultas marcadas.' : 'Desligado. Nenhum lembrete automático sai.'; }
+      var t = UI.toggle({ value: !!(st && st.on), label: 'Mandar lembrete automático de consulta', onChange: function (v) {
+        return API.pro.setWaReminders(v).then(function () { say(v); UI.toast(v ? 'Lembrete automático ligado.' : 'Lembrete automático desligado.', 'circle-check'); })
+          .catch(function (e) { Diag.error('wa-lembretes', e); UI.toast(UI.errorText(e, 'Não foi possível salvar agora.')); throw e; });
+      } });
+      say(!!(st && st.on));
+      holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('bell-ring', 22)), h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Lembrete automático'))));
+      holder.appendChild(h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Lembrete de consulta pelo WhatsApp'), h('span', { class: 's' }, 'Sai sozinho, um dia antes.')), t.el));
+      holder.appendChild(status);
+      holder.appendChild(h('ul', { class: 'consent-list small' },
+        h('li', null, 'Só recebe o paciente que aceitou, na conta dele no Senso.'),
+        h('li', null, 'O texto só diz o dia e a hora. Não leva seu nome nem o motivo.'),
+        h('li', null, 'O paciente responde 1 para confirmar ou 2 para pedir para remarcar, e você vê no sininho.')));
+    }).catch(function (e) { Diag.error('wa-lembretes', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar o lembrete automático agora.')); });
+    return holder;
+  }
+
   function prefsCard() {
     var holder = h('section', { class: 'card' }, UI.loading());
     API.notify.prefs().then(function (p) {
@@ -683,8 +721,8 @@
   }
 
   S.service = function (ctx) {
-    return S.shell(ctx, 'atendimento', [UI.pageHead('Atendimento'),
-      whatsappCard(), S.inviteCard(), prefsCard(),
+    return S.shell(ctx, 'atendimento', [UI.backLink('#/conta', 'Conta'), UI.pageHead('WhatsApp, link e avisos'),
+      whatsappCard(), waRemindersCard(ctx), S.inviteCard(), prefsCard(),
       h('a', { class: 'cta-card strip', href: '#/agenda?aba=ajustes' }, h('span', { class: 'ico-box' }, UI.svg('calendar-days', 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, 'Horários e valor da consulta')), h('span', { class: 'btn auto sm' }, 'Abrir'))]);
   };
 })();

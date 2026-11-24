@@ -1,73 +1,90 @@
 ====================================================================
-DOCUMENTO 03 - TERMOS DE USO DO PROFISSIONAL (APP E PORTAL)
-Status: rascunho para revisão jurídica | Vale: quando o portal sair | Público
-Vigência: [DATA-VIGÊNCIA] | Versão do texto: 0.1
+DOCUMENTO 02: TERMOS DE USO DO PROFISSIONAL (APP E PORTAL)
+Texto público, aceite no cadastro | Versão 1.0 (10/11/2026), minuta para aprovação jurídica
+Vigência: [DATA-VIGÊNCIA]
 ====================================================================
 
 1. ACEITE
-Ao criar uma conta de profissional ou assinar o portal do Senso, você aceita estes Termos, a Política de Privacidade (Documento 02) e o Contrato de Tratamento de Dados (Documento 05). O app offline, sem conta, segue a Política do Documento 01.
+Ao criar uma conta de profissional no Senso (aplicativo Android ou portal), você aceita estes Termos, a Política de Privacidade e o Contrato de Tratamento de Dados. O aceite é eletrônico e guardamos data, hora e versão dos textos.
 
 2. QUEM PODE USAR
-- Psicóloga(o) com inscrição ativa em Conselho Regional de Psicologia (CRP).
-- Você declara que as informações dadas (nome, CRP, UF, foto) são verdadeiras e que sua inscrição está regular.
-- A conta fica "pendente" até conferirmos o CRP no Cadastro Nacional de Psicólogas(os) do CFP. Podemos pedir documento adicional. Sem confirmação, o portal não é liberado.
-- Se sua inscrição for suspensa, cancelada ou considerada irregular, podemos suspender o portal.
-- Você deve ter 18 anos ou mais.
+- Psicóloga(o) com 18 anos ou mais e inscrição ativa em Conselho Regional de Psicologia (CRP).
+- Você declara que nome, CRP, UF e foto são verdadeiros e que sua inscrição está regular.
+- A conta nasce "pendente". Conferimos o CRP no Cadastro Nacional de Psicólogas(os) do CFP, em geral em até 1 dia útil, e podemos pedir documento adicional. Enquanto pendente, você usa o app com os seus próprios dados, mas recibos e documentos com o CRP ficam bloqueados e o acompanhamento de pacientes no portal só abre com o CRP confirmado.
+- Se sua inscrição for suspensa, cancelada ou irregular, podemos suspender o acesso.
 
 3. O QUE É O SENSO
-Ferramenta de gestão de consultório: agenda, pagamentos, recibos, ficha, documentos e, no portal, uma área do paciente. O Senso NÃO presta serviço psicológico, NÃO intermedia a relação entre você e seu paciente e NÃO é plataforma de atendimento. A relação clínica e a responsabilidade técnica são suas.
-As escalas (PHQ-9, GAD-7) são instrumentos de triagem, não diagnóstico e não são testes do SATEPSI. O app não substitui seu julgamento profissional.
+Ferramenta de gestão de consultório: pacientes e ficha, agenda, evolução, escalas, documentos, controle financeiro e recibos, e uma área do paciente (portal) com agendamento, confirmação de presença e diário. O Senso NÃO presta serviço psicológico, NÃO intermedia a relação entre você e o paciente e NÃO é plataforma de atendimento. A relação clínica e a responsabilidade técnica são suas. As escalas (PHQ-9, GAD-7) são instrumentos de triagem, não diagnóstico, e não são testes do SATEPSI.
 
 4. PLANOS E PREÇO
-- App offline: gratuito.
-- Portal do paciente: assinatura de R$ [PREÇO] por mês (ou plano anual de R$ [PREÇO-ANUAL]). O paciente não paga nada ao Senso.
+- Há os planos Free, Pro e Pro IA. Os recursos e limites de cada um ficam descritos em [SITE]/planos e na tela Conta, e podem ser ajustados com aviso prévio de 30 dias. O paciente não paga nada ao Senso.
+- Assinatura paga: R$ [PREÇO-PRO] por mês no Pro e R$ [PREÇO-PRO-IA] por mês no Pro IA (ou plano anual, se oferecido), com renovação automática até o cancelamento, sem multa. O acesso vale até o fim do período pago e depois a conta volta ao plano Free.
 - Reajustes com aviso de 30 dias.
-- Renovação automática até o cancelamento. Você pode cancelar a qualquer momento nas configurações da conta, sem multa; o acesso vale até o fim do período pago.
-- Direito de arrependimento: contratação à distância pode ser desfeita em 7 dias com devolução dos valores (CDC, art. 49), quando se aplicar.
+- Contratação à distância pode ser desfeita em 7 dias com devolução dos valores (CDC, art. 49), quando se aplicar.
+- Uso razoável: recursos que têm custo por uso (transcrição e IA) podem ter limite de uso por mês e por hora, informados no plano.
 
 5. SEUS DEVERES COMO CONTROLADOR DOS DADOS DOS PACIENTES
-- Cumprir sigilo profissional, o Código de Ética e as resoluções do CFP, e a LGPD.
-- Informar o paciente sobre como os dados dele são tratados e obter os consentimentos necessários (modelos no Documento 06).
-- Para menores, obter o consentimento do responsável legal e respeitar o melhor interesse do menor.
-- Só vincular pessoas que são seus pacientes. Aprovar vínculos com atenção: nunca aprove quem você não reconhece.
-- Guardar prontuário e registros documentais pelo prazo exigido pelo CFP, no seu aparelho ou onde escolher. O Senso não guarda seu prontuário clínico.
-- Não usar o portal para diagnóstico automático, divulgação, publicidade nem fins incompatíveis com a ética profissional.
-- Não compartilhar seu acesso e manter seu aparelho e senhas seguros. Ativar a autenticação em dois fatores (hoje recomendada; podemos torná-la obrigatória, com aviso prévio).
-- Avisar o paciente de que o diário é dele e que você só vê o que ele compartilhar. Não pressionar o paciente a compartilhar.
-- Responder a pedidos de titulares sobre dados do atendimento.
-- Gravação de consulta (só no app do celular): só gravar quando o Senso liberar (o paciente autoriza ao confirmar a consulta e pode desligar em Conta). Usar o áudio só para transcrever e montar relatório ou evolução, revisar o texto antes de salvar no prontuário, não compartilhar o áudio e avisar o paciente que a consulta está sendo gravada. Você é o responsável por esses dados. O áudio fica criptografado no seu aparelho. Para virar texto, o app o envia por conexão segura ao serviço de transcrição (AssemblyAI, que pode processar fora do Brasil); o áudio é apagado do Senso e do serviço assim que o texto fica pronto, e o texto fica criptografado e só você lê. Confira o texto antes de usar: a transcrição automática pode errar nomes, remédios e números, e a definição de quem é o psicólogo e quem é o paciente é automática e pode ser trocada com um toque. Se você pedir um rascunho de evolução com IA, o texto da transcrição (sem o áudio e sem o cadastro do paciente) é enviado por conexão segura à Anthropic (modelo Claude), que pode processar fora do Brasil, só para escrever o rascunho. Ele nasce marcado como "Gerado por IA" e só vale como registro depois que você revisar e aprovar; a IA pode errar ou deixar de fora detalhes importantes, então confira cada campo, e o conteúdo do prontuário continua sendo de sua responsabilidade. A anotação de voz fora de consulta é sua: não grave outra pessoa sem que ela saiba.
+- Cumprir o sigilo profissional, o Código de Ética, as resoluções do CFP e a LGPD.
+- Ter base legal para tratar dados dos pacientes e informá-los de como são tratados, inclusive que ficam no servidor do Senso, criptografados, e que a plataforma tem meios técnicos de abrir os dados. Usar o modelo de TCLE do app ou o seu.
+- Para menores, obter e registrar a autorização do responsável legal depois de falar com ele, e respeitar o melhor interesse do menor.
+- Só vincular pessoas que são seus pacientes e aprovar vínculos com atenção: nunca aprove quem você não reconhece. Só pedir transferência de paciente a colega com o consentimento do paciente ou do responsável.
+- Guardar o prontuário e os registros documentais pelo prazo e na forma que o CFP exige. O Senso mantém a cópia sincronizada para uso e recuperação, mas não é arquivo de prontuário nem substitui o seu backup.
+- Não usar o Senso para diagnóstico automático, divulgação, publicidade ou fins incompatíveis com a ética profissional.
+- Não compartilhar seu acesso, manter aparelho e senhas seguros e ativar a autenticação em dois fatores (recomendada; podemos torná-la obrigatória com aviso prévio).
+- Dizer ao paciente que o diário é dele e que você só vê o que ele compartilhar, além do acompanhamento (data, números de humor, energia e ansiedade, e nível). Não pressionar o paciente a compartilhar.
+- Responder aos pedidos dos titulares sobre os dados do atendimento.
 
-6. PAGAMENTOS
-- Pagamentos de pacientes passam por provedor de pagamento parceiro ([PROVEDOR-PAGAMENTO]) e caem direto na sua conta. O Senso não recebe, não custodia e não repassa esse dinheiro.
-- Taxas do provedor são cobradas por ele, conforme o contrato dele com você. Você precisa aceitar os termos do provedor e fazer o cadastro dele.
-- Recibos gerados no app são de sua responsabilidade fiscal e tributária (Carnê-Leão, Receita Saúde e outras obrigações). O Senso não substitui contador.
+6. GRAVAÇÃO, TRANSCRIÇÃO E RASCUNHO POR IA
+Recursos opcionais, só no app do celular, conforme o plano.
+- Gravar só quando o Senso liberar (o paciente é avisado na tela ao pedir ou confirmar a consulta e pode desligar em Conta). Avisar também o paciente, no início da consulta, de que ela está sendo gravada. Nunca gravar quem não sabe. A anotação de voz sua, sem paciente, é sua responsabilidade.
+- Usar o áudio só para transcrever e montar relatório ou evolução. Não compartilhar o áudio.
+- O áudio fica criptografado no seu celular por até 7 dias e é enviado por conexão segura ao serviço de transcrição AssemblyAI (Estados Unidos), apagado assim que o texto sai. O texto fica criptografado e só você lê. Se pedir rascunho de evolução por IA, o texto da transcrição (sem áudio e sem cadastro) vai à Anthropic (modelo Claude, Estados Unidos). Detalhes na Política (item 7).
+- Revisar o texto e o rascunho antes de usar: a transcrição pode errar nomes, remédios e números, a identificação de quem falou pode ser trocada com um toque, e a IA pode errar ou omitir. O rascunho nasce "Gerado por IA" e só vale depois da sua revisão e aprovação. A responsabilidade pelo conteúdo do prontuário é sua.
+- Seguir as orientações do CFP sobre o uso de inteligência artificial e sobre gravação de atendimento.
+- Não escrever dados que identifiquem pacientes no comentário de avaliação do rascunho.
 
-7. DISPONIBILIDADE E BACKUP
-- Fazemos o possível para manter o portal no ar, mas não garantimos funcionamento ininterrupto. Haverá manutenções.
-- No app offline, backup é por sua conta (Mais > Backup e restauração).
-- No portal, mantemos cópias de segurança para recuperação de desastre, não como arquivo de prontuário.
+7. FINANCEIRO E RECIBOS
+O controle financeiro e os recibos do app são registros seus. Hoje o Senso não processa pagamentos de pacientes nem custodia dinheiro. Quando houver cobrança por provedor de pagamento, ele terá termos próprios e será informado antes. Os recibos gerados no app são de sua responsabilidade fiscal e tributária (Carnê-Leão, Receita Saúde e outras). O Senso não substitui contador.
 
-8. CONTEÚDO, PROPRIEDADE E LICENÇA
-O software, a marca e o design são de [NOME EMPRESARIAL]. Você recebe licença pessoal, não exclusiva e intransferível para usar o app. Seus dados e os de seus pacientes continuam sendo seus e deles; usamos somente para prestar o serviço.
+8. DISPONIBILIDADE, BACKUP E SUPORTE
+Fazemos o possível para manter o serviço no ar, mas não garantimos funcionamento ininterrupto e haverá manutenções. Mantemos cópias de segurança do servidor para recuperação de desastre. O backup do app (arquivo com senha) e a cópia do seu prontuário são sua responsabilidade. Suporte: [EMAIL-SUPORTE], em dias úteis.
 
-9. PROIBIDO
-Engenharia reversa, uso para fins ilícitos, tentar acessar dados de quem não é seu paciente, burlar a verificação do CRP, revender o acesso.
+9. PROPRIEDADE E LICENÇA
+O software, a marca e o design são de [NOME EMPRESARIAL]. Você recebe licença pessoal, não exclusiva e intransferível para usar o app. Seus dados e os dos seus pacientes continuam sendo seus e deles; usamos só para prestar o serviço.
 
-10. SUSPENSÃO E ENCERRAMENTO
-- Você pode encerrar a conta quando quiser.
+10. PROIBIDO
+Engenharia reversa, uso ilícito, tentar acessar dados de quem não é seu paciente, burlar a verificação do CRP, revender o acesso, sobrecarregar o serviço e gravar ou usar IA para fins que a lei ou a ética proíbam.
+
+11. SUSPENSÃO E ENCERRAMENTO
+- Você pode encerrar a conta quando quiser, em Conta > Excluir conta. Antes, tem 30 dias para exportar seus dados (CSV e PDF). Depois, apagamos conforme os prazos da Política de Privacidade (item 10) e do Contrato de Tratamento de Dados (item 11).
 - Podemos suspender por violação destes Termos, CRP irregular, fraude ou risco à segurança, com aviso quando possível.
-- Ao encerrar, você tem 30 dias para exportar seus dados do portal (CSV/PDF). Depois, apagamos conforme o Documento 09.
-- Seu app offline continua funcionando, com os dados locais.
 
-11. LIMITAÇÃO DE RESPONSABILIDADE
-O serviço é fornecido "como está", dentro do que a lei permite. Não respondemos por decisões clínicas, por perdas decorrentes de falta de backup do app offline, nem por indisponibilidade de terceiros (provedores de pagamento, internet, loja de aplicativos). Nada aqui limita responsabilidades que a lei não permite limitar.
-[Cláusula a revisar pelo advogado: validade da limitação em relação de consumo.]
+12. RESPONSABILIDADES E LIMITES
+12.1 Sua responsabilidade. Você responde pelo conteúdo que insere ou aprova, pelas decisões clínicas e profissionais, pela revisão do que a transcrição e a IA produzirem, pelos consentimentos e avisos que deve dar aos pacientes, pela guarda do prontuário pelo prazo do CFP, pelo sigilo do seu acesso e por manter o seu aparelho e o seu próprio backup.
+12.2 Nossa responsabilidade. Respondemos pela segurança e pela operação do serviço nos termos da LGPD (arts. 42 a 45), deste contrato e da lei. Não respondemos por: (a) decisões clínicas, diagnósticos e condutas profissionais; (b) conteúdo inserido por você, por pacientes ou gerado por IA, revisado ou não; (c) erros de transcrição ou de rascunho; (d) perda decorrente da falta do seu backup ou da exclusão feita por você; (e) uso do acesso por quem recebeu sua senha ou dispositivo por ato seu; (f) informação falsa que você prestou, inclusive sobre o CRP; (g) falha de terceiros fora do nosso controle (internet, loja de aplicativos, provedores de infraestrutura, transcrição e IA), quando tivermos adotado as medidas contratuais e técnicas deste documento.
+12.3 Limite. Na medida em que a lei permitir, a responsabilidade total do Senso perante você, por danos diretos, fica limitada ao valor que você nos pagou nos 12 meses anteriores ao fato ou, no plano Free, a R$ 1.000,00. Não respondemos por lucros cessantes nem por danos indiretos. Este limite não vale para dolo ou culpa grave, nem para o que a lei não permite limitar, e não restringe os direitos dos titulares de dados contra nós.
+12.4 Garantias. O serviço é fornecido "como está" e "conforme disponível". Os recursos de transcrição e de IA são ferramentas de apoio e não garantem exatidão. O Senso não é dispositivo médico, não faz diagnóstico, não indica tratamento e não substitui o julgamento profissional.
 
-12. ALTERAÇÕES
-Podemos atualizar estes Termos. Avisaremos com 30 dias de antecedência em mudanças relevantes. Continuar usando depois do aviso significa aceite; se não concordar, cancele.
+13. INDENIZAÇÃO E DIREITO DE REGRESSO
+Você mantém o Senso livre de reclamações, multas, custos e condenações de pacientes, responsáveis, terceiros, conselhos profissionais ou autoridades, na medida da sua culpa, quando decorrerem de: descumprir seus deveres de controlador ou estes Termos; gravar ou usar IA sem informar o paciente; inserir conteúdo ilícito ou de terceiros sem direito; informação falsa sobre CRP ou identidade; uso indevido do acesso. Reconhecemos o direito de regresso de cada parte conforme a culpa de cada uma (LGPD, art. 42, § 4º).
 
-13. LEI E FORO
+14. EVENTOS FORA DO NOSSO CONTROLE
+Não respondemos por atraso ou falha causados por caso fortuito ou força maior, como queda de provedores de infraestrutura, ataque cibernético apesar das medidas razoáveis, falha de energia ou de internet, ato de autoridade ou mudança de regra de lojas de aplicativos ou de prestadores, desde que adotemos as medidas possíveis para restabelecer o serviço.
+
+15. COMUNICAÇÕES E PROVA
+Comunicamos por e-mail cadastrado e por aviso no app e no portal. Você aceita que registros eletrônicos (data, hora, versão do texto aceito, auditoria) servem como prova do aceite e dos atos praticados na conta, nos termos do art. 10, § 2º da MP 2.200-2/2001.
+
+16. CESSÃO E REORGANIZAÇÃO
+Podemos ceder este contrato a empresa do nosso grupo ou sucessora, em reorganização societária (inclusive mudança de MEI para sociedade limitada unipessoal e de razão social), com aviso e mantendo as garantias de proteção de dados. Você não pode ceder sua conta.
+
+17. DISPOSIÇÕES GERAIS
+Estes Termos, a Política de Privacidade e o Contrato de Tratamento de Dados formam o acordo completo. Se uma cláusula for inválida, as demais continuam. Deixar de exigir um direito não é renunciar a ele. Em caso de conflito sobre dados pessoais, vale o Contrato de Tratamento de Dados.
+
+18. ALTERAÇÕES
+Podemos atualizar estes Termos com 30 dias de aviso em mudanças relevantes. Continuar usando depois do aviso significa aceite; se não concordar, cancele.
+
+19. LEI E FORO
 Lei brasileira. Foro de [CIDADE-FORO], sem prejuízo do foro do consumidor quando aplicável.
 
-14. CONTATO
+20. CONTATO
 [EMAIL-SUPORTE] | [EMAIL-PRIVACIDADE]

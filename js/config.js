@@ -7,7 +7,9 @@ window.PSI_CONFIG = {
   appName: 'Senso',
   /* Endereco publico do portal (usado no link de convite dentro do app e quando o portal roda fora de http). Troque quando houver dominio proprio. */
   portalUrl: 'https://savepointgestao-bit.github.io/sala-senso/',
-  docVersion: '0.1',
+  docVersion: '1.0',
+  /* TEMPORARIO: true libera print de tela no app (desliga o bloqueio ao abrir e esconde a chave na tela do PIN). Volte para false no proximo commit. */
+  printsLiberados: true,
   /* Saida automatica por inatividade, em minutos, so no navegador. Psicólogo sempre; paciente só se não marcou "Manter conectado". 0 desliga.
      No app do celular nao existe: quem protege e o PIN do app. */
   idleMinutes: { professional: 20, patient: 60 },

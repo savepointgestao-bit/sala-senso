@@ -573,3 +573,19 @@ h1.mb16 + .seg { margin-bottom: 1.1rem; }
 .center { text-align: center; }
 .center-link { display: inline-block; margin-top: .9rem; padding: .4rem .6rem; }
 .mt0 { margin-top: 0; }
+
+/* ---------------------------------------------------------------- revisão de fluxo (11/2026) */
+/* cabeçalho com dois botões (Agenda): no celular, título em cima e botões lado a lado embaixo */
+@media (max-width: 640px) {
+  .page-head.stack { flex-direction: column; align-items: stretch; gap: .75rem; }
+  .page-head.stack .row-gap { display: flex; gap: .5rem; }
+  .page-head.stack .row-gap > .btn { flex: 1 1 0; justify-content: center; }
+}
+/* link de cadastro em uma linha (Início do psicólogo com pacientes) */
+.invite-mini { padding: .85rem 1rem; }
+.invite-mini .row { align-items: center; gap: .75rem; }
+.invite-mini .t { font-weight: 600; }
+.invite-mini .s { color: var(--mute); font-size: .9rem; }
+/* consentimentos e explicações em itens curtos, fáceis de ler */
+.consent-list { margin: .5rem 0 1rem; padding-left: 1.2rem; text-align: left; }
+.consent-list li { margin: .35rem 0; line-height: 1.45; }

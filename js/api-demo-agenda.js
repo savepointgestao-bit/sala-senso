@@ -638,8 +638,8 @@
   var DEMO_DRAFT = {
     session: { title: 'Culpa após briga com o irmão', demand: 'Insônia e culpa depois de uma discussão por dinheiro com o irmão.',
       interventions: 'Exploração do que sentiu na hora da briga e de como lida com a culpa quando ela aparece.',
-      body: 'A paciente relata uma semana difícil, com pouco sono e uma discussão com o irmão por causa de dinheiro. Refere raiva no momento e culpa depois, e diz remoer o que falou sem conseguir parar de pensar.',
-      plan: 'Definido na sessão:\n- Anotar à noite o que a faz remoer a conversa.\n\nEm aberto:\n- Se vai procurar o irmão para conversar.\n\nPróximos passos:\n- Retomar o tema da culpa na próxima sessão.' },
+      body: 'Resumo da sessão:\nA paciente relata uma semana difícil, com pouco sono e uma discussão com o irmão por causa de dinheiro. Refere raiva no momento e culpa depois, e diz remoer o que falou sem conseguir parar de pensar.\n\nConsiderações finais:\nA culpa aparece como o ponto central da semana. Ela chegou aberta ao tema e conseguiu nomear o que sentiu.',
+      plan: 'Definido na sessão:\n- Anotar à noite o que a faz remoer a conversa.\n\nPendente:\n- Se vai procurar o irmão para conversar.\n\nPróxima sessão:\n- Retomar o tema da culpa e ver as anotações da semana.' },
     note: { title: 'Combinado com a escola', demand: '', interventions: '', body: 'Lembrar de ligar para a escola da paciente e remarcar a próxima semana.', plan: '' }
   };
   function myRec(u, id) {
@@ -661,6 +661,33 @@
       utterances: (row.kind === 'note' ? [['A', 'Lembrar de ligar para a escola da paciente e remarcar a próxima semana.']] : DEMO_TEXT).map(function (x, i) { return { sp: x[0], t0: i * 9000, t1: i * 9000 + 8000, x: x[1] }; }) };
     var who = recName(row);
     H.notify(row.proId, 'transcript_ready', 'Transcrição pronta', row.kind === 'session' ? 'A transcrição da consulta com ' + (who || 'o(a) paciente') + ' está pronta para revisar.' : 'A transcrição da sua anotação de voz está pronta.', '#/transcricao?id=' + row.id);
+    autoDraft(row);
+  }
+  /* Resumo automatico (como a chave professionals.auto_summary + o servidor): DESLIGADA por padrao, uma por psicologa. Ligada, quando a transcricao de uma
+     gravacao ligada a um paciente fica pronta o servidor escreve o resumo sozinho, deixa o rascunho na ficha e avisa no sininho. */
+  S.autoSummary = S.autoSummary || {};
+  S.autoSummaryAt = S.autoSummaryAt || {};
+  function writeDraft(row, auto) {
+    var mode = S.draftMode || 'ok', d = DEMO_DRAFT[row.kind === 'note' ? 'note' : 'session'];
+    return new Promise(function (resolve, reject) {
+      setTimeout(function () {
+        row.draftBusy = false;
+        if (mode === 'busy') return reject(pgErr('provider_busy'));
+        if (mode === 'fail') return reject(pgErr('provider_error'));
+        var patch = { kind: 'note', origin: 'ia', draft: true, personal: false, doc_date: today(), title: d.title, demand: d.demand, interventions: d.interventions, body: d.body, plan: d.plan };
+        if (!d.demand) delete patch.demand; if (!d.interventions) delete patch.interventions; if (!d.plan) delete patch.plan;
+        if (row.apptId) patch.appointment_id = row.apptId;
+        api.pro.saveDoc(row.recordId, patch).then(function (docId) { row.draftDocId = docId; row.draftAt = Date.now(); row.draftAuto = !!auto; resolve({ ok: true, doc_id: docId, record_id: row.recordId }); }, reject);
+      }, mode === 'slow' ? 3000 : 700);
+    });
+  }
+  function autoDraft(row) {
+    if (!S.autoSummary[row.proId] || !row.recordId || !row.transcript || row.draftDocId || row.draftBusy) return;
+    S.autoCalls = (S.autoCalls || 0) + 1;
+    row.draftBusy = true;
+    writeDraft(row, true).then(function () {
+      H.notify(row.proId, 'draft_ready', 'Resumo pronto para revisar', 'O resumo da sessão com ' + (recName(row) || 'o(a) paciente') + ' está na ficha como rascunho. Confira as vozes e revise antes de aprovar.', '#/pacientes/' + row.recordId + '?aba=evolucao');
+    }, function () { /* como no servidor: nada muda e o botao manual continua valendo */ });
   }
   api.transcripts = {
     ticket: function (id) {
@@ -689,18 +716,34 @@
       if (row.draftBusy) throw pgErr('draft_busy');
       S.draftCalls = (S.draftCalls || 0) + 1;
       row.draftBusy = true;
-      var mode = S.draftMode || 'ok', d = DEMO_DRAFT[row.kind === 'note' ? 'note' : 'session'];
-      return new Promise(function (resolve, reject) {
-        setTimeout(function () {
-          row.draftBusy = false;
-          if (mode === 'busy') return reject(pgErr('provider_busy'));
-          if (mode === 'fail') return reject(pgErr('provider_error'));
-          var patch = { kind: 'note', origin: 'ia', draft: true, personal: false, doc_date: today(), title: d.title, demand: d.demand, interventions: d.interventions, body: d.body, plan: d.plan };
-          if (!d.demand) delete patch.demand; if (!d.interventions) delete patch.interventions; if (!d.plan) delete patch.plan;
-          if (row.apptId) patch.appointment_id = row.apptId;
-          api.pro.saveDoc(row.recordId, patch).then(function (docId) { row.draftDocId = docId; resolve({ ok: true, doc_id: docId, record_id: row.recordId }); }, reject);
-        }, mode === 'slow' ? 3000 : 700);
-      });
+      return writeDraft(row);
+    },
+    /* A chave do resumo automatico (my_auto_summary / set_auto_summary): so psicologa verificada liga. */
+    /* Nota do resumo (draft_feedback_pending / draft_feedback_save): uma por resumo; resumo novo (outro rascunho) pergunta de novo. */
+    feedbackPending: function (recordId) {
+      var u = H.needVerified();
+      return S.recordings.filter(function (x) { return x.proId === u.id && x.draftDocId && (!recordId || x.recordId === recordId) && !(x.feedback && x.feedback.docId === x.draftDocId); })
+        .map(function (x) { return { recording_id: x.id, doc_id: x.draftDocId, record_id: x.recordId, auto: !!x.draftAuto, at: iso(x.draftAt || Date.now()) }; });
+    },
+    feedbackSave: function (id, stars, comment) {
+      var u = H.needVerified(), row = myRec(u, id);
+      if (typeof stars !== 'number' || stars < 1 || stars > 5 || stars % 1) throw pgErr('invalid_data');
+      if (!row.draftDocId) throw pgErr('draft_required');
+      var c = String(comment || '').trim();
+      if (c.length > 1000) throw pgErr('invalid_data');
+      row.feedback = { docId: row.draftDocId, stars: stars, comment: c || null, auto: !!row.draftAuto };
+      S.feedbackLog = (S.feedbackLog || []).concat([{ recording_id: id, stars: stars, comment: c || null, auto: !!row.draftAuto }]);
+      return true;
+    },
+    autoSummary: function () {
+      var u = H.needPro();
+      return { on: !!S.autoSummary[u.id], since: S.autoSummaryAt[u.id] ? iso(S.autoSummaryAt[u.id]) : null };
+    },
+    setAutoSummary: function (on) {
+      var u = H.needVerified();
+      if (typeof on !== 'boolean') throw pgErr('invalid_data');
+      if (!!S.autoSummary[u.id] !== on) { S.autoSummary[u.id] = on; S.autoSummaryAt[u.id] = Date.now(); }
+      return { on: on };
     },
     list: function (recordId) {
       var u = pro();

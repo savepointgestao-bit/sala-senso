@@ -51,11 +51,22 @@
   S.transcripts = function (ctx, q) {
     var recordId = (q && q.paciente) || null;
     var holder = h('div', null, UI.loading());
+    var verified = !!(ctx.me && ctx.me.professional && ctx.me.professional.verification === 'verified');
+    var autoBar = h('div', { class: 'panel mb16' });
     var timer = null;
     var node = S.shell(ctx, 'pacientes', [
       UI.backLink(recordId ? '#/pacientes/' + recordId : '#/inicio', recordId ? 'Ficha do paciente' : 'Início'),
       UI.pageHead('Transcrições', 'O áudio é apagado depois que vira texto.'),
-      holder]);
+      autoBar, holder]);
+
+    /* Resumo automático (chave em Conta): só psicóloga verificada vê. Mostra o estado e abre a mesma folha de Conta. */
+    function drawAuto(on) {
+      clear(autoBar);
+      autoBar.appendChild(h('button', { type: 'button', class: 'item', onclick: function () { S.autoSummarySheet(ctx, drawAuto); } }, h('span', { class: 'ico-box' }, UI.svg('sparkles', 20)),
+        h('span', { class: 'grow' }, h('span', { class: 't' }, 'Resumo automático'), h('span', { class: 's' }, on ? 'Ligado. O resumo sai sozinho quando a transcrição fica pronta.' : 'Desligado. Toque para ligar.')),
+        h('span', { class: 'chev' }, UI.svg('chevron-right', 18))));
+    }
+    if (verified) API.transcripts.autoSummary().then(function (r) { drawAuto(!!(r && r.on)); }).catch(function () { /* sem a barra: o botão em cada transcrição continua */ });
 
     function actionBtn(label, icon, fn) {
       var b = h('button', { type: 'button', class: 'btn ghost auto sm', 'data-label': label, onclick: function () { fn(b); } }, UI.svg(icon, 16), label);
@@ -200,7 +211,9 @@
             UI.busy(go, true);
             API.transcripts.draft(id).then(function (r) {
               UI.toast('Resumo pronto.', 'circle-check');
-              location.hash = '#/pacientes/' + ((r && r.record_id) || d.record_id) + '?aba=evolucao';
+              var dest = '#/pacientes/' + ((r && r.record_id) || d.record_id) + '?aba=evolucao';
+              /* Logo depois de gerar: o popup da nota (1 a 5 estrelas e um comentário). Só depois de responder ou fechar a pessoa vai para a ficha. */
+              return S.draftFeedbackSheet(id).then(function () { location.hash = dest; });
             }).catch(function (e) {
               Diag.error('transcricao-rascunho', e);
               UI.busy(go, false); go.insertBefore(UI.svg('sparkles', 18), go.firstChild);
@@ -229,5 +242,83 @@
         h('a', { class: 'btn ghost auto', href: '#/transcricao' }, 'Ver transcrições')));
     });
     return node;
+  };
+
+  /* ---------------------------------------------------------------- resumo automático (a chave fica em Conta; a barra da lista abre a mesma folha) */
+  var AUTO_ASK = 'A cada transcrição pronta, o texto vai para a Anthropic (empresa do Claude) só para escrever o resumo. O áudio e o cadastro do paciente não vão; nomes ditos na conversa seguem no texto. Você pode desligar quando quiser.';
+  S.autoSummarySheet = function (ctx, onChange) {
+    var body = h('div', null, UI.loading()), sh = UI.sheet({ title: 'Resumo automático das sessões', content: body });
+    API.transcripts.autoSummary().then(function (st) {
+      clear(body);
+      var status = h('p', { class: 'small muted', 'aria-live': 'polite' });
+      function say(on) { status.textContent = on ? 'Ligado. As próximas transcrições já saem com resumo.' : 'Desligado. Você continua podendo gerar o resumo pelo botão em cada transcrição.'; }
+      function fail(e) {
+        if (!(e && e.message === 'cancelled')) { Diag.error('resumo-automatico', e); UI.toast(draftErr(e)); }
+        throw e;
+      }
+      var t = UI.toggle({ value: !!(st && st.on), label: 'Escrever o resumo sozinho', onChange: function (v) {
+        if (!v) return API.transcripts.setAutoSummary(false).then(function () { say(false); if (onChange) onChange(false); }, fail);
+        return UI.confirmBox({ title: 'Ligar o resumo automático?', text: AUTO_ASK, ok: 'Ligar', cancel: 'Agora não' })
+          .then(function (yes) { if (!yes) throw new Error('cancelled'); return API.transcripts.setAutoSummary(true); })
+          .then(function () { say(true); if (onChange) onChange(true); UI.toast('Resumo automático ligado.', 'circle-check'); }, fail);
+      } });
+      say(!!(st && st.on));
+      body.appendChild(h('div', null,
+        UI.notice('info', 'Quando a transcrição de uma consulta ou de uma anotação ficar pronta, o Senso escreve o resumo sozinho, mesmo com o app fechado. Ele cai na ficha do paciente como rascunho e você recebe um aviso.'),
+        h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Escrever o resumo sozinho'), h('span', { class: 's' }, 'Você pode desligar quando quiser.')), t.el),
+        status,
+        h('div', { class: 'group-title' }, 'O que vem no resumo'),
+        h('ul', { class: 'small' },
+          h('li', null, 'Resumo da sessão e considerações finais.'),
+          h('li', null, 'O que foi definido.'),
+          h('li', null, 'O que ficou pendente.'),
+          h('li', null, 'O que esperar na próxima sessão.')),
+        h('p', { class: 'small muted' }, 'Escrito por IA, em teste. Nada vale até você revisar e aprovar na ficha. Confira sempre quem falou o quê.'),
+        h('p', { class: 'small muted' }, 'O texto da transcrição vai para a Anthropic (empresa do Claude) só para escrever o resumo. O áudio e o cadastro do paciente não vão; nomes ditos na conversa seguem no texto.'),
+        h('p', { class: 'small muted' }, 'Só entram gravações ligadas a um paciente. Limite de 20 resumos por hora, o mesmo do botão.')));
+    }).catch(function (e) { Diag.error('resumo-automatico-ler', e); clear(body); body.appendChild(UI.notice('bad', draftErr(e))); });
+    return sh;
+  };
+
+  /* ---------------------------------------------------------------- avaliação do resumo (popup logo depois de gerar) */
+  /* Nota de 1 a 5 estrelas e um comentário (opcional) sobre o resumo que a IA escreveu. Vai para a equipe do Senso melhorar o resumo.
+     Aparece logo depois do botão "Gerar resumo" e, para o resumo que saiu sozinho, quando a psicóloga abre a ficha. Fechar sem enviar não
+     pergunta de novo (a escolha fica só neste aparelho). Devolve uma Promise: 'sent' | 'skipped' | 'busy'. */
+  var FB_SKIP = 'senso.fb.skip.', fbOpen = false;
+  function fbSkipped(id) { try { return !!localStorage.getItem(FB_SKIP + id); } catch (e) { return false; } }
+  function fbSkip(id) { try { localStorage.setItem(FB_SKIP + id, '1'); } catch (e) { /* sem armazenamento: pergunta de novo na próxima vez */ } }
+  S.draftFeedbackSheet = function (recordingId) {
+    return new Promise(function (resolve) {
+      if (fbOpen) return resolve('busy');
+      fbOpen = true;
+      var sh;
+      var stars = UI.stars({ label: 'Nota do resumo', size: 34 });
+      var why = UI.field({ label: 'Por que essa nota?', type: 'textarea', optional: true, rows: 3, maxlength: 1000, hint: 'O que faltou, o que sobrou ou o que errou. Não escreva o nome nem dados do paciente.' });
+      var general = h('div', { 'aria-live': 'polite' });
+      var send = UI.button('Enviar', { type: 'submit' });
+      var later = UI.button('Agora não', { variant: 'ghost', onclick: function () { sh.close('skip'); } });
+      var form = h('form', { novalidate: true, onsubmit: function (ev) {
+        ev.preventDefault(); clear(general);
+        if (!stars.get()) { general.appendChild(UI.notice('warn', 'Escolha de 1 a 5 estrelas.')); return; }
+        UI.busy(send, true);
+        API.transcripts.feedbackSave(recordingId, stars.get(), why.value().trim()).then(function () { UI.toast('Obrigado pela nota.', 'circle-check'); sh.close('done'); })
+          .catch(function (e) { UI.busy(send, false); Diag.error('resumo-nota', e); general.appendChild(UI.notice('bad', UI.errorText(e, 'Não foi possível enviar agora. Tente de novo.'))); });
+      } },
+        h('p', { class: 'muted' }, 'Sua nota ajuda a equipe do Senso a melhorar o resumo. Leva poucos segundos.'),
+        h('div', { class: 'field' }, h('div', { class: 'lbl' }, 'Sua nota'), stars.el), why.el, general,
+        h('div', { class: 'dialog-actions' }, send, later));
+      sh = UI.sheet({ title: 'Como ficou o resumo?', content: form, focus: null, onClose: function (reason) {
+        fbOpen = false;
+        if (reason === 'done') return resolve('sent');
+        fbSkip(recordingId); resolve('skipped');
+      } });
+    });
+  };
+  /* Abre o popup para o resumo mais novo ainda sem nota (de um paciente, ou de todos), pulando os que a pessoa já fechou neste aparelho. */
+  S.askDraftFeedback = function (recordId) {
+    return API.transcripts.feedbackPending(recordId || null).then(function (list) {
+      var it = (list || []).filter(function (x) { return !fbSkipped(x.recording_id); })[0];
+      return it ? S.draftFeedbackSheet(it.recording_id) : 'none';
+    }).catch(function () { return 'none'; });
   };
 })();

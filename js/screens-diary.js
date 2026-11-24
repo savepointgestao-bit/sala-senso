@@ -262,7 +262,10 @@
         API.setConsent('diary', true).then(load).catch(function (e) { UI.busy(ok, false); Diag.error('diario-consent', e); UI.toast('Não deu para salvar. Tente de novo.'); });
       } });
       box.appendChild(h('div', { class: 'card empty' }, h('div', { class: 'ico-box' }, UI.svg('lock', 28)), h('h2', null, 'Seu diário é só seu'),
-        h('p', null, 'Guarda como você se sente. O texto é só seu, guardado com criptografia, e você escolhe se compartilha com seu psicólogo(a). Humor, energia e ansiedade aparecem para o(a) psicólogo(a) a quem você estiver vinculado(a), para ele(a) acompanhar sua evolução. Por ser dado de saúde, precisamos da sua autorização.'),
+        h('ul', { class: 'consent-list' },
+          h('li', null, 'O texto é só seu, guardado com criptografia. Você escolhe se compartilha com seu psicólogo(a).'),
+          h('li', null, 'Humor, energia e ansiedade aparecem para o(a) psicólogo(a) a quem você estiver vinculado(a), para acompanhar sua evolução.'),
+          h('li', null, 'Por ser dado de saúde, precisamos da sua autorização.')),
         ok, h('p', { class: 'small mt16 mb0' }, h('a', { href: '#/legal/privacidade' }, 'Política de Privacidade'))));
     }
 

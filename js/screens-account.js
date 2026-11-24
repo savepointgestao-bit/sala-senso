@@ -6,6 +6,7 @@
 
   function go(hash) { if (location.hash === hash) window.dispatchEvent(new HashChangeEvent('hashchange')); else location.hash = hash; }
   function refresh() { window.dispatchEvent(new HashChangeEvent('hashchange')); }
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
 
   function row(label, value) { return value ? h('div', { class: 'item' }, h('span', { class: 't' }, label), h('span', { class: 'v' }, value)) : null; }
   function actionRow(icon, title, sub, onclick) {
@@ -28,7 +29,35 @@
         pro.verification === 'verified' ? h('span', { class: 'badge ok' }, 'CRP verificado') : h('span', { class: 'badge warn' }, 'Em análise'))) : null,
       actionRow('square-pen', 'Editar meus dados', null, function () { S.editProfile(ctx); }),
       pro && pro.verification === 'verified' && S.proSettingsSheet ? actionRow('file-text', 'Dados profissionais e recibos', null, function () { S.proSettingsSheet(ctx); }) : null,
+      pro && pro.verification === 'verified' && S.autoSummarySheet ? actionRow('sparkles', 'Resumo automático das sessões', 'Escreve o rascunho sozinho depois da transcrição', function () { S.autoSummarySheet(ctx); }) : null,
+      isPat ? actionRow('message-circle', 'Aviso por WhatsApp', 'Mensagem um dia antes da consulta', function () { S.waOptinSheet(ctx); }) : null,
       auth.hasPassword ? actionRow('mail', 'Trocar e-mail', null, function () { S.changeEmail(ctx); }) : null);
+  };
+
+  /* ---------------------------------------------------------------- lembretes por WhatsApp (aceite do paciente) */
+  S.waOptinSheet = function (ctx) {
+    var body = h('div', null, UI.loading());
+    UI.sheet({ title: 'Aviso por WhatsApp', content: body });
+    API.wa.optin().then(function (st) {
+      clear(body);
+      var phone = UI.phoneField({ label: 'WhatsApp para receber', value: st.phone || st.suggested_phone || (ctx.me.profile.phone || ''), hint: 'Com DDD.' });
+      var status = h('p', { class: 'small muted', 'aria-live': 'polite' });
+      function say(on) { status.textContent = on ? 'Ligado. Para parar, desligue aqui ou responda SAIR no WhatsApp.' : 'Desligado. Você não recebe lembretes por WhatsApp.'; }
+      var t = UI.toggle({ value: !!st.on, label: 'Receber lembretes por WhatsApp', onChange: function (v) {
+        if (v && !UI.phoneOk(phone.value())) { phone.setError('Digite o número com DDD.'); phone.input.focus(); return Promise.reject(new Error('cancelled')); }
+        return API.wa.setOptin(v, phone.value().trim()).then(function () { say(v); UI.toast(v ? 'Lembretes ligados.' : 'Lembretes desligados.', 'circle-check'); })
+          .catch(function (e) { Diag.error('wa-aceite', e); UI.toast(UI.errorText(e, 'Não foi possível salvar agora.')); throw e; });
+      } });
+      say(!!st.on);
+      body.appendChild(h('div', null,
+        h('ul', { class: 'consent-list' },
+          h('li', null, 'Um dia antes da consulta, você recebe uma mensagem com o dia e a hora.'),
+          h('li', null, 'Só sai se o seu psicólogo(a) usa lembretes automáticos.'),
+          h('li', null, 'A mensagem não diz com quem é nem o motivo. O envio passa pelo WhatsApp (Meta).')),
+        phone.el,
+        h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Receber lembretes por WhatsApp'), h('span', { class: 's' }, 'Você pode desligar quando quiser.')), t.el),
+        status));
+    }).catch(function (e) { Diag.error('wa-aceite', e); clear(body); body.appendChild(UI.notice('bad', 'Não foi possível carregar agora.')); });
   };
 
   /* ---------------------------------------------------------------- editar dados */

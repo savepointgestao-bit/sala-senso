@@ -1,65 +1,87 @@
 ====================================================================
-DOCUMENTO 05 - CONTRATO DE TRATAMENTO DE DADOS PESSOAIS (PROFISSIONAL x PLATAFORMA)
-Status: rascunho para revisão jurídica | Vale: quando o portal sair | Aceite digital no cadastro do profissional
-Versão do texto: 0.1
+DOCUMENTO 04: CONTRATO DE TRATAMENTO DE DADOS PESSOAIS (PSICÓLOGO x SENSO)
+Texto público, aceite eletrônico no cadastro do profissional | Versão 1.0 (10/11/2026), minuta para aprovação jurídica
+Vigência: [DATA-VIGÊNCIA]
+PARTES
+Controlador: o(a) psicólogo(a) identificado(a) na conta (nome e CRP).
+Operadora: [NOME EMPRESARIAL], CNPJ [CNPJ], [ENDEREÇO] ("Senso").
+Base: LGPD, arts. 37 a 42 e 46 a 49.
 ====================================================================
 
-PARTES
-Controlador: o(a) psicólogo(a) identificado(a) na conta (nome, CRP, CPF).
-Operadora: [NOME EMPRESARIAL], CNPJ [CNPJ], [ENDEREÇO].
-Base: LGPD, arts. 37 a 41 e 46 a 49.
-
 1. OBJETO
-A Operadora fornece ao Controlador o portal do Senso e trata dados pessoais de seus pacientes em nome dele, conforme as instruções abaixo.
+A Operadora fornece ao Controlador o aplicativo e o portal Senso e trata, em nome dele, os dados pessoais de seus pacientes e responsáveis, conforme as instruções deste contrato. As instruções do Controlador são este contrato, os Termos de Uso do Profissional e as ações que ele realiza no próprio Senso (por exemplo, ligar a gravação ou pedir um rascunho por IA).
 
 2. PAPEL DE CADA UM
-O Controlador decide as finalidades. A Operadora só trata para executar o portal e não usa os dados para finalidade própria, exceto quando necessário para segurança, cumprimento de obrigação legal e defesa em processo.
-Para a conta e o diário pessoal do paciente, a Operadora atua como controladora (Documento 02, item 1).
+O Controlador decide as finalidades e os meios essenciais. A Operadora trata só para prestar o serviço e não usa os dados do atendimento para finalidade própria, exceto para segurança, cumprimento de obrigação legal e defesa em processo.
+Para a conta e o diário pessoal do paciente, para a conta do profissional, para suporte e segurança, a Operadora atua como controladora (Política de Privacidade, item 1).
 
 3. DADOS E TITULARES
-- Titulares: pacientes do Controlador e seus responsáveis legais.
-- Dados: identificação e contato, vínculo, agenda, pagamentos e recibos, entradas do diário que o paciente decidir compartilhar, registros de acesso. Podem incluir dado sensível (saúde).
-- Não inclui: prontuário e evolução clínica (ficam no aparelho do Controlador).
+- Titulares: pacientes do Controlador, responsáveis legais e o próprio Controlador.
+- Dados: cadastro e ficha do paciente, sessões e agenda, evoluções e prontuário, escalas, medicamentos, planos, documentos e anexos, pagamentos e recibos, gravações de consulta, texto de transcrição, rascunhos de evolução, acompanhamento (humor, energia, ansiedade e nível) e registros de acesso. Incluem dado sensível (saúde), de adultos e de menores.
+- O conteúdo é guardado em blocos criptografados no servidor (AES-256, chave em cofre separado). A criptografia é feita no servidor e não é de ponta a ponta: a Operadora tem meios técnicos de abrir os dados e se obriga a não fazê-lo, salvo nos casos do item 5, d.
 
 4. DURAÇÃO
-Enquanto a assinatura estiver ativa, mais o período de exportação e eliminação do item 11.
+Enquanto a conta do Controlador existir, mais o período de exportação e eliminação do item 11.
 
 5. OBRIGAÇÕES DA OPERADORA
-a) Tratar só conforme as instruções do Controlador e a lei.
-b) Manter sigilo; só pessoas autorizadas acessam, sob dever de confidencialidade.
-c) Medidas de segurança técnicas e administrativas (Documento 12), incluindo criptografia, controle de acesso, registros de auditoria e cópias de segurança.
-d) Não acessar o conteúdo de diários, exceto por ordem legal ou para tratar incidente grave, com registro.
-e) Comunicar ao Controlador, em até [48 HORAS] da ciência, qualquer incidente de segurança com dados dele, com as informações disponíveis, para que ele possa cumprir o art. 48 da LGPD. (Prazo a validar.)
-f) Ajudar o Controlador a atender pedidos de titulares (acesso, correção, eliminação etc.).
+a) Tratar só conforme as instruções do Controlador e a lei, e avisá-lo se uma instrução parecer ilegal.
+b) Manter sigilo. Só pessoas autorizadas acessam, sob dever de confidencialidade por escrito.
+c) Manter as medidas de segurança do Anexo B.
+d) Não acessar o conteúdo de diários, evoluções, transcrições e rascunhos, exceto por ordem legal ou para tratar incidente grave, com registro de auditoria e comunicação ao Controlador, quando permitida.
+e) Comunicar ao Controlador, em até 48 horas da ciência, qualquer incidente de segurança com dados dele, com as informações disponíveis, para que ele cumpra o art. 48 da LGPD e a Resolução CD/ANPD nº 15/2024.
+f) Ajudar o Controlador a atender pedidos de titulares (acesso, correção, eliminação e outros) e a elaborar relatório de impacto, quando solicitado.
 g) Manter registro das operações de tratamento.
-h) Informar a lista de suboperadores e avisar com [30 DIAS] sobre novos; o Controlador pode se opor e encerrar o contrato.
-i) Hospedar no Brasil. Qualquer transferência internacional só com as garantias do art. 33.
+h) Manter a lista de suboperadores no Anexo A e em [SITE]/operadores, e avisar com 30 dias antes de incluir novo suboperador. O Controlador pode se opor por motivo razoável de privacidade ou segurança; não havendo solução, pode encerrar o contrato sem custo.
+i) Responder pelos atos dos suboperadores como pelos próprios e impor a eles obrigações equivalentes às deste contrato.
+j) Hospedar o banco de dados no Brasil. Qualquer transferência internacional segue o Anexo C.
 
-6. SUBOPERADORES AUTORIZADOS (preencher)
- - Hospedagem e banco de dados: [PROVEDOR-HOSPEDAGEM] (região São Paulo)
- - Pagamentos Pix: [PROVEDOR-PAGAMENTO]
- - E-mail e notificações: [PROVEDOR-EMAIL]
+6. OBRIGAÇÕES DO CONTROLADOR
+a) Ter base legal e informar os pacientes sobre o tratamento, inclusive sobre a guarda no servidor do Senso, a transferência internacional da transcrição e do rascunho por IA e o acompanhamento visível a ele.
+b) Obter os consentimentos necessários e a autorização do responsável de menor.
+c) Cuidar da exatidão dos dados que inserir e dos vínculos que aprovar.
+d) Proteger suas credenciais e ativar a autenticação em dois fatores (recomendada; a Operadora pode torná-la obrigatória, com aviso prévio).
+e) Cumprir sigilo profissional e as normas do CFP, inclusive guarda de prontuário e as orientações sobre gravação e inteligência artificial.
+f) Revisar o que a IA e a transcrição produzirem antes de usar como registro.
+g) Responder aos titulares sobre os dados do atendimento.
 
-7. OBRIGAÇÕES DO CONTROLADOR
-a) Ter base legal e informar os pacientes; obter consentimentos (Documento 06).
-b) Cuidar da exatidão dos dados que inserir e dos vínculos que aprovar.
-c) Proteger suas credenciais e ativar a autenticação em dois fatores (hoje recomendada; podemos torná-la obrigatória, com aviso prévio).
-d) Cumprir sigilo profissional e as normas do CFP, inclusive guarda de prontuário.
-e) Responder aos titulares sobre os dados do atendimento.
+7. DIREITOS DOS TITULARES
+A Operadora encaminha ao Controlador, em até 5 dias úteis, os pedidos que receber sobre dados do atendimento, e avisa o titular. Quando o pedido for sobre a conta ou o diário do paciente, a Operadora responde diretamente.
 
-8. DIREITOS DOS TITULARES
-A Operadora encaminha ao Controlador, em até 5 dias úteis, pedidos que recebermos sobre dados do atendimento. Quando o pedido for sobre a conta ou o diário do paciente, a Operadora responde diretamente.
+8. AUDITORIA
+O Controlador pode pedir informações sobre as medidas de segurança, com aviso prévio razoável, sem comprometer a segurança nem o sigilo de outros clientes. A Operadora responde por escrito em até 15 dias.
 
-9. AUDITORIA
-O Controlador pode pedir informações sobre as medidas de segurança, com aviso prévio razoável, sem comprometer a segurança nem o sigilo de outros clientes.
+9. RESPONSABILIDADE
+Cada parte responde pelo que causar em descumprimento da LGPD, nos termos do art. 42. Não há limitação de responsabilidade além da que a lei permitir.
 
-10. RESPONSABILIDADE
-Cada parte responde pelo que causar em descumprimento da LGPD, nos termos do art. 42. Cláusula de limitação, se houver, a validar pelo advogado.
+10. CONFIDENCIALIDADE
+As partes mantêm sigilo sobre as informações não públicas trocadas, durante e depois do contrato.
 
 11. FIM DO CONTRATO
-Ao encerrar, a Operadora oferece 30 dias para exportação e depois elimina os dados do Controlador, salvo os que a lei exigir guardar (por exemplo, registros de acesso por 6 meses e dados fiscais pelo prazo legal). A Operadora confirma a eliminação por e-mail a pedido.
+Ao encerrar, a Operadora dá 30 dias para o Controlador exportar seus dados e depois elimina os dados dele, salvo os que a lei exigir guardar (registros de acesso por 6 meses e dados fiscais pelo prazo legal). As cópias de segurança expiram em até 30 dias. A Operadora confirma a eliminação por e-mail, a pedido.
 
 12. FORO
 [CIDADE-FORO].
-
 ACEITE: o Controlador aceita este contrato de forma eletrônica no cadastro e a Operadora guarda data, hora, versão e identificação do aceite.
+
+ANEXO A. SUBOPERADORES AUTORIZADOS
+1. Supabase, Inc. | Banco de dados, autenticação, arquivos privados e funções do servidor | Dados: todos os do item 3 (conteúdo criptografado) | Local: região de São Paulo (sa-east-1); suporte técnico do provedor pode acessar remotamente de fora do Brasil | Contrato: DPA do provedor
+2. AssemblyAI, Inc. | Transcrição de áudio de consultas | Dados: áudio da consulta e texto resultante | Local: Estados Unidos | Contrato: DPA do provedor, que integra os termos de serviço | Só quando o Controlador grava uma consulta
+3. Anthropic, PBC | Rascunho de evolução por IA (modelo Claude) | Dados: texto da transcrição, sem áudio e sem cadastro | Local: Estados Unidos | Contrato: Termos Comerciais e DPA da Anthropic | Só quando o Controlador pede o rascunho (ou deixa o rascunho automático ligado)
+4. Google LLC | Envio de e-mails da conta (confirmação de cadastro, recuperação de senha e convites) | Dados: nome e e-mail do destinatário, sem conteúdo clínico | Local: Estados Unidos e outros
+5. GitHub, Inc. | Hospedagem das páginas estáticas do portal | Dados: endereço IP e dados técnicos de acesso; nunca dados de pacientes | Local: Estados Unidos
+Não implementado hoje (entra no Anexo A, com aviso de 30 dias, antes de usar): provedor de pagamento, entrada com Google e Microsoft, proteção anti-robô na borda (por exemplo, Cloudflare Turnstile).
+
+ANEXO B. MEDIDAS DE SEGURANÇA
+Resumo; o detalhamento atualizado é entregue ao Controlador mediante pedido.
+- Conexão segura (TLS) em todo tráfego e criptografia em repouso.
+- Conteúdo clínico e diário criptografados no servidor (AES-256), chaves em cofre separado, com troca de chave testada.
+- Isolamento por linha no banco: cada profissional só alcança os próprios pacientes, cada paciente só o que é seu.
+- Verificação manual do CRP, autenticação em dois fatores (recomendada; obrigatória para a equipe), limite de tentativas e de uso, saída automática por inatividade.
+- Áudio em espaço privado em que o psicólogo só envia; apagado depois da transcrição; limpeza automática de sobras.
+- Registros de auditoria sem conteúdo clínico.
+- Cópias de segurança criptografadas, com expiração de até 30 dias.
+- Revisão de segurança e teste de restauração antes de aumentar o número de usuários.
+
+ANEXO C. TRANSFERÊNCIA INTERNACIONAL (LGPD, ART. 33)
+Casos: (1) áudio da consulta ao AssemblyAI, (2) texto da transcrição à Anthropic, ambos nos Estados Unidos, e (3) acesso remoto de suporte do provedor do banco de dados.
+Garantias adotadas: contrato de tratamento de dados com cada prestador, com compromissos de segurança, confidencialidade, uso exclusivo para a prestação do serviço, aviso de incidente e eliminação ao fim; configuração para que o conteúdo não seja usado para treinar modelos; consentimento específico e em destaque do titular, com informação do caráter internacional da operação (textos de consentimento da gravação e do rascunho por IA); só os dados necessários vão (texto sem cadastro, áudio apagado logo após o uso). Outros mecanismos do art. 33, como as cláusulas-padrão da ANPD (Resolução CD/ANPD nº 19/2024), serão adotados quando o prestador os aceitar.

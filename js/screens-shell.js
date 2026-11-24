@@ -8,18 +8,21 @@
   function go(hash) { if (location.hash === hash) window.dispatchEvent(new HashChangeEvent('hashchange')); else location.hash = hash; }
 
   /* ---------------------------------------------------------------- menus */
-  /* Suporte, Meu psicólogo(a) e Avaliações moraram no menu; agora ficam dentro da Conta (os endereços continuam os mesmos). */
-  var UNDER_ACCOUNT = { suporte: 1, psicologo: 1, avaliacoes: 1 };
+  /* Suporte, Meu psicólogo(a), Avaliações e "WhatsApp, link e avisos" moraram no menu; agora ficam dentro da Conta (os endereços
+     continuam os mesmos). O Lab do paciente saiu da barra e mora no Início. */
+  var UNDER_ACCOUNT = { suporte: 1, psicologo: 1, avaliacoes: 1, atendimento: 1 };
   S.menuFor = function (ctx) {
     var p = ctx.me.profile, pro = p.role === 'professional';
     var adminMode = !!ctx.admin && (ctx.mode || 'admin') === 'admin';
     if (adminMode) return { main: [['equipe', '#/equipe', 'shield-check', 'Equipe'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
     if (pro) {
       return { main: [['inicio', '#/inicio', 'house', 'Início'], ['pacientes', '#/pacientes', 'users', 'Pacientes'], ['agenda', '#/agenda', 'calendar-days', 'Agenda'],
-        ['financeiro', '#/financeiro', 'wallet', 'Financeiro'], ['atendimento', '#/atendimento', 'message-circle', 'Atendimento'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
+        ['financeiro', '#/financeiro', 'wallet', 'Financeiro'], ['conta', '#/conta', 'user', 'Conta']], more: [],
+        /* titulos do menu lateral (so no computador): [titulo, quantos itens de "main" ficam embaixo dele] */
+        sections: [['Rotina', 3], ['Gestão', 2]] };
     }
     return { main: [['inicio', '#/inicio', 'house', 'Início'], ['diario', '#/diario', 'notebook-pen', 'Diário'], ['consultas', '#/consultas', 'calendar-days', 'Consultas'],
-      ['lab', '#/lab', 'flask-conical', 'Lab'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
+      ['conta', '#/conta', 'user', 'Conta']], more: [], sections: [['Seu espaço', 3], ['Mais opções', 1]] };
   };
 
   /* ---------------------------------------------------------------- sininho */
@@ -86,6 +89,7 @@
     var adminMode = !!ctx.admin && (ctx.mode || 'admin') === 'admin';
     var menu = S.menuFor(ctx), all = menu.main.concat(menu.more);
     if (UNDER_ACCOUNT[active]) active = 'conta';
+    else if (active === 'lab') active = 'inicio';
     var activeMore = menu.more.some(function (it) { return it[0] === active; });
     bells = [];
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
@@ -96,6 +100,18 @@
     var lockBtn = window.AppLock && AppLock.enabled() && S.lockButton ? S.lockButton() : null;
 
     function link(it) { return h('a', { href: it[1], 'aria-current': active === it[0] ? 'page' : null }, UI.svg(it[2], 22), h('span', null, it[3])); }
+    /* Menu lateral com titulos por grupo (menu.sections); sem titulos, a lista corrida de antes. */
+    function sideNav() {
+      if (!menu.sections) return all.map(link);
+      var out = [], i = 0;
+      menu.sections.forEach(function (sec, k) {
+        out.push(h('div', { class: 'nav-label' + (k ? ' secondary' : ''), role: 'heading', 'aria-level': '2' }, sec[0]));
+        all.slice(i, i + sec[1]).forEach(function (it) { out.push(link(it)); });
+        i += sec[1];
+      });
+      all.slice(i).forEach(function (it) { out.push(link(it)); });
+      return out;
+    }
     function me(size) { return UI.avatar(p.full_name, { size: size, level: !pro && ctx.progress ? ctx.progress.level : null }); }
     function helpBtn(cls) {
       return h('a', { class: 'help-btn ' + cls, href: '#/ajuda', 'aria-current': active === 'ajuda' ? 'page' : null, 'aria-label': 'Preciso de ajuda' }, UI.svg('life-buoy', 20), h('span', { class: 'lbl' }, 'Preciso de ajuda'));
@@ -112,9 +128,10 @@
     } }, UI.svg('ellipsis', 22), h('span', null, 'Mais')) : null;
 
     var node = h('div', { class: 'app', 'data-assist': withHelp ? '1' : null },
+      h('a', { class: 'skip-link', href: '#conteudo' }, 'Pular para o conteúdo'),
       h('aside', { class: 'side' },
         h('div', { class: 'side-top' }, UI.brand('#/inicio'), withBell ? bellButton(ctx) : null),
-        h('nav', { 'aria-label': 'Menu principal' }, all.map(link)),
+        h('nav', { 'aria-label': 'Menu principal' }, sideNav()),
         withHelp ? helpBtn('side-help') : null,
         S.modeSwitch(ctx, true),
         h('div', { class: 'me' }, me(),
@@ -127,7 +144,7 @@
             lockBtn,
             withBell ? bellButton(ctx) : null,
             h('a', { class: 'mhead-me', href: '#/conta', 'aria-label': 'Minha conta' }, me()))),
-        h('main', { class: 'main', id: 'conteudo' }, content)),
+        h('main', { class: 'main', id: 'conteudo', tabindex: '-1' }, content)),
       h('nav', { class: 'bottom', 'aria-label': 'Menu' }, menu.main.map(link), moreBtn));
     if (withBell) {
       refreshCount();
@@ -145,7 +162,7 @@
     if (onAction) {
       /* Com onAction o botao faz a acao ali mesmo (um toque), sem abrir outra tela. */
       var btn = h('button', { type: 'button', class: 'btn auto sm', 'data-label': actionLabel || 'Ver', onclick: function () { onAction(btn); } }, actionLabel || 'Ver');
-      return h('div', { class: 'cta-card strip' }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, text), note ? h('div', { class: 's rec-note' }, note) : null), btn);
+      return h('div', { class: 'cta-card strip' + (note ? ' with-note' : '') }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, text), note ? h('div', { class: 's rec-note' }, note) : null), btn);
     }
     return h('a', { class: 'cta-card strip', href: href }, h('span', { class: 'ico-box' }, UI.svg(icon, 22)), h('div', { class: 'grow' }, h('div', { class: 't' }, text)),
       h('span', { class: 'btn auto sm' }, actionLabel || 'Ver'));

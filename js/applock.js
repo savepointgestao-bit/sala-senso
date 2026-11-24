@@ -527,10 +527,12 @@
         kids.push(h('p', { class: 'small muted' }, 'Vale para o tempo fora do app. Parado dentro do app, ele bloqueia depois de 5 minutos ou do tempo escolhido, o que for maior.'));
       }
 
+      if (!(window.PSI_CONFIG && window.PSI_CONFIG.printsLiberados)) {
       var cap = UI.toggle({ value: call('secureOn') !== false, label: 'Bloquear capturas de tela', onChange: function (v) { call('setSecure', !!v); say(true, v ? 'Capturas de tela bloqueadas.' : 'Capturas de tela liberadas.'); } });
       kids.push(h('div', { class: 'group-title' }, 'Privacidade da tela'));
       kids.push(h('div', { class: 'group' }, h('div', { class: 'item' }, h('span', { class: 'ico-box' }, UI.svg('shield-check', 20)),
         h('span', { class: 'grow' }, h('span', { class: 't' }, 'Bloquear capturas de tela'), h('span', { class: 's' }, 'Também esconde o conteúdo na lista de apps recentes')), cap.el)));
+      }
       if (has) {
         kids.push(h('div', { class: 'group-title' }, 'Desligar'));
         kids.push(h('div', { class: 'group' }, h('button', { type: 'button', class: 'item danger', onclick: function () {
@@ -579,5 +581,9 @@
 
   /* Abriu o app com PIN: trava antes de qualquer tela aparecer. Fica travado mesmo sem rede ou com a sessao em renovacao:
      o PIN so sai quando a pessoa sai da conta (evento SIGNED_OUT) ou usa "Esqueci meu PIN". */
+  /* TEMPORARIO (config printsLiberados): libera print de tela ao abrir o app. */
+  var PRINTS_LIBERADOS = !!(window.PSI_CONFIG && window.PSI_CONFIG.printsLiberados);
+  if (PRINTS_LIBERADOS) call('setSecure', false);
+
   if (cfg) lock('start');
 })();

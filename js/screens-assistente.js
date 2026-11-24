@@ -425,6 +425,70 @@
   /* ---------------------------------------------------------------- o popup: botao redondo + painel, montados no <body> */
   var W = { ctx: null, uid: null, fab: null, chat: null, opened: false };
 
+  /* ------------------------------------------------ balao de fala ao lado do botao
+     Um balao curto ("Precisa de ajuda?", uma dica da tela) que aparece de vez em quando, some sozinho e nunca atrapalha:
+     so aparece onde o botao aparece, no maximo TIP_MAX vezes por visita, com folga entre uma e outra, e o X silencia tudo.
+     So na memoria (nada e gravado): ao sair da conta ele zera junto com o resto. */
+  var TIP_FIRST_MS = 4500, TIP_SHOW_MS = 9000, TIP_GAP_MS = 40000, TIP_MAX = 3;
+  var TIP_OPEN = ['Precisa de ajuda?'];
+  var TIP_MORE = [
+    'Posso ajudar com alguma coisa?',
+    'Dúvida? É só me chamar.',
+    'Quer marcar ou ver uma consulta? Eu te mostro.',
+    'Estou por aqui se precisar.'
+  ];
+  /* Dica por tela: so a primeira vez que a pessoa passa por ela. Sempre algo que o assistente de fato faz. */
+  var TIP_ROUTE = [
+    [/^#\/inicio/, 'Dica: eu te ajudo a registrar como você está.'],
+    [/^#\/diario/, 'Dica: um registro curto já vale. Não precisa escrever muito.'],
+    [/^#\/consultas/, 'Dica: quer confirmar presença ou remarcar? Eu te levo direto.'],
+    [/^#\/conta/, 'Dica: dúvida sobre senha ou privacidade? Eu explico.'],
+    [/^#\/lab/, 'Dica: o Lab tem exercícios para relaxar. Vale uma pausa.']
+  ];
+  var T = { el: null, msg: null, timer: 0, hideTimer: 0, shown: 0, last: 0, more: 0, off: false, seen: {} };
+
+  function tipClear() { clearTimeout(T.timer); clearTimeout(T.hideTimer); T.timer = 0; T.hideTimer = 0; }
+  function tipHide() {
+    clearTimeout(T.hideTimer); T.hideTimer = 0;
+    if (T.el) T.el.hidden = true;
+  }
+  function tipOn() { return !!T.el && !T.el.hidden; }
+  function tipText() {
+    if (!T.shown) return TIP_OPEN[0];
+    var hash = location.hash || '';
+    for (var i = 0; i < TIP_ROUTE.length; i++) {
+      if (TIP_ROUTE[i][0].test(hash) && !T.seen[i]) { T.seen[i] = true; return TIP_ROUTE[i][1]; }
+    }
+    return TIP_MORE[T.more++ % TIP_MORE.length];
+  }
+  function tipShow() {
+    T.timer = 0;
+    if (T.off || T.shown >= TIP_MAX || !W.fab || W.fab.hidden || W.opened || window.__SENSO_NO_TIPS) return;
+    if (!T.el) {
+      T.msg = h('button', { type: 'button', class: 'chat-tip-msg', onclick: function () { tipHide(); A.open(); } });
+      T.el = h('div', { class: 'chat-tip', role: 'status' }, T.msg,
+        h('button', { type: 'button', class: 'chat-tip-x', 'aria-label': 'Fechar e não mostrar mais dicas', onclick: function () { T.off = true; tipClear(); tipHide(); } }, UI.svg('x', 16)));
+      T.el.hidden = true;
+      document.body.appendChild(T.el);
+    }
+    T.msg.textContent = tipText();
+    T.el.hidden = false;
+    T.shown++; T.last = Date.now();
+    T.hideTimer = setTimeout(function () { tipHide(); tipPlan(); }, TIP_SHOW_MS);
+  }
+  /* Agenda o proximo balao (se ainda cabe um e o botao esta a vista). */
+  function tipPlan() {
+    clearTimeout(T.timer); T.timer = 0;
+    if (T.off || T.shown >= TIP_MAX || tipOn() || !W.fab || W.fab.hidden || window.__SENSO_NO_TIPS) return;
+    var wait = T.shown ? Math.max(1500, TIP_GAP_MS - (Date.now() - T.last)) : TIP_FIRST_MS;
+    T.timer = setTimeout(tipShow, wait);
+  }
+  function tipReset() {
+    tipClear();
+    if (T.el && T.el.parentNode) T.el.parentNode.removeChild(T.el);
+    T.el = null; T.msg = null; T.shown = 0; T.last = 0; T.more = 0; T.off = false; T.seen = {};
+  }
+
   function ensureFab() {
     if (W.fab) return;
     W.fab = h('button', { type: 'button', class: 'chat-fab', 'aria-label': 'Abrir o assistente', 'aria-haspopup': 'dialog', onclick: function () { A.open(); } }, BotAvatar.svg(42, 'ok'));
@@ -438,7 +502,11 @@
     A.close();
   }
   /* Aparece em toda tela do paciente, menos nos jogos do Lab: la o toque no tabuleiro e rapido e repetido, e um toque no canto abriria a conversa no meio da partida. */
-  function showFab() { if (W.fab) W.fab.hidden = W.opened || !document.querySelector('#app .app[data-assist]') || !!document.querySelector('#app .app[data-game]'); }
+  function showFab() {
+    if (!W.fab) return;
+    W.fab.hidden = W.opened || !document.querySelector('#app .app[data-assist]') || !!document.querySelector('#app .app[data-game]');
+    if (W.fab.hidden) { tipClear(); tipHide(); } else if (!tipOn() && !T.timer) tipPlan();
+  }
 
   var A = window.Assistant = {
     /* Chamado pela moldura do paciente a cada tela. Guarda quem e a pessoa; se mudou de conta, apaga a conversa antiga. */
@@ -484,10 +552,11 @@
       A.close(true);
       if (W.chat && W.chat.el.parentNode) W.chat.el.parentNode.removeChild(W.chat.el);
       W.chat = null; W.ctx = null; W.uid = null;
+      tipReset();
       if (W.fab && W.fab.parentNode) W.fab.parentNode.removeChild(W.fab);   /* nada do paciente fica na tela de quem entrar depois */
       W.fab = null;
     }
   };
   /* Qualquer mudanca de tela fecha o popup (inclusive o botao voltar do navegador). */
-  window.addEventListener('hashchange', function () { A.close(true); });
+  window.addEventListener('hashchange', function () { A.close(true); tipClear(); tipHide(); });
 })();

@@ -824,6 +824,42 @@
         P(u).contact = { enabled: !!enabled, phone: n };
         return { whatsapp_enabled: !!enabled, whatsapp_phone: n };
       });
+    },
+    /* Lembrete automatico pelo WhatsApp (my_wa_reminders / set_wa_reminders): desligado por padrao, so psicologa verificada liga. */
+    waReminders: function () {
+      var u = needPro();
+      S.waReminders = S.waReminders || {};
+      return tick({ on: !!S.waReminders[u.id], since: null });
+    },
+    setWaReminders: function (on) {
+      var u = needPro();
+      return tick(null).then(function () {
+        if (u.verification !== 'verified') throw pgErr('not_allowed');
+        S.waReminders = S.waReminders || {};
+        S.waReminders[u.id] = !!on;
+        return { on: !!on };
+      });
+    }
+  };
+
+  /* Aceite do paciente para receber lembretes pelo WhatsApp (my_wa_optin / set_wa_optin). */
+  api.wa = {
+    optin: function () {
+      var u = needPatient();
+      S.waOptin = S.waOptin || {};
+      var o = S.waOptin[u.id];
+      return tick({ on: !!o, phone: o ? o.phone : null, since: o ? iso(o.at) : null, suggested_phone: waNumber(u.meta.phone || null) });
+    },
+    setOptin: function (on, phone) {
+      var u = needPatient();
+      return tick(null).then(function () {
+        S.waOptin = S.waOptin || {};
+        if (!on) { delete S.waOptin[u.id]; return { on: false, phone: null }; }
+        var n = waNumber(String(phone || '').trim() || u.meta.phone || null);
+        if (!n) throw pgErr('invalid_phone');
+        S.waOptin[u.id] = { phone: n, at: Date.now() };
+        return { on: true, phone: n };
+      });
     }
   };
 
@@ -909,7 +945,7 @@
       P(u);
       var seeds = [
         { name: 'Marina Souza', email: 'marina.souza@exemplo.demo', xp: 85.5, week: 5, mood: [4, 3, 4, 5, 4, null, 4, 3, 3, 4, 2, 3, 4, 3], energy: 3, anxiety: 2, birth: '1991-03-14' },
-        { name: 'João Pereira', email: 'joao.pereira@exemplo.demo', xp: 31, week: 2, mood: [2, null, 3, 2, null, 2, 3, 2, 1, 2, null, 3, 2, 2], energy: 2, anxiety: 4, birth: '1984-11-02' },
+        { name: 'João Pereira', email: 'joao.pereira@exemplo.demo', xp: 31, week: 2, mood: [2, null, 3, 2, null, 2, 3, 2, 1, 2, null, 3, 2, 2], energy: 2, anxiety: 4, birth: addDays(today(), 6).replace(/^\d{4}/, '1984') },  // aniversário sempre daqui a 6 dias, para o cartão de aniversários aparecer no exemplo
         { name: 'Rafael Lima', email: 'rafael.lima@exemplo.demo', xp: 4, week: 1, mood: [null, null, null, null, null, null, null, null, null, null, null, null, 3, 4], energy: 4, anxiety: 3, birth: '1999-07-21' },
         { name: 'Carla Mendes', email: 'carla.mendes@exemplo.demo', consent: false, birth: '1976-05-30' }
       ];

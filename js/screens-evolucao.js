@@ -124,8 +124,13 @@
       notes.forEach(function (n) { box.appendChild(noteCard(n)); });
     }
 
+    var asked = false;
     function load() {
-      return Promise.all([API.pro.docs(R.record_id, 'note', 300), API.pro.sessions(R.record_id, 300)]).then(function (r) { notes = r[0]; sessions = r[1]; draw(); })
+      return Promise.all([API.pro.docs(R.record_id, 'note', 300), API.pro.sessions(R.record_id, 300)]).then(function (r) {
+        notes = r[0]; sessions = r[1]; draw();
+        /* Resumo que a IA escreveu e ainda sem nota: o popup de 1 a 5 estrelas, uma vez por abertura da ficha. */
+        if (!asked && S.askDraftFeedback && notes.some(function (n) { return n.draft && n.origin === 'ia'; })) { asked = true; S.askDraftFeedback(R.record_id); }
+      })
         .catch(function (e) { Diag.error('evolucao', e); clear(box); box.appendChild(UI.notice('bad', 'Não foi possível carregar as evoluções agora. Atualize a página.')); });
     }
     load();
