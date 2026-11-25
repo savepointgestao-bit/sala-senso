@@ -91,6 +91,9 @@
         if (bads.length) { S.focusFirst(bads); return; }
         var data = { startsAt: iso(day.value(), time.value()), duration: d, mode: mode, priceCents: cents, meetingUrl: mode === 'online' ? url : '' };
         UI.busy(btn, true);
+        /* consulta nova: passou do limite de atendimentos, mostra a sugestao de pausa e pede confirmacao */
+        (appt ? Promise.resolve(true) : (S.workloadGuard ? S.workloadGuard(day.value(), every !== 'none') : Promise.resolve(true))).then(function (go) {
+        if (!go) { UI.busy(btn, false); return; }
         var p;
         if (appt) p = scope === 'following' ? API.agenda.updateFollowing(appt.id, data) : API.agenda.update(appt.id, data);
         else if (every !== 'none') p = API.agenda.createSeries(Object.assign({ recordId: rec ? rec.id : who.value(), every: every, count: n }, data));
@@ -110,6 +113,7 @@
           UI.busy(btn, false); Diag.error('marcar-consulta', e);
           var all = every !== 'none' && /slot_taken/.test(String((e && e.message) || ''));
           general.appendChild(UI.notice('bad', all ? 'Todos esses horários já estão ocupados. Escolha outro dia ou horário.' : UI.errorText(e, 'Não foi possível salvar agora. Tente de novo.')));
+        });
         });
       } },
         rec ? h('p', { class: 'lead' }, 'Paciente: ', h('b', null, rec.name)) : (appt ? h('p', { class: 'lead' }, 'Paciente: ', h('b', null, appt.full_name)) : who.el),
@@ -183,8 +187,11 @@
   }
   function approve(a, btn, reload) {
     UI.busy(btn, true);
-    API.agenda.respond(a.id, 'approve').then(function () { UI.toast('Consulta confirmada. Avisamos o(a) paciente.', 'circle-check'); reload(); })
-      .catch(function (e) { UI.busy(btn, false); Diag.error('aprovar-pedido', e); UI.toast(UI.errorText(e, 'Não foi possível confirmar agora.')); });
+    var day = T.dayOf(a.status === 'reschedule_proposed' ? a.proposed_starts_at : a.starts_at);
+    (S.workloadGuard ? S.workloadGuard(day) : Promise.resolve(true)).then(function (go) {
+      if (!go) { UI.busy(btn, false); return; }
+      return API.agenda.respond(a.id, 'approve').then(function () { UI.toast('Consulta confirmada. Avisamos o(a) paciente.', 'circle-check'); reload(); });
+    }).catch(function (e) { UI.busy(btn, false); Diag.error('aprovar-pedido', e); UI.toast(UI.errorText(e, 'Não foi possível confirmar agora.')); });
   }
 
   /* ---------------------------------------------------------------- ações de uma consulta */
@@ -262,7 +269,7 @@
       API.agenda.setStatus(a.id, status).then(function () { sh.close('done'); UI.toast(ok, 'circle-check'); reload(); }).catch(function (e) { Diag.error('status-consulta', e); UI.toast(UI.errorText(e)); });
     }
     if (a.status === 'requested') {
-      row('circle-check', 'Aprovar', 'Confirma o horário pedido', function () { sh.close('go'); approve(a, h('button'), reload); });
+      row('circle-check', 'Aprovar', a.replaces_id ? 'Confirma o novo horário e libera o de ' + T.whenLabel(a.replaces_starts_at) : 'Confirma o horário pedido', function () { sh.close('go'); approve(a, h('button'), reload); });
       row('calendar-days', 'Sugerir outro horário', 'O(a) paciente escolhe se aceita', function () { sh.close('go'); proposeSheet(a, reload); });
       row('ban', 'Recusar', 'Avisa o(a) paciente', function () { sh.close('go'); declineSheet(a, reload); }, 'danger');
     }
@@ -346,7 +353,8 @@
       asks.forEach(function (a) {
         var ap = UI.button('Aprovar', { auto: true, icon: 'circle-check', onclick: function (ev) { approve(a, ev.currentTarget, reload); } });
         box.appendChild(h('article', { class: 'card appt requested' },
-          h('div', { class: 'appt-head' }, h('div', { class: 'grow' }, h('div', { class: 'appt-when' }, T.whenLabel(a.starts_at)), h('a', { class: 'small', href: '#/pacientes/' + a.record_id }, a.full_name)), h('span', { class: 'badge warn' }, 'Novo pedido')),
+          h('div', { class: 'appt-head' }, h('div', { class: 'grow' }, h('div', { class: 'appt-when' }, T.whenLabel(a.starts_at)), h('a', { class: 'small', href: '#/pacientes/' + a.record_id }, a.full_name)), h('span', { class: 'badge warn' }, a.replaces_id ? 'Troca de horário' : 'Novo pedido')),
+          a.replaces_id ? h('p', { class: 'small mb0 swap-note' }, UI.svg('refresh-cw', 14), ' Troca da consulta de ', h('b', null, T.whenLabel(a.replaces_starts_at)), '. Se você aprovar, esse horário é liberado.') : null,
           h('div', { class: 'metas' }, h('span', { class: 'meta' }, UI.svg(a.mode === 'online' ? 'video' : 'map-pin', 14), MODE[a.mode] || a.mode), h('span', { class: 'meta' }, UI.svg('clock', 14), a.duration_minutes + ' min'),
             a.price_cents != null ? h('span', { class: 'meta' }, UI.svg('banknote', 14), UI.money(a.price_cents)) : null),
           a.patient_note ? h('p', { class: 'small mb0' }, h('b', null, 'Recado: '), a.patient_note) : null,
@@ -359,7 +367,7 @@
         waiting.forEach(function (a) {
           box.appendChild(h('article', { class: 'card appt reschedule_proposed' },
             h('div', { class: 'appt-head' }, h('div', { class: 'grow' }, h('div', { class: 'appt-when' }, T.whenLabel(a.proposed_starts_at)), h('a', { class: 'small', href: '#/pacientes/' + a.record_id }, a.full_name)), h('span', { class: 'badge warn' }, 'Sugestão enviada')),
-            h('p', { class: 'small muted mb0' }, 'O pedido era para ' + T.whenLabel(a.starts_at) + '. Avisamos você quando ' + UI.firstName(a.full_name) + ' responder.')));
+            h('p', { class: 'small muted mb0' }, 'O pedido era para ' + T.whenLabel(a.starts_at) + (a.replaces_id ? ', troca da consulta de ' + T.whenLabel(a.replaces_starts_at) : '') + '. Avisamos você quando ' + UI.firstName(a.full_name) + ' responder.')));
         });
       }
     }).catch(function (e) { Diag.error('pedidos', e); clear(box); box.appendChild(UI.notice('bad', 'Não foi possível carregar os pedidos agora.')); });
@@ -689,13 +697,14 @@
           .catch(function (e) { Diag.error('wa-lembretes', e); UI.toast(UI.errorText(e, 'Não foi possível salvar agora.')); throw e; });
       } });
       say(!!(st && st.on));
-      holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('bell-ring', 22)), h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Lembrete automático'))));
-      holder.appendChild(h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Lembrete de consulta pelo WhatsApp'), h('span', { class: 's' }, 'Sai sozinho, um dia antes.')), t.el));
+      holder.appendChild(h('div', { class: 'row' }, h('span', { class: 'ico-box' }, UI.svg('bell-ring', 22)), h('div', { class: 'grow' }, h('h2', { class: 'mb0' }, 'Lembrete e atendimento pelo WhatsApp'))));
+      holder.appendChild(h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Lembrete de consulta pelo WhatsApp'), h('span', { class: 's' }, 'Sai sozinho, um dia antes. O paciente também marca, remarca e cancela por lá.')), t.el));
       holder.appendChild(status);
       holder.appendChild(h('ul', { class: 'consent-list small' },
         h('li', null, 'Só recebe o paciente que aceitou, na conta dele no Senso.'),
         h('li', null, 'O texto só diz o dia e a hora. Não leva seu nome nem o motivo.'),
-        h('li', null, 'O paciente responde 1 para confirmar ou 2 para pedir para remarcar, e você vê no sininho.')));
+        h('li', null, 'O paciente responde 1 para confirmar ou 2 para pedir para remarcar, e você vê no sininho.'),
+        h('li', null, 'Pelo número do Senso, ele também pede consulta, pede troca de horário e cancela. Pedidos e trocas esperam a sua aprovação em Pedidos.')));
     }).catch(function (e) { Diag.error('wa-lembretes', e); clear(holder); holder.appendChild(UI.notice('bad', 'Não foi possível carregar o lembrete automático agora.')); });
     return holder;
   }

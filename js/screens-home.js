@@ -15,6 +15,31 @@
     return ctx.me.profile.role === 'professional' ? 'Psicólogo(a)' : 'Paciente';
   };
 
+  /* ---------------------------------------------------------------- plano do psicologo (Free, Pro, Pro AI)
+     Etiqueta com o plano; tocar abre a janela dos planos. O que cada plano libera e o upgrade ainda nao foram definidos
+     (o Luis define depois): a janela mostra os tres planos, marca o atual e tem o botao de upgrade sem cobranca ligada. */
+  S.planTag = function (ctx) {
+    var plan = Plans.mine(ctx);
+    if (!plan) return null;
+    return h('button', { type: 'button', class: 'badge plan-tag plan-' + plan, 'aria-label': 'Plano ' + Plans.label(plan) + '. Ver planos',
+      onclick: function () { S.plansSheet(ctx); } }, UI.svg(plan === 'pro_ai' ? 'sparkles' : (plan === 'pro' ? 'star' : 'user'), 14), Plans.label(plan));
+  };
+  S.plansSheet = function (ctx) {
+    var mine = Plans.mine(ctx) || 'free';
+    var sh;
+    var cards = Plans.LIST.map(function (pl) {
+      var cur = pl[0] === mine, higher = Plans.rank(pl[0]) > Plans.rank(mine);
+      return h('div', { class: 'card plan-card' + (cur ? ' current' : '') },
+        h('div', { class: 'row between' }, h('b', { class: 'plan-name' }, pl[1]), cur ? h('span', { class: 'badge ok' }, 'Seu plano') : null),
+        h('ul', { class: 'plain-list plan-features' }, h('li', { class: 'muted' }, 'Recursos deste plano em breve.')),
+        higher ? h('button', { type: 'button', class: 'btn sm auto', onclick: function () {
+          UI.toast('O upgrade para o ' + pl[1] + ' ainda não está disponível. Em breve.', 'info');
+        } }, UI.svg('arrow-up', 16), 'Fazer upgrade para ' + pl[1]) : null);
+    });
+    sh = UI.sheet({ title: 'Planos do Senso', content: [h('p', { class: 'muted' }, 'Você está no plano ' + Plans.label(mine) + '.')].concat(cards) });
+    return sh;
+  };
+
   /* Modo de teste: so a conta de equipe (admin) ve. Alterna entre Administrador, Psicólogo(a) e Paciente. O banco confere de novo
      (admin_set_mode) e, no modo Paciente, troca de verdade o tipo da conta para o portal do paciente funcionar como o de um paciente. */
   var MODES = [['admin', 'Administrador'], ['professional', 'Psicólogo(a)'], ['patient', 'Paciente']];
@@ -244,6 +269,7 @@
 
     return S.shell(ctx, 'inicio', [
       hello(p, [h('span', null, 'CRP ' + pro.crp_region + '/' + pro.crp_number),
+        S.planTag(ctx),
         verified ? h('span', { class: 'badge ok' }, UI.svg('badge-check', 14), 'CRP verificado')
           : h('span', { class: 'badge ' + (ver === 'pending' ? 'warn' : 'bad') }, ver === 'pending' ? 'CRP em análise' : (ver === 'suspended' ? 'Acesso suspenso' : 'CRP não confirmado'))]),
       verified ? null : S.crpNotice(ver),
@@ -466,7 +492,8 @@
       API.progress().then(function (pr) { levelHolder.appendChild(S.levelCard(pr, { total: true })); }).catch(function () { /* sem nivel, sem problema */ });
     }
     var head = h('div', { class: 'hello' }, UI.avatar(p.full_name, { size: 'lg', level: !isPro && ctx.progress ? ctx.progress.level : null }),
-      h('div', { class: 'grow' }, h('div', { class: 'name-big' }, p.full_name), h('div', { class: 'sub' }, p.email)));
+      h('div', { class: 'grow' }, h('div', { class: 'name-big' }, p.full_name), h('div', { class: 'sub' }, p.email),
+        isPro && S.planTag(ctx) ? h('div', { class: 'mt8' }, S.planTag(ctx)) : null));
 
     var dados = S.profileGroup(ctx);
 

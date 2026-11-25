@@ -589,3 +589,28 @@ h1.mb16 + .seg { margin-bottom: 1.1rem; }
 /* consentimentos e explicações em itens curtos, fáceis de ler */
 .consent-list { margin: .5rem 0 1rem; padding-left: 1.2rem; text-align: left; }
 .consent-list li { margin: .35rem 0; line-height: 1.45; }
+
+/* Plano do psicologo: etiqueta clicavel (abre a janela dos planos) */
+.badge.plan-tag { cursor: pointer; font: inherit; font-size: .75rem; font-weight: 700; }
+.badge.plan-tag:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.badge.plan-pro { background: var(--pri-soft); color: var(--pri-text); border-color: transparent; }
+.badge.plan-pro_ai { background: var(--info-soft); color: var(--info); border-color: transparent; }
+.side .me .who .plan-line { margin-top: .3rem; }
+.plan-card { margin-bottom: .75rem; display: flex; flex-direction: column; gap: .6rem; }
+.plan-card.current { border-color: var(--pri); }
+.plan-card .plan-name { font-size: 1.05rem; }
+.plan-card .plan-features { margin: 0; }
+
+/* Saude do psicologo */
+.health-score { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.health-ring-wrap { position: relative; width: 96px; height: 96px; flex: none; }
+.health-ring-wrap .health-num { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.35rem; }
+.health-ring.ok .ring-fg { stroke: var(--ok); }
+.health-ring.warn .ring-fg { stroke: var(--warn); }
+.health-ring.bad .ring-fg { stroke: var(--bad); }
+.health-pts { font-weight: 700; color: var(--mute); font-size: .85rem; white-space: nowrap; }
+.item .ico-box.ok { color: var(--ok); }
+.item .ico-box.warn { color: var(--warn); }
+.item .ico-box.bad { color: var(--bad); }
+.self-care { display: flex; gap: .9rem; align-items: flex-start; margin-top: 1rem; background: var(--info-soft); border-color: transparent; }
+.self-care .ico-box { color: var(--info); flex: none; }

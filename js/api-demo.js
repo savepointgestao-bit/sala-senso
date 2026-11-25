@@ -21,6 +21,7 @@
   function tick(v) { return new Promise(function (res) { setTimeout(function () { res(v); }, 60); }); }
   function cur() { return session ? users[session.email] : null; }
   function recent() { return Date.now() - lastAuth <= 600000; }
+  var workload = { daily: null, weekly: null };
   /* Dono da equipe (moderador nao e dono). Contas de equipe antigas, sem papel, contam como dono. */
   function ownerOk(u) { return adminOk(u) && (u.teamRole || 'owner') === 'owner'; }
   function allUsers() { return Object.keys(users).map(function (k) { return users[k]; }); }
@@ -169,7 +170,7 @@
           if (bad) throw err('P0001', bad);
         }
         u.meta = Object.assign({}, m, next);
-        care().syncProfile(u, session.email);
+        care().syncProfile(u, session.email, m);
         return true;
       });
     },
@@ -334,6 +335,21 @@
           mfaRequired = required; return true;
         });
       },
+      /* Limite de atendimentos por dia e por semana: a equipe le, so o dono define (0 ou vazio desliga). */
+      workloadLimits: function () {
+        var u = cur();
+        return tick(null).then(function () { if (!adminOk(u)) throw err('not_allowed', 'not_allowed'); return { daily: workload.daily, weekly: workload.weekly }; });
+      },
+      setWorkloadLimits: function (daily, weekly) {
+        var u = cur();
+        return tick(null).then(function () {
+          if (!ownerOk(u)) throw err('not_allowed', 'not_allowed');
+          var d = daily == null ? null : Number(daily), w = weekly == null ? null : Number(weekly);
+          if ((d != null && (isNaN(d) || d < 0 || d > 30)) || (w != null && (isNaN(w) || w < 0 || w > 150)) || (d > 0 && w > 0 && w < d)) throw err('P0001', 'invalid_data');
+          workload.daily = d > 0 ? d : null; workload.weekly = w > 0 ? w : null;
+          return { daily: workload.daily, weekly: workload.weekly };
+        });
+      },
       /* ---- equipe: dono e moderadores (no maximo 2). Moderador confere CRP, pausa, libera, troca plano e ve o suporte. ---- */
       team: function () {
         var u = cur();
@@ -475,7 +491,9 @@
   function care() { return api._care; }
   api._core = {
     users: function () { return users; }, cur: cur, session: function () { return session; }, tick: tick, err: err, spDay: spDay, round1: round1,
-    progressOf: progressOf, award: award, copyEntry: copyEntry, inScale: inScale, mfaOk: mfaOk, next: function () { seq += 1; return seq; }, PER_LEVEL: PER_LEVEL, TAGS: TAGS
+    progressOf: progressOf, award: award, copyEntry: copyEntry, inScale: inScale, mfaOk: mfaOk, next: function () { seq += 1; return seq; }, PER_LEVEL: PER_LEVEL, TAGS: TAGS,
+    /* limite de atendimentos (como app_settings workload_daily_limit e workload_weekly_limit): null = desligado */
+    workload: workload
   };
   window.API_DEMO = api;
 })();

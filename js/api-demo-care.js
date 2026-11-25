@@ -89,6 +89,12 @@
   function profileRules(role, d) {
     var name = String(d.fullName || '').trim();
     if (name.length < 2 || name.length > 120) return 'full_name_invalid';
+    /* Celular (WhatsApp) obrigatorio desde 25/11/2026, como no banco (phone_invalid). Nos testes automaticos (__SENSO_TEST_PHONE)
+       quem nao manda ganha um numero de teste; _semFone testa a regra de verdade. */
+    if (!waNumber(d.phone)) {
+      if (window.__SENSO_TEST_PHONE && !d._semFone) d.phone = '(16) 99000-' + String(1000 + Math.floor(Math.random() * 9000));
+      else return 'phone_invalid';
+    }
     if (role === 'patient') {
       var bad = birthRules(d.birthDate, d.guardianName, d.guardianPhone);
       if (bad) return bad;
@@ -177,8 +183,13 @@
   }
 
   /* depois que o perfil muda, as fichas ligadas acompanham (nome, celular, e-mail, nascimento, responsavel) */
-  function syncProfile(u, email) {
+  function syncProfile(u, email, before) {
     var m = u.meta || {};
+    /* trocou o celular: o aceite do WhatsApp ligado acompanha, se usava o numero antigo (como o gatilho profile_wa_phone_follow) */
+    if (before && u.role === 'patient' && S.waOptin && S.waOptin[u.id]) {
+      var was = waNumber(before.guardianPhone || before.phone || null), now = waNumber(m.guardianPhone || m.phone || null);
+      if (now && was !== now && S.waOptin[u.id].phone === was) S.waOptin[u.id].phone = now;
+    }
     S.records.forEach(function (r) {
       if (r.userId !== u.id) return;
       r.name = m.fullName; r.phone = m.phone || null; r.email = email;
@@ -839,11 +850,11 @@
         return { whatsapp_enabled: !!enabled, whatsapp_phone: n };
       });
     },
-    /* Lembrete automatico pelo WhatsApp (my_wa_reminders / set_wa_reminders): desligado por padrao, so psicologa verificada liga. */
+    /* Lembrete automatico pelo WhatsApp (my_wa_reminders / set_wa_reminders): ligado por padrao, so psicologa verificada mexe. */
     waReminders: function () {
       var u = needPro();
       S.waReminders = S.waReminders || {};
-      return tick({ on: !!S.waReminders[u.id], since: null });
+      return tick({ on: S.waReminders[u.id] !== false, since: null });   // ligado por padrao desde 25/11/2026
     },
     setWaReminders: function (on) {
       var u = needPro();
@@ -940,6 +951,12 @@
     profileRules: profileRules, birthRules: birthRules, isMinor: isMinor, syncProfile: syncProfile,
     afterCreate: function (u, email, role, data) {
       if (role === 'patient' && data.inviteCode && data.acceptLink === true) linkByCode(u, data.inviteCode);
+      /* WhatsApp ligado por padrao (migracao 20261125140000): o paciente ja nasce com o aceite, no numero do responsavel se for menor */
+      if (role === 'patient') {
+        var n = waNumber((u.meta && u.meta.guardianPhone) || (u.meta && u.meta.phone) || data.phone);
+        S.waOptin = S.waOptin || {};
+        if (n && !S.waOptin[u.id]) S.waOptin[u.id] = { phone: n, at: Date.now() };
+      }
       if (role === 'professional') P(u);
     },
     afterDelete: function (u) {

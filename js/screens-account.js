@@ -53,7 +53,8 @@
         h('ul', { class: 'consent-list' },
           h('li', null, 'Um dia antes da consulta, você recebe uma mensagem com o dia e a hora.'),
           h('li', null, 'Só sai se o seu psicólogo(a) usa lembretes automáticos.'),
-          h('li', null, 'A mensagem não diz com quem é nem o motivo. O envio passa pelo WhatsApp (Meta).')),
+          h('li', null, 'A mensagem não diz com quem é nem o motivo. O envio passa pelo WhatsApp (Meta).'),
+          h('li', null, 'Por esse número você também pode mandar "oi" para pedir consulta, trocar o horário ou cancelar.')),
         phone.el,
         h('div', { class: 'item flat' }, h('span', null, h('span', { class: 't' }, 'Receber lembretes por WhatsApp'), h('span', { class: 's' }, 'Você pode desligar quando quiser.')), t.el),
         status));

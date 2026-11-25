@@ -72,6 +72,7 @@
     { re: /^pacientes$/, who: 'professional', title: 'Pacientes', build: function (ctx, q) { return screen('patients')(ctx, q); } },
     { re: /^pacientes\/([A-Za-z0-9-]+)$/, who: 'professional', title: 'Ficha do paciente', build: function (ctx, q, m) { return screen('patientFile')(ctx, m[1], q); } },
     { re: /^agenda$/, who: 'professional', title: 'Agenda', build: function (ctx, q) { return screen('agenda')(ctx, q); } },
+    { re: /^saude$/, who: 'professional', title: 'Saúde', build: function (ctx) { return screen('health')(ctx); } },
     { re: /^financeiro$/, who: 'professional', title: 'Financeiro', build: function (ctx, q) { return screen('finance')(ctx, q); } },
     { re: /^transcricao$/, who: 'professional', title: 'Transcrições', build: function (ctx, q) { return q && q.id ? S.transcript(ctx, q.id) : S.transcripts(ctx, q); } },
     { re: /^relatorios$/, who: 'professional', title: 'Relatórios', build: function (ctx, q) { return screen('reports')(ctx, q); } },

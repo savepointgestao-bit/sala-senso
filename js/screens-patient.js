@@ -166,6 +166,7 @@
     if (a.status === 'reschedule_proposed') {
       extra.push(h('p', { class: 'small mb0' }, 'Seu pedido era para ', h('b', null, UI.dt.whenLabel(a.starts_at)), '. ', a.decline_reason ? 'Recado: ' + a.decline_reason : ''));
     }
+    if (a.replaces_id) extra.push(h('p', { class: 'small mb0' }, 'É uma troca: até ', UI.firstName(a.professional_name), ' responder, sua consulta de ', h('b', null, UI.dt.whenLabel(a.replaces_starts_at)), ' continua marcada.'));
     var actions = [];
     if (a.status === 'scheduled' && future) {
       if (a.patient_confirmed_at) extra.push(h('p', { class: 'small mb0 confirmed' }, UI.svg('circle-check', 16), ' Presença confirmada. ', UI.firstName(a.professional_name), ' foi avisado(a).'));

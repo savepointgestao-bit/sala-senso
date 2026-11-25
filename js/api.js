@@ -238,6 +238,9 @@
       /* Dois fatores dos psicologos: so numeros (quantos usam) e se a obrigatoriedade esta ligada */
       mfaAdoption: function () { return sb.rpc('admin_mfa_adoption').then(ok); },
       setMfaRequired: function (required) { return sb.rpc('admin_set_mfa_required', { p_required: !!required }).then(ok).then(function () { return true; }); },
+      /* Limite de atendimentos -> { daily, weekly } (null = desligado). So o dono troca; 0 ou vazio desliga. */
+      workloadLimits: function () { return sb.rpc('admin_workload_limits').then(ok); },
+      setWorkloadLimits: function (daily, weekly) { return sb.rpc('admin_set_workload_limits', { p_daily: daily == null ? null : daily, p_weekly: weekly == null ? null : weekly }).then(ok); },
       /* Equipe -> { me: 'owner'|'moderator', max_moderators, members: [{ user_id, role, name, email, added_at, is_me }] }.
          Moderador ve so a si e o dono. */
       team: function () { return sb.rpc('admin_team').then(ok); },
@@ -405,6 +408,11 @@
       contact: function () { return sb.rpc('pro_contact_get').then(ok); },
       saveContact: function (enabled, phone) { return sb.rpc('pro_contact_save', { p_enabled: !!enabled, p_phone: phone || null }).then(ok); },
       /* lembrete automatico de consulta pelo WhatsApp (chave do psicologo) */
+      /* Saude do psicologo -> { score 0..100, level, parts: [{ key, title, weight, score, items }], attention: [item], limits: { daily, weekly } }.
+         item = { key, part, title, score|null, level: ok|warn|bad|info, text, link } */
+      health: function () { return sb.rpc('pro_health_report').then(ok); },
+      /* Carga de um dia (YYYY-MM-DD; vazio = hoje) e da semana dele -> { day, daily_limit, weekly_limit, day_count, week_count } (limite null = desligado) */
+      workload: function (ymd) { return sb.rpc('pro_workload', { p_day: ymd || null }).then(ok); },
       waReminders: function () { return sb.rpc('my_wa_reminders').then(ok); },
       setWaReminders: function (on) { return sb.rpc('set_wa_reminders', { p_on: !!on }).then(ok); }
     },
@@ -462,6 +470,8 @@
       request: function (professionalId, startsAt, mode, note) {
         return sb.rpc('request_appointment', { p_professional: professionalId, p_starts_at: startsAt, p_mode: mode || 'in_person', p_note: note || null }).then(ok);
       },
+      /* pedido de troca de horario: o antigo continua ate o psicologo aprovar */
+      swap: function (id, startsAt, mode) { return sb.rpc('request_swap', { p_appointment: id, p_starts_at: startsAt, p_mode: mode || null }).then(ok); },
       respond: function (id, accept) { return sb.rpc('respond_proposal', { p_id: id, p_accept: !!accept }).then(ok).then(function () { return true; }); },
       cancel: function (id) { return sb.rpc('cancel_my_appointment', { p_appointment: id }).then(ok).then(function () { return true; }); },
       mine: function () { return sb.rpc('my_appointments').then(ok); },

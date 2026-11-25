@@ -294,6 +294,34 @@
       });
     }
 
+    /* Limite de atendimentos por psicologo (por dia e por semana). Vazio desliga. Passou do limite: o portal sugere uma pausa
+       e pede confirmacao antes de marcar, e a aba Saude avisa. So o dono ve esta parte (a aba Seguranca e so dele). */
+    function limitsCard() {
+      var box = h('div', { class: 'card person' }, h('p', { class: 'muted mb0' }, 'Carregando...'));
+      API.admin.workloadLimits().then(function (lim) {
+        clear(box);
+        var day = UI.field({ label: 'Por dia', type: 'number', min: 1, max: 30, optional: true, value: lim.daily || '' });
+        var week = UI.field({ label: 'Por semana', type: 'number', min: 1, max: 150, optional: true, value: lim.weekly || '' });
+        var save = UI.button('Salvar limites', { type: 'submit' });
+        var form = h('form', { novalidate: true, onsubmit: function (ev) {
+          ev.preventDefault();
+          var d = day.value().trim() === '' ? null : Number(day.value()), w = week.value().trim() === '' ? null : Number(week.value());
+          if (d != null && !(d >= 0 && d <= 30 && d % 1 === 0)) { day.setError('Use de 1 a 30, ou deixe vazio.'); return; }
+          if (w != null && !(w >= 0 && w <= 150 && w % 1 === 0)) { week.setError('Use de 1 a 150, ou deixe vazio.'); return; }
+          if (d && w && w < d) { week.setError('O limite da semana não pode ser menor que o do dia.'); return; }
+          UI.busy(save, true);
+          API.admin.setWorkloadLimits(d, w).then(function (r) {
+            UI.busy(save, false);
+            UI.toast(r.daily || r.weekly ? 'Limites salvos.' : 'Limites desligados.', 'circle-check');
+          }).catch(function (e) { UI.busy(save, false); Diag.error('equipe', e); UI.toast(errText(e), 'circle-alert'); });
+        } }, h('div', { class: 'grid2' }, day.el, week.el), save);
+        box.appendChild(h('div', { class: 'head' }, h('div', { class: 'who' }, h('b', null, 'Limite de atendimentos'), h('span', null, 'Vale para cada psicólogo. Vazio = sem limite.'))));
+        box.appendChild(h('p', { class: 'small muted' }, 'Ao passar do limite, o Senso sugere uma pausa e pede confirmação antes de marcar. A aba Saúde do psicólogo também avisa.'));
+        box.appendChild(form);
+      }).catch(function (e) { Diag.error('equipe', e); clear(box); box.appendChild(UI.notice('bad', errText(e))); });
+      return box;
+    }
+
     /* Verificacao em duas etapas dos psicologos: quantos usam e a chave que torna obrigatorio. So numeros, sem nomes. */
     function securityPanel(my) {
       API.admin.mfaAdoption().then(function (a) {
@@ -325,6 +353,7 @@
           h('p', { class: 'stat mb0' }, h('b', null, a.with_mfa + ' de ' + a.professionals), ' já ativaram' + (a.professionals ? ' (' + pct + '%)' : '') + '.'),
           h('div', { class: 'sw-row' }, h('span', { class: 't' }, 'Tornar obrigatória para psicólogos'), sw.el),
           status));
+        holder.appendChild(limitsCard());
         holder.appendChild(h('p', { class: 'small muted' }, 'A verificação é obrigatória só para a conta de administrador. Para os psicólogos é opcional e recomendada, com aviso até ativar. Quem já ativou o app sempre precisa do código, mesmo com a chave desligada.'));
       }).catch(function (e) {
         if (my !== seq) return;

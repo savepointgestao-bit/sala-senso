@@ -180,7 +180,7 @@
   S.signupProfessional = function () {
     var name = UI.field({ label: 'Nome completo', autocomplete: 'name', required: true, autocapitalize: 'words', maxlength: 120 });
     var email = UI.field({ label: 'E-mail', type: 'email', autocomplete: 'email', inputmode: 'email', required: true });
-    var phone = UI.field({ label: 'Celular', type: 'tel', autocomplete: 'tel', inputmode: 'tel', optional: true, maxlength: 30 });
+    var phone = UI.phoneField({ label: 'Celular (WhatsApp) com DDD', required: true, hint: 'Fica ligado na sua conta para os avisos do Senso.' });
     var crp = UI.field({ label: 'CRP', inputmode: 'numeric', required: true, placeholder: '06/123456', maxlength: 11, hint: 'Região e número, como na carteira.' });
     crp.input.addEventListener('input', function () { var f = UI.formatCrp(crp.input.value); if (f !== crp.input.value) crp.input.value = f; });
     var pw = UI.field({ label: 'Senha', type: 'password', autocomplete: 'new-password', toggle: true, required: true });
@@ -198,6 +198,7 @@
       function bad(f, msg) { f.setError(msg); if (!firstBad) firstBad = f.input; }
       if (name.value().trim().length < 2 || name.value().trim().split(/\s+/).length < 2) bad(name, 'Digite nome e sobrenome.');
       if (!UI.emailValid(email.value())) bad(email, 'Digite um e-mail válido.');
+      if (!UI.phoneOk(phone.value())) bad(phone, 'Digite o celular com DDD.');
       var c = UI.parseCrp(crp.value());
       if (!c) bad(crp, 'CRP inválido. Use região de 01 a 24 e o número, como 06/123456.');
       var pc = UI.passwordCheck(pw.value(), email.value());
@@ -213,6 +214,7 @@
       name.el, email.el, phone.el, crp.el,
       pw.el, meter.el,
       UI.notice('info', 'Conferimos seu CRP em até 1 dia útil. Depois do primeiro acesso, recomendamos ativar a verificação em duas etapas.'),
+      S.waNotice('professional'),
       terms.el, dpa.el, general, btn);
 
     var socialPro = oauthBlock({ role: 'professional' });
@@ -278,7 +280,7 @@
 
     var name = UI.field({ label: 'Nome completo', autocomplete: 'name', required: true, autocapitalize: 'words', maxlength: 120, value: acct.name || '' });
     /* psicologo */
-    var phone = UI.field({ label: 'Celular', type: 'tel', autocomplete: 'tel', inputmode: 'tel', optional: true, maxlength: 30 });
+    var phone = UI.phoneField({ label: 'Celular (WhatsApp) com DDD', required: true, hint: 'Fica ligado na sua conta para os avisos do Senso.' });
     var crp = UI.field({ label: 'CRP', inputmode: 'numeric', required: true, placeholder: '06/123456', maxlength: 11, hint: 'Região e número, como na carteira.' });
     crp.input.addEventListener('input', function () { var f = UI.formatCrp(crp.input.value); if (f !== crp.input.value) crp.input.value = f; });
     var termsPro = UI.checkbox({ label: h('span', null, 'Aceito os ', legalLink('termos-profissional', 'Termos de Uso'), ' e a ', legalLink('privacidade', 'Política de Privacidade'), '.') });
@@ -287,7 +289,8 @@
     var pf = S.patientForm({ nameField: name, code: S.invite.get() });
 
     var proBox = h('div', { class: 'hide' }, phone.el, crp.el,
-      UI.notice('info', 'Conferimos seu CRP em até 1 dia útil. Depois do primeiro acesso, recomendamos ativar a verificação em duas etapas.'), termsPro.el, dpa.el);
+      UI.notice('info', 'Conferimos seu CRP em até 1 dia útil. Depois do primeiro acesso, recomendamos ativar a verificação em duas etapas.'),
+      S.waNotice('professional'), termsPro.el, dpa.el);
     var patBox = h('div', { class: 'hide' }, pf.parts.identity, pf.parts.invite, pf.parts.consent);
     var general = h('div', { 'aria-live': 'polite' });
     var btn = UI.button('Concluir cadastro', { type: 'submit' });
@@ -307,6 +310,7 @@
         data = { fullName: name.value().trim() };
         var c = UI.parseCrp(crp.value());
         if (!c) { crp.setError('CRP inválido. Use região de 01 a 24 e o número, como 06/123456.'); bads.push(crp.input); } else { data.crpRegion = c.region; data.crpNumber = c.number; }
+        if (!UI.phoneOk(phone.value())) { phone.setError('Digite o celular com DDD.'); bads.push(phone.input); }
         data.phone = phone.value().trim();
         if (!termsPro.checked()) { termsPro.setError('Aceite os Termos e a Política para continuar.'); bads.push(termsPro.input); }
         if (!dpa.checked()) { dpa.setError('Aceite o Contrato para continuar.'); bads.push(dpa.input); }

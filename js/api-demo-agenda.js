@@ -49,13 +49,28 @@
   }
 
   /* ---------------------------------------------------------------- formatos de saida */
+  /* pedido de troca (migracao 20261125120000): o horario que ele libera, se ainda estiver valendo */
+  function swapOld(a) {
+    if (!a || !a.replacesId) return null;
+    return S.appts.filter(function (x) { return x.id === a.replacesId && x.status === 'scheduled'; })[0] || null;
+  }
+  function swapFields(a) {
+    var o = (a.status === 'requested' || a.status === 'reschedule_proposed') ? swapOld(a) : null;
+    return { replaces_id: o ? o.id : null, replaces_starts_at: o ? iso(o.startsAt) : null };
+  }
+  function swapDone(n) {
+    var o = swapOld(n);
+    if (!o || o.recordId !== n.recordId) return;
+    o.status = 'canceled_by_patient'; o.decidedAt = Date.now(); o.declineReason = ('Trocado pelo horário de ' + whenText(n.startsAt) + '.').slice(0, 300);
+  }
   function apptJson(a) {
     var r = H.recById(a.recordId);
     return { id: a.id, record_id: a.recordId, full_name: r ? r.name : '', phone: r ? r.phone : null, linked: !!(r && r.userId), starts_at: iso(a.startsAt), duration_minutes: a.duration,
       mode: a.mode, meeting_url: a.meetingUrl || null, status: a.status, proposed_starts_at: iso(a.proposedStartsAt), patient_note: a.patientNote || null,
       decline_reason: a.declineReason || null, price_cents: a.priceCents == null ? null : a.priceCents, payment_status: a.paymentStatus, requested_by_patient: !!a.requestedByPatient,
       created_at: iso(a.createdAt), series_id: a.seriesId || null, charge: a.charge !== false, patient_confirmed_at: confirmedOf(a),
-      series_after: a.seriesId ? S.appts.filter(function (x) { return x.seriesId === a.seriesId && x.proId === a.proId && x.id !== a.id && x.startsAt > a.startsAt && x.status === 'scheduled'; }).length : 0 };
+      series_after: a.seriesId ? S.appts.filter(function (x) { return x.seriesId === a.seriesId && x.proId === a.proId && x.id !== a.id && x.startsAt > a.startsAt && x.status === 'scheduled'; }).length : 0,
+      replaces_id: swapFields(a).replaces_id, replaces_starts_at: swapFields(a).replaces_starts_at };
   }
   function userOfRecord(recordId) { var r = H.recById(recordId); return r ? r.userId : null; }
   function mineAppt(proId, id) { return S.appts.filter(function (a) { return a.id === id && a.proId === proId; })[0] || null; }
@@ -340,7 +355,7 @@
         var a = mineAppt(u.id, id);
         if (!a) throw pgErr('not_found');
         if (a.status !== 'requested') throw pgErr('invalid_status');
-        var patient = userOfRecord(a.recordId), name = H.nameOf(u);
+        var patient = userOfRecord(a.recordId), name = H.nameOf(u), old = swapOld(a);
         if (action === 'approve') {
           if (a.startsAt < Date.now()) throw pgErr('invalid_time');
           var next = Object.assign({}, a, { status: 'scheduled' });
@@ -348,10 +363,14 @@
           Object.assign(a, next);
           a.decidedAt = Date.now();
           if (a.priceCents == null) a.priceCents = P(u).settings.price_cents;
-          H.notify(patient, 'appointment_approved', 'Consulta confirmada', name + ' confirmou ' + whenText(a.startsAt) + '.', '#/consultas');
+          if (old) {
+            swapDone(a);
+            H.notify(patient, 'appointment_approved', 'Troca confirmada', name + ' confirmou ' + whenText(a.startsAt) + '. O horário de ' + whenText(old.startsAt) + ' foi liberado.', '#/consultas');
+          } else H.notify(patient, 'appointment_approved', 'Consulta confirmada', name + ' confirmou ' + whenText(a.startsAt) + '.', '#/consultas');
         } else if (action === 'decline') {
           a.status = 'declined'; a.decidedAt = Date.now(); a.declineReason = String(reason || '').trim().slice(0, 300) || null;
-          H.notify(patient, 'appointment_declined', 'Pedido não aceito', 'O horário de ' + whenText(a.startsAt) + ' não ficou disponível. Você pode escolher outro.', '#/consultas');
+          if (old) H.notify(patient, 'appointment_declined', 'Troca não aceita', 'O horário de ' + whenText(a.startsAt) + ' não ficou disponível. Sua consulta de ' + whenText(old.startsAt) + ' continua marcada.', '#/consultas');
+          else H.notify(patient, 'appointment_declined', 'Pedido não aceito', 'O horário de ' + whenText(a.startsAt) + ' não ficou disponível. Você pode escolher outro.', '#/consultas');
         } else {
           var t = ms(newStartsAt);
           if (t == null || t < Date.now() || t > Date.now() + 400 * DAY) throw pgErr('invalid_time');
@@ -449,6 +468,31 @@
       return a.id;
     });
   };
+  /* pedido de troca: o horario antigo continua ate o psicologo aprovar (espelha public.request_swap) */
+  booking.swap = function (id, startsAt, mode) {
+    var u = core.cur();
+    return tick(null).then(function () {
+      if (!H.isPatientUser(u)) throw pgErr('patients_only');
+      var o = mineOfPatient(u).filter(function (x) { return x.id === id; })[0];
+      var rec = o && H.recById(o.recordId);
+      if (!o || !rec || !rec.verifiedAt || o.status !== 'scheduled' || o.startsAt <= Date.now()) throw pgErr('appointment_not_found');
+      var p = H.byId(o.proId), g = P(p).settings;
+      if (p.verification !== 'verified' || !g.booking_enabled) throw pgErr('booking_closed');
+      mode = mode || o.mode;
+      if ((mode === 'online' && !g.accepts_online) || (mode === 'in_person' && !g.accepts_in_person)) throw pgErr('mode_not_accepted');
+      var t = ms(startsAt);
+      if (t == null || t < Date.now() + HOUR || t > Date.now() + 400 * DAY) throw pgErr('invalid_time');
+      if (S.appts.some(function (a) { return a.replacesId === o.id && (a.status === 'requested' || a.status === 'reschedule_proposed'); })) throw pgErr('swap_pending');
+      if (S.appts.filter(function (a) { return a.recordId === rec.id && (a.status === 'requested' || a.status === 'reschedule_proposed'); }).length >= 3) throw pgErr('too_many_requests');
+      if (freeSlots(p, dayOf(t), dayOf(t)).indexOf(t) < 0) throw pgErr('slot_taken');
+      var a = { id: nid('appt'), proId: p.id, recordId: rec.id, startsAt: t, duration: g.session_minutes, mode: mode, meetingUrl: null, status: 'requested', proposedStartsAt: null,
+        patientNote: null, declineReason: null, priceCents: o.priceCents != null ? o.priceCents : g.price_cents, paymentStatus: 'none', requestedByPatient: true,
+        createdAt: Date.now(), decidedAt: null, replacesId: o.id };
+      S.appts.push(a);
+      H.notify(p.id, 'appointment_requested', 'Pedido de troca de horário', H.nameOf(u) + ' quer trocar ' + whenText(o.startsAt) + ' por ' + whenText(t) + '.', '#/agenda');
+      return a.id;
+    });
+  };
   booking.respond = function (id, accept) {
     var u = patient();
     return tick(null).then(function () {
@@ -461,6 +505,7 @@
         guard(next, true);
         Object.assign(a, next);
         a.decidedAt = Date.now();
+        swapDone(a);
         H.notify(a.proId, 'appointment_accepted', 'Horário aceito', name + ' aceitou ' + whenText(a.startsAt) + '.', '#/agenda');
       } else {
         a.status = 'canceled_by_patient'; a.proposedStartsAt = null; a.decidedAt = Date.now();
@@ -506,7 +551,8 @@
         return { id: a.id, professional_id: a.proId, professional_name: H.nameOf(p), starts_at: iso(a.startsAt), duration_minutes: a.duration, mode: a.mode,
           meeting_url: sched ? a.meetingUrl : null, office_note: sched ? g.office_note : null, status: a.status, proposed_starts_at: iso(a.proposedStartsAt),
           decline_reason: a.declineReason || null, price_cents: a.priceCents == null ? null : a.priceCents, payment_status: a.paymentStatus, patient_note: a.patientNote || null,
-          patient_confirmed_at: confirmedOf(a), past: endOf(a) < Date.now(), can_review: reviewable(a) };
+          patient_confirmed_at: confirmedOf(a), replaces_id: swapFields(a).replaces_id, replaces_starts_at: swapFields(a).replaces_starts_at,
+          past: endOf(a) < Date.now(), can_review: reviewable(a) };
       });
     });
   };

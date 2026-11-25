@@ -17,12 +17,14 @@
     if (adminMode) return { main: [['equipe', '#/equipe', 'shield-check', 'Equipe'], ['conta', '#/conta', 'user', 'Conta']], more: [] };
     if (pro) {
       return { main: [['inicio', '#/inicio', 'house', 'Início'], ['pacientes', '#/pacientes', 'users', 'Pacientes'], ['agenda', '#/agenda', 'calendar-days', 'Agenda'],
-        ['financeiro', '#/financeiro', 'wallet', 'Financeiro'], ['conta', '#/conta', 'user', 'Conta']], more: [],
-        /* titulos do menu lateral (so no computador): [titulo, quantos itens de "main" ficam embaixo dele] */
-        sections: [['Rotina', 3], ['Gestão', 2]] };
+        ['financeiro', '#/financeiro', 'wallet', 'Financeiro'], ['conta', '#/conta', 'user', 'Conta']],
+        /* no celular, Saude fica no "Mais" (a barra de baixo continua com 5 itens) */
+        more: [['saude', '#/saude', 'heart-pulse', 'Saúde']],
+        /* titulos do menu lateral (so no computador): [titulo, chaves dos itens embaixo dele, na ordem] */
+        sections: [['Rotina', ['inicio', 'pacientes', 'agenda']], ['Gestão', ['financeiro', 'saude', 'conta']]] };
     }
     return { main: [['inicio', '#/inicio', 'house', 'Início'], ['diario', '#/diario', 'notebook-pen', 'Diário'], ['consultas', '#/consultas', 'calendar-days', 'Consultas'],
-      ['conta', '#/conta', 'user', 'Conta']], more: [], sections: [['Seu espaço', 3], ['Mais opções', 1]] };
+      ['conta', '#/conta', 'user', 'Conta']], more: [], sections: [['Seu espaço', ['inicio', 'diario', 'consultas']], ['Mais opções', ['conta']]] };
   };
 
   /* ---------------------------------------------------------------- sininho */
@@ -103,13 +105,13 @@
     /* Menu lateral com titulos por grupo (menu.sections); sem titulos, a lista corrida de antes. */
     function sideNav() {
       if (!menu.sections) return all.map(link);
-      var out = [], i = 0;
+      var out = [], used = {};
+      function byKey(k) { for (var i = 0; i < all.length; i++) if (all[i][0] === k) return all[i]; return null; }
       menu.sections.forEach(function (sec, k) {
         out.push(h('div', { class: 'nav-label' + (k ? ' secondary' : ''), role: 'heading', 'aria-level': '2' }, sec[0]));
-        all.slice(i, i + sec[1]).forEach(function (it) { out.push(link(it)); });
-        i += sec[1];
+        sec[1].forEach(function (key) { var it = byKey(key); if (it) { out.push(link(it)); used[key] = 1; } });
       });
-      all.slice(i).forEach(function (it) { out.push(link(it)); });
+      all.forEach(function (it) { if (!used[it[0]]) out.push(link(it)); });
       return out;
     }
     function me(size) { return UI.avatar(p.full_name, { size: size, level: !pro && ctx.progress ? ctx.progress.level : null }); }
@@ -135,7 +137,7 @@
         withHelp ? helpBtn('side-help') : null,
         S.modeSwitch(ctx, true),
         h('div', { class: 'me' }, me(),
-          h('div', { class: 'who' }, h('b', null, p.full_name), h('span', null, S.roleLabel(ctx))))),
+          h('div', { class: 'who' }, h('b', null, p.full_name), h('span', null, S.roleLabel(ctx)), pro && !adminMode && S.planTag && Plans.mine(ctx) ? h('div', { class: 'plan-line' }, S.planTag(ctx)) : null))),
       h('div', null,
         h('header', { class: 'mhead' }, UI.brand('#/inicio'),
           h('div', { class: 'mhead-right' },

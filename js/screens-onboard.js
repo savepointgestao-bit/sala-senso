@@ -139,10 +139,10 @@
     o = o || {};
     var today = UI.today();
     var name = o.nameField || UI.field({ label: 'Nome completo', autocomplete: 'name', required: true, autocapitalize: 'words', maxlength: 120 });
-    var phone = UI.phoneField({ label: 'Celular com DDD', required: true, hint: 'Seu psicólogo(a) usa para falar com você.' });
+    var phone = UI.phoneField({ label: 'Celular (WhatsApp) com DDD', required: true, hint: 'Por ele chegam os lembretes das consultas e você marca, remarca ou cancela pelo WhatsApp.' });
     var birth = UI.field({ label: 'Data de nascimento', type: 'date', autocomplete: 'bday', required: true, max: today, min: '1900-01-01', hint: 'Para lembrarmos do seu aniversário.' });
     var gName = UI.field({ label: 'Nome do responsável', autocapitalize: 'words', maxlength: 120 });
-    var gPhone = UI.phoneField({ label: 'Celular do responsável', required: true });
+    var gPhone = UI.phoneField({ label: 'Celular (WhatsApp) do responsável', required: true, hint: 'Os lembretes das consultas vão para este número.' });
     var minorBox = h('div', { class: 'hide minor-box' },
       UI.notice('info', h('span', null, h('b', null, 'Você tem menos de 18 anos. '), 'Pode criar a conta, mas precisamos do contato de um responsável. O(a) psicólogo(a) poderá pedir a autorização dele(a) antes de atender.')),
       gName.el, gPhone.el);
@@ -205,12 +205,19 @@
     }
 
     return {
-      parts: { identity: (o.nameField ? [] : [name.el]).concat([phone.el, birth.el, minorBox]), invite: invBox, consent: [terms.el, health.el, consentBox] },
+      parts: { identity: (o.nameField ? [] : [name.el]).concat([phone.el, birth.el, minorBox]), invite: invBox, consent: [terms.el, health.el, consentBox, S.waNotice()] },
       collect: collect
     };
   };
 
   /* Foca o primeiro campo com erro na ordem da tela. */
+  /* Aviso do WhatsApp ligado por padrao (desde 25/11/2026): quem cria a conta fica sabendo antes, e sabe que pode desligar. */
+  S.waNotice = function (role) {
+    return h('p', { class: 'small muted wa-notice' }, UI.svg('message-circle', 14), ' ', role === 'professional'
+      ? 'O lembrete automático das consultas pelo WhatsApp do Senso já vem ligado para os seus pacientes. Você pode desligar quando quiser em Atendimento.'
+      : 'Ao criar a conta, você passa a receber pelo WhatsApp do Senso os lembretes das suas consultas, e pode marcar, remarcar ou cancelar por lá. Para não receber mais, desligue em Conta ou responda SAIR.');
+  };
+
   S.focusFirst = function (list) {
     var items = list.filter(Boolean);
     if (!items.length) return false;
